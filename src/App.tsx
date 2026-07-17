@@ -71,13 +71,52 @@ export default function App() {
 
   const [webConfig, setWebConfig] = useState<WebConfig>(() => {
     const saved = localStorage.getItem('vovinam_webConfig');
-    return saved ? JSON.parse(saved) : initialWebConfig;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.logo === '/src/assets/images/h.jpg' || parsed.logo === '/src/assets/images/logo.jpg' || parsed.logo === '/logo_1784192552510.jpg') {
+          parsed.logo = '/logo.jpg';
+        }
+        return parsed;
+      } catch (e) {
+        return initialWebConfig;
+      }
+    }
+    return initialWebConfig;
   });
 
   // Mode & navigation
   const [isAdmin, setIsAdmin] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
+  const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
+
+  // Load state from central server API on mount
+  useEffect(() => {
+    fetch('/api/data')
+      .then(res => {
+        if (!res.ok) throw new Error("Server response not OK");
+        return res.json();
+      })
+      .then(data => {
+        if (data) {
+          if (data.categories) setCategories(data.categories);
+          if (data.articles) setArticles(data.articles);
+          if (data.members) setMembers(data.members);
+          if (data.coaches) setCoaches(data.coaches);
+          if (data.achievements) setAchievements(data.achievements);
+          if (data.tournaments) setTournaments(data.tournaments);
+          if (data.clubs) setClubs(data.clubs);
+          if (data.highlights) setHighlights(data.highlights);
+          if (data.webConfig) setWebConfig(data.webConfig);
+        }
+        setHasLoadedServerData(true);
+      })
+      .catch(err => {
+        console.warn("Failed to fetch shared database from server API, using local storage:", err);
+        setHasLoadedServerData(true); // Fallback complete, allow saving local changes
+      });
+  }, []);
 
   // Detail Modal selection states
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
@@ -86,42 +125,87 @@ export default function App() {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
 
-  // Synchronize with localStorage on change
+  // Helper to save safely to localStorage to avoid QuotaExceededError crashes
+  const safeSetItem = (key: string, value: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.error(`Không thể lưu ${key} vào localStorage do giới hạn dung lượng trình duyệt (đầy bộ nhớ)!`, e);
+    }
+  };
+
+  // Helper to sync state changes to production API
+  const syncKeyWithServer = (key: string, data: any) => {
+    if (!hasLoadedServerData) return;
+    fetch('/api/save-key', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ key, data })
+    })
+    .then(res => {
+      if (!res.ok) console.error(`Failed to sync ${key} with server API`);
+    })
+    .catch(err => {
+      console.error(`Network error syncing ${key} to server API:`, err);
+    });
+  };
+
+  // Synchronize with server and localStorage on change
   useEffect(() => {
-    localStorage.setItem('vovinam_categories', JSON.stringify(categories));
-  }, [categories]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_categories', categories);
+    syncKeyWithServer('categories', categories);
+  }, [categories, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_articles', JSON.stringify(articles));
-  }, [articles]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_articles', articles);
+    syncKeyWithServer('articles', articles);
+  }, [articles, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_members', JSON.stringify(members));
-  }, [members]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_members', members);
+    syncKeyWithServer('members', members);
+  }, [members, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_coaches', JSON.stringify(coaches));
-  }, [coaches]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_coaches', coaches);
+    syncKeyWithServer('coaches', coaches);
+  }, [coaches, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_achievements', JSON.stringify(achievements));
-  }, [achievements]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_achievements', achievements);
+    syncKeyWithServer('achievements', achievements);
+  }, [achievements, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_tournaments', JSON.stringify(tournaments));
-  }, [tournaments]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_tournaments', tournaments);
+    syncKeyWithServer('tournaments', tournaments);
+  }, [tournaments, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_clubs', JSON.stringify(clubs));
-  }, [clubs]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_clubs', clubs);
+    syncKeyWithServer('clubs', clubs);
+  }, [clubs, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_highlights', JSON.stringify(highlights));
-  }, [highlights]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_highlights', highlights);
+    syncKeyWithServer('highlights', highlights);
+  }, [highlights, hasLoadedServerData]);
 
   useEffect(() => {
-    localStorage.setItem('vovinam_webConfig', JSON.stringify(webConfig));
-  }, [webConfig]);
+    if (!hasLoadedServerData) return;
+    safeSetItem('vovinam_webConfig', webConfig);
+    syncKeyWithServer('webConfig', webConfig);
+  }, [webConfig, hasLoadedServerData]);
 
   // Export full project to ASP.NET MVC + SQL server script Zip file
   const handleDownloadZip = async () => {
@@ -191,6 +275,7 @@ export default function App() {
             setHighlights={setHighlights}
             webConfig={webConfig}
             setWebConfig={setWebConfig}
+            onBackToWebsite={() => setIsAdmin(false)}
           />
         ) : (
           <UserView 
@@ -230,6 +315,7 @@ export default function App() {
       {/* Club Details with Embedded Interactive Map Modal */}
       <ClubDetailModal 
         club={selectedClub}
+        coaches={coaches}
         onClose={() => setSelectedClub(null)}
       />
 

@@ -25,7 +25,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   };
 
   const isVideoUrl = (url: string) => {
-    return url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg') || url.includes('mov_bbb') || url.includes('movie.mp4');
+    return url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg') || url.includes('mov_bbb') || url.includes('movie.mp4') || url.startsWith('data:video');
   };
 
   return (

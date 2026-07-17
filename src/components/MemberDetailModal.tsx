@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
-import { Member, Achievement, Club } from '../types';
+import { Member, Achievement, Club, getBeltStyle } from '../types';
 
 interface MemberDetailModalProps {
   member: Member | null;
@@ -8,6 +8,7 @@ interface MemberDetailModalProps {
   clubs: Club[];
   onClose: () => void;
   onSelectAchievement?: (achievement: Achievement) => void;
+  onZoomPhoto?: (url: string) => void;
 }
 
 export default function MemberDetailModal({
@@ -15,7 +16,8 @@ export default function MemberDetailModal({
   achievements,
   clubs,
   onClose,
-  onSelectAchievement
+  onSelectAchievement,
+  onZoomPhoto
 }: MemberDetailModalProps) {
   if (!member) return null;
 
@@ -61,7 +63,15 @@ export default function MemberDetailModal({
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Big Avatar with Glow Ring */}
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-cyan-400 shadow-xl shadow-blue-950/40 flex-shrink-0">
+            <div 
+              onClick={() => {
+                if (member.photo && onZoomPhoto) {
+                  onZoomPhoto(member.photo);
+                }
+              }}
+              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-cyan-400 shadow-xl shadow-blue-950/40 flex-shrink-0 cursor-zoom-in hover:scale-105 active:scale-95 transition-transform"
+              title="Bấm để xem ảnh phóng to"
+            >
               <img 
                 src={member.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'} 
                 alt={member.fullName} 
@@ -104,15 +114,22 @@ export default function MemberDetailModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Trình độ võ thuật</span>
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-blue-500/10 rounded-xl border border-blue-500/20 text-blue-400">
-                  <Star className="w-4 h-4 fill-current" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold">Đẳng cấp (Đai):</span>
-                  <strong className="text-emerald-400 font-black text-sm">{member.rank}</strong>
-                </div>
-              </div>
+              {(() => {
+                const style = getBeltStyle(member.rank);
+                return (
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-xl border ${style.bgClass} ${style.borderClass} ${style.textClass}`}>
+                      <Star className="w-4 h-4 fill-current" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-400 block font-bold">Đẳng cấp (Đai):</span>
+                      <strong className={`text-xs px-2.5 py-0.5 rounded border font-black uppercase tracking-wide inline-block mt-0.5 ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
+                        {member.rank}
+                      </strong>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">

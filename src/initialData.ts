@@ -288,7 +288,7 @@ export const initialHighlights: Highlight[] = [
 
 export const initialWebConfig: WebConfig = {
   clbName: 'Vovinam Việt Võ Đạo Xóm Chiếu',
-  logo: 'https://upload.wikimedia.org/wikipedia/vi/8/87/Logo_Vovinam.gif',
+  logo: '/logo.jpg',
   address: 'Số 122 Đường Xóm Chiếu, Phường 14, Quận 4, TP. Hồ Chí Minh',
   phone: '0903.123.456 - 0989.987.789',
   email: 'vovinamxomchieu@gmail.com',
@@ -298,5 +298,42 @@ export const initialWebConfig: WebConfig = {
   tiktok: 'https://tiktok.com/@vovinamxomchieu',
   footerText: '© 2026 Vovinam Việt Võ Đạo Xóm Chiếu - Sắt son một lòng Võ Đạo Việt Nam. Thiết kế tinh tế, tối ưu hiệu năng.',
   seoTitle: 'CLB Vovinam Xóm Chiếu - Việt Võ Đạo Quận 4',
-  seoDescription: 'Chào mừng đến với Câu lạc bộ Vovinam Xóm Chiếu Quận 4 - Địa chỉ học võ uy tín, rèn luyện thể chất, tinh thần tự tôn dân tộc và võ đạo kiên cường.'
+  seoDescription: 'Chào mừng đến với Câu lạc bộ Vovinam Xóm Chiếu Quận 4 - Địa chỉ học võ uy tín, rèn luyện thể chất, tinh thần tự tôn dân tộc và võ đạo kiên cường.',
+  banners: [
+    {
+      id: '1',
+      image: '/src/assets/images/banner1.jpg',
+      title: 'Đồng Hành Cùng Vovinam Xóm Chiếu',
+      subtitle: 'Quy tụ tinh hoa võ thuật cổ truyền, rèn luyện thân thể vững vàng và ý chí tự cường kiên định.',
+      position: 'object-[center_15%]'
+    },
+    {
+      id: '2',
+      image: '/src/assets/images/banner2.jpg',
+      title: 'Vinh Quang Việt Võ Đạo',
+      subtitle: 'Nhiều huy chương vàng và danh hiệu xuất sắc đạt được tại các giải trẻ toàn quốc.',
+      position: 'object-[center_25%]'
+    },
+    {
+      id: '3',
+      image: '/src/assets/images/banner3.jpg',
+      title: 'Hội Tụ Ban Huấn Luyện Tâm Huyết',
+      subtitle: 'Võ sư và HLV dày dặn kinh nghiệm, đồng hành sát cánh hướng dẫn từng động tác cho môn sinh.',
+      position: 'object-[center_20%]'
+    },
+    {
+      id: '4',
+      image: '/src/assets/images/banner4.jpg',
+      title: 'Năng Động Trẻ Trung & Đam Mê',
+      subtitle: 'Tinh thần đồng đội gắn kết keo sơn, đoàn kết học hỏi vì màu cờ sắc áo võ đường.',
+      position: 'object-[center_70%]'
+    },
+    {
+      id: '5',
+      image: '/src/assets/images/banner5.jpg',
+      title: 'Học Đường Thể Thao Học Sinh',
+      subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.',
+      position: 'object-[center_50%]'
+    }
+  ]
 };

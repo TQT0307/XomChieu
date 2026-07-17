@@ -7,7 +7,7 @@ export interface Category {
 }
 
 export interface Article {
-  id: number; // ID tự tăng
+  id: number | string; // ID tự chọn hoặc tự tăng
   image: string;
   title: string;
   categoryId: string; // FK to Category
@@ -61,17 +61,22 @@ export interface Tournament {
   date: string;
   location: string;
   status: 'đang diễn ra' | 'sắp diễn ra' | 'đã kết thúc';
+  introduction?: string; // Giới thiệu giải đấu
+  schedule?: string; // Lịch trình giải đấu
+  rules?: string; // Điều lệ giải đấu
 }
 
 export interface Club {
   id: string; // ID tự chọn
   image: string;
   name: string;
-  headCoach: string; // HLV phụ trách
+  headCoach: string; // HLV phụ trách (người chính)
+  coachIds?: string[]; // Danh sách ID huấn luyện viên phụ trách
   address: string; // Địa chỉ
   trainingDays: string; // Ngày tập
   trainingHours: string; // Giờ tập
   status: boolean; // Trạng thái hoạt động
+  googleMapUrl?: string; // Bản đồ vệ tinh / nhúng Google Maps
 }
 
 export interface Highlight {
@@ -82,6 +87,14 @@ export interface Highlight {
   mediaType: 'video' | 'ảnh'; // Loại video/ảnh
   status: boolean; // Trạng thái hiển thị
   mediaUrls: string[]; // Cho phép thêm nhiều ảnh và nhiều video trong 1 bài viết
+}
+
+export interface BannerConfig {
+  id: string;
+  image: string;
+  title: string;
+  subtitle: string;
+  position: string; // e.g. "object-[center_70%]"
 }
 
 export interface WebConfig {
@@ -97,6 +110,8 @@ export interface WebConfig {
   footerText: string;
   seoTitle: string;
   seoDescription: string;
+  banners?: BannerConfig[];
+  bannerHeight?: 'short' | 'medium' | 'large';
 }
 
 export interface AdminAccount {
@@ -117,3 +132,56 @@ export interface EditHistory {
   tab: string; // 'articles', 'categories', etc.
   details: string;
 }
+
+export function getBeltStyle(rank: string): { bgClass: string; textClass: string; borderClass: string } {
+  const r = (rank || '').toLowerCase().trim();
+  // Vovinam: Blue (Lam), Yellow (Hoàng), Red (Hồng), White (Bạch)
+  if (r.includes('lam') || r.includes('tự vệ') || r.includes('nhập môn') || r.includes('tu ve')) {
+    return {
+      bgClass: 'bg-[#0054A6]',
+      textClass: 'text-white font-extrabold',
+      borderClass: 'border-[#003B75]',
+    };
+  }
+  if (r.includes('hoàng') || r.includes('hoang')) {
+    return {
+      bgClass: 'bg-[#FFF200]',
+      textClass: 'text-[#0054A6] font-extrabold',
+      borderClass: 'border-amber-400',
+    };
+  }
+  if (r.includes('hồng') || r.includes('hong') || r.includes('đỏ')) {
+    return {
+      bgClass: 'bg-[#EE1C24]',
+      textClass: 'text-white font-extrabold',
+      borderClass: 'border-[#C11017]',
+    };
+  }
+  if (r.includes('bạch') || r.includes('bach') || r.includes('trắng')) {
+    return {
+      bgClass: 'bg-white',
+      textClass: 'text-slate-900 font-black',
+      borderClass: 'border-slate-300 shadow-sm',
+    };
+  }
+  // Default fallback
+  return {
+    bgClass: 'bg-emerald-50',
+    textClass: 'text-emerald-700 font-bold',
+    borderClass: 'border-emerald-100',
+  };
+}
+
+export function getNormalizedTournamentStatus(status: any): 'đang diễn ra' | 'sắp diễn ra' | 'đã kết thúc' {
+  if (status === 'đang diễn ra' || status === 'sắp diễn ra' || status === 'đã kết thúc') {
+    return status;
+  }
+  if (status === true || status === 'true') {
+    return 'đang diễn ra';
+  }
+  if (status === false || status === 'false') {
+    return 'đã kết thúc';
+  }
+  return 'sắp diễn ra'; // Default fallback
+}
+

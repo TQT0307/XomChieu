@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen } from 'lucide-react';
-import { Tournament } from '../types';
+import { Tournament, getNormalizedTournamentStatus } from '../types';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -21,7 +21,9 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
     'đã kết thúc': { bg: 'bg-red-600 text-white', text: 'Đã Kết Thúc' }
   };
 
-  const statusInfo = statusStyles[tournament.status] || { bg: 'bg-blue-600 text-white', text: tournament.status };
+  const normalizedStatus = getNormalizedTournamentStatus(tournament.status);
+  const statusInfo = statusStyles[normalizedStatus];
+
 
   // Generate dynamic, realistic descriptions and rules based on the tournament name to make it look professional
   const getTournamentDetails = (name: string) => {

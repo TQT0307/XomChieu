@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
-  Facebook, Instagram, AtSign, Music, Info, Newspaper
+  Facebook, Instagram, AtSign, Music, Info, Newspaper, X, Search
 } from 'lucide-react';
 import { 
-  Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig 
+  Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, getBeltStyle, getNormalizedTournamentStatus 
 } from '../types';
 import MemberDetailModal from './MemberDetailModal';
+import CoachDetailModal from './CoachDetailModal';
 
 interface UserViewProps {
   categories: Category[];
@@ -47,42 +48,52 @@ export default function UserView({
   setActiveNavSection
 }: UserViewProps) {
 
-  // Auto-sliding banners
-  const banners = [
-    {
-      image: '/src/assets/images/vovinam_banner_1_1784098827901.jpg',
-      title: 'Đồng Hành Cùng Vovinam Xóm Chiếu',
-      subtitle: 'Quy tụ tinh hoa võ thuật cổ truyền, rèn luyện thân thể vững vàng và ý chí tự cường kiên định.'
-    },
-    {
-      image: '/src/assets/images/vovinam_banner_2_1784098844275.jpg',
-      title: 'Vinh Quang Việt Võ Đạo',
-      subtitle: 'Nhiều huy chương vàng và danh hiệu xuất sắc đạt được tại các giải trẻ toàn quốc.'
-    },
-    {
-      image: '/src/assets/images/vovinam_banner_3_1784098855945.jpg',
-      title: 'Hội Tụ Ban Huấn Luyện Tâm Huyết',
-      subtitle: 'Võ sư và HLV dày dặn kinh nghiệm, đồng hành sát cánh hướng dẫn từng động tác cho môn sinh.'
-    },
-    {
-      image: '/src/assets/images/vovinam_banner_4_1784098867770.jpg',
-      title: 'Năng Động Trẻ Trung & Đam Mê',
-      subtitle: 'Tinh thần đồng đội gắn kết keo sơn, đoàn kết học hỏi vì màu cờ sắc áo võ đường.'
-    },
-    {
-      image: '/src/assets/images/vovinam_banner_5_1784098879680.jpg',
-      title: 'Học Đường Thể Thao Học Sinh',
-      subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.'
-    },
-    {
-      image: '/src/assets/images/vovinam_banner_6_1784098891691.jpg',
-      title: 'Rèn Luyện Thể Chất Toàn Diện',
-      subtitle: 'Củng cố sức khỏe bền bỉ, dẻo dai và bồi đắp khí phách tự tin, sẵn sàng trước mọi thử thách.'
-    }
-  ];
+  // Auto-sliding banners from webConfig or defaults
+  const banners = webConfig.banners && webConfig.banners.length > 0
+    ? webConfig.banners
+    : [
+        {
+          id: '1',
+          image: '/src/assets/images/banner1.jpg',
+          title: 'Đồng Hành Cùng Vovinam Xóm Chiếu',
+          subtitle: 'Quy tụ tinh hoa võ thuật cổ truyền, rèn luyện thân thể vững vàng và ý chí tự cường kiên định.',
+          position: 'object-[center_15%]'
+        },
+        {
+          id: '2',
+          image: '/src/assets/images/banner2.jpg',
+          title: 'Vinh Quang Việt Võ Đạo',
+          subtitle: 'Nhiều huy chương vàng và danh hiệu xuất sắc đạt được tại các giải trẻ toàn quốc.',
+          position: 'object-[center_25%]'
+        },
+        {
+          id: '3',
+          image: '/src/assets/images/banner3.jpg',
+          title: 'Hội Tụ Ban Huấn Luyện Tâm Huyết',
+          subtitle: 'Võ sư và HLV dày dặn kinh nghiệm, đồng hành sát cánh hướng dẫn từng động tác cho môn sinh.',
+          position: 'object-[center_20%]'
+        },
+        {
+          id: '4',
+          image: '/src/assets/images/banner4.jpg',
+          title: 'Năng Động Trẻ Trung & Đam Mê',
+          subtitle: 'Tinh thần đồng đội gắn kết keo sơn, đoàn kết học hỏi vì màu cờ sắc áo võ đường.',
+          position: 'object-[center_70%]'
+        },
+        {
+          id: '5',
+          image: '/src/assets/images/banner5.jpg',
+          title: 'Học Đường Thể Thao Học Sinh',
+          subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.',
+          position: 'object-[center_50%]'
+        }
+      ];
 
   const [currentBanner, setCurrentBanner] = useState(0);
+  const safeCurrentBanner = currentBanner >= banners.length ? 0 : currentBanner;
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
+  const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
 
   const navSections = [
     { id: 'section-about', name: 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
@@ -142,7 +153,30 @@ export default function UserView({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // News category filter tab selection state
-  const [activeNewsTab, setActiveNewsTab] = useState<'LATEST' | string>('LATEST');
+  const [activeNewsTab, setActiveNewsTab] = useState<string>('ALL');
+  const categoryScrollRef = React.useRef<HTMLDivElement>(null);
+  const rowScrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      const scrollAmt = 220;
+      categoryScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmt : scrollAmt,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const scrollRow = (rowId: string, direction: 'left' | 'right') => {
+    const el = rowScrollRefs.current[rowId];
+    if (el) {
+      const scrollAmt = 340;
+      el.scrollBy({
+        left: direction === 'left' ? -scrollAmt : scrollAmt,
+        behavior: 'smooth'
+      });
+    }
+  };
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,11 +193,21 @@ export default function UserView({
   const visibleArticles = articles.filter(a => a.status !== false);
   const visibleCoaches = coaches;
   const visibleMembers = members;
+  
+  const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
+  const visibleTournaments = tournaments.filter(t => {
+    const norm = getNormalizedTournamentStatus(t.status);
+    return tournamentStatusFilter === 'all' || norm === tournamentStatusFilter;
+  });
+
   // Filter state for achievements section
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('');
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>('');
   const [searchAchievementQuery, setSearchAchievementQuery] = useState<string>('');
   const [searchAthleteQuery, setSearchAthleteQuery] = useState<string>(''); // For filtering by athlete name (e.g., "Thiện")
+  const [searchHighlightQuery, setSearchHighlightQuery] = useState<string>('');
+  const [showAllCoaches, setShowAllCoaches] = useState<boolean>(false);
+  const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
 
   const getYearFromAchievement = (ach: Achievement) => {
     if (ach.year) return ach.year;
@@ -242,12 +286,24 @@ export default function UserView({
     
     return true;
   });
-  const visibleHighlights = highlights.filter(h => h.status !== false);
+  const visibleHighlights = highlights.filter(h => {
+    if (h.status === false) return false;
+    if (searchHighlightQuery.trim()) {
+      const q = searchHighlightQuery.toLowerCase();
+      const idMatch = h.id.toLowerCase().includes(q);
+      const titleMatch = h.title.toLowerCase().includes(q);
+      const athleteMatch = h.athleteName.toLowerCase().includes(q);
+      return idMatch || titleMatch || athleteMatch;
+    }
+    return true;
+  });
   const visibleClubs = clubs;
 
   // Filter articles based on activeNewsTab (Latest vs specific Category)
   const displayedArticles = visibleArticles.filter(article => {
-    if (activeNewsTab === 'LATEST') {
+    if (activeNewsTab === 'ALL') {
+      return true; // Hiển thị toàn bộ bài viết
+    } else if (activeNewsTab === 'LATEST') {
       if (!article.showInNews) return false;
       const itemDate = new Date(article.date);
       const now = new Date();
@@ -261,6 +317,12 @@ export default function UserView({
     }
   });
 
+  const configHeight = webConfig.bannerHeight || 'medium';
+  const carouselHeightClass = 
+    configHeight === 'short' ? 'h-[280px] sm:h-[400px]' :
+    configHeight === 'large' ? 'h-[440px] sm:h-[620px]' :
+    'h-[365px] sm:h-[500px]'; // medium (default)
+
   return (
     <div className="bg-[#f8fafc] min-h-screen text-slate-800 font-sans selection:bg-[#0054A6]/20" id="vovinam-user-root">
       
@@ -270,7 +332,7 @@ export default function UserView({
       {/* Vovinam Watermark Background Logo */}
       <div className="fixed inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none z-0 select-none overflow-hidden">
         <img 
-          src={webConfig.logo || "https://upload.wikimedia.org/wikipedia/vi/8/87/Logo_Vovinam.gif"} 
+          src={webConfig.logo || "/logo.jpg"} 
           alt="Vovinam Watermark Logo" 
           className="w-[85vw] max-w-[550px] aspect-square object-contain animate-[spin_120s_linear_infinite] filter blur-[1px]"
           referrerPolicy="no-referrer"
@@ -278,45 +340,45 @@ export default function UserView({
       </div>
 
       {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
-      <section className="relative h-[360px] sm:h-[500px] bg-slate-950 overflow-hidden z-10" id="section-hero-carousel">
+      <section className={`relative ${carouselHeightClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
           <img 
-            src={banners[currentBanner].image} 
+            src={banners[safeCurrentBanner]?.image} 
             alt="Vovinam Slide" 
-            className="w-full h-full object-cover opacity-100 scale-105 transition-transform duration-[5000ms]"
+            className={`w-full h-full object-cover opacity-100 scale-105 transition-all duration-1000 ${banners[safeCurrentBanner]?.position || 'object-center'}`}
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/20 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
           {/* Sports style subtle diagonal overlay pattern */}
           <div className="absolute inset-0 opacity-15 bg-[linear-gradient(45deg,#0054A6_25%,transparent_25%,transparent_50%,#0054A6_50%,#0054A6_75%,transparent_75%,transparent)] bg-[length:24px_24px]"></div>
         </div>
 
-        {/* Content Box - Positioned elegantly at the bottom left to avoid covering the center graphics */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-end pb-10 sm:pb-12 text-white">
-          <div className="max-w-sm bg-slate-950/65 backdrop-blur-[4px] p-4 sm:p-5 rounded-xl border border-white/10 shadow-xl">
-            <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/20">
+        {/* Content Box - Centered horizontally and positioned closer to the top */}
+        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-8 sm:pt-12 items-center text-white">
+          <div className="max-w-xl flex flex-col items-center text-center">
+            <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/25">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FFF200] animate-ping"></span>
               <span>Môn Phái Việt Võ Đạo</span>
             </div>
             
-            <h2 className="text-sm sm:text-base lg:text-lg font-black text-[#FFF200] uppercase tracking-tight italic leading-tight mb-1.5 drop-shadow-md">
-              {banners[currentBanner].title}
+            <h2 className="text-base sm:text-lg lg:text-xl font-black text-[#FFF200] uppercase tracking-tight italic leading-tight mb-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+              {banners[safeCurrentBanner]?.title}
             </h2>
-            <p className="text-[10px] sm:text-[11px] text-slate-200 font-normal leading-relaxed drop-shadow max-w-xs opacity-90">
-              {banners[currentBanner].subtitle}
+            <p className="text-[10.5px] sm:text-[11.5px] text-slate-100 font-medium leading-relaxed drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)] max-w-sm opacity-95">
+              {banners[safeCurrentBanner]?.subtitle}
             </p>
             
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2.5 justify-center">
               <a 
                 href="#section-about"
-                className="bg-gradient-to-r from-[#FFF200] to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-[#0054A6] px-3.5 py-1.5 rounded-lg font-black text-[9px] uppercase tracking-wider shadow-md transition-all hover:scale-105 active:scale-100 duration-200"
+                className="bg-gradient-to-r from-[#FFF200] to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-[#0054A6] px-4 py-1.5 rounded-lg font-black text-[9.5px] uppercase tracking-wider shadow-lg shadow-black/25 transition-all hover:scale-105 active:scale-100 duration-200"
               >
                 Khám Phá Võ Đường
               </a>
               <a 
                 href="#section-highlights"
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/10 px-3.5 py-1.5 rounded-lg font-bold text-[9px] uppercase tracking-wider backdrop-blur-md transition-all hover:scale-105 active:scale-100 duration-200"
+                className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-1.5 rounded-lg font-bold text-[9.5px] uppercase tracking-wider backdrop-blur-md transition-all hover:scale-105 active:scale-100 duration-200"
               >
                 Thư Viện Ảnh & Video
               </a>
@@ -344,7 +406,7 @@ export default function UserView({
             <button
               key={idx}
               onClick={() => setCurrentBanner(idx)}
-              className={`h-2.5 rounded-full transition-all duration-350 cursor-pointer ${currentBanner === idx ? 'w-10 bg-[#FFF200]' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+              className={`h-2.5 rounded-full transition-all duration-350 cursor-pointer ${safeCurrentBanner === idx ? 'w-10 bg-[#FFF200]' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
             />
           ))}
         </div>
@@ -400,7 +462,7 @@ export default function UserView({
               {/* Highlight metrics */}
               <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-200/80">
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center hover:scale-105 transition-transform duration-300">
-                  <p className="text-2xl sm:text-3xl font-black text-[#0054A6] font-display">15+</p>
+                  <p className="text-2xl sm:text-3xl font-black text-[#0054A6] font-display">10+</p>
                   <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Năm hoạt động</p>
                 </div>
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center hover:scale-105 transition-transform duration-300">
@@ -408,7 +470,7 @@ export default function UserView({
                   <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Võ sinh học tập</p>
                 </div>
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center hover:scale-105 transition-transform duration-300">
-                  <p className="text-2xl sm:text-3xl font-black text-amber-500 font-display">100+</p>
+                  <p className="text-2xl sm:text-3xl font-black text-amber-500 font-display">50+</p>
                   <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Huy chương giải</p>
                 </div>
               </div>
@@ -498,98 +560,255 @@ export default function UserView({
           </p>
         </div>
 
-        {/* Dynamic Category Navigation Tabs */}
-        <div className="flex flex-wrap items-center justify-center gap-2.5 mb-12 border-b border-slate-200/60 pb-8 relative z-10">
+        {/* Navigation Category Bar for Jump-To */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-12 border-b border-slate-200/60 pb-8 relative z-10">
           <button
-            onClick={() => setActiveNewsTab('LATEST')}
-            className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-sm border ${
-              activeNewsTab === 'LATEST' 
-                ? 'bg-gradient-to-r from-[#0054A6] to-blue-800 text-[#FFF200] border-[#FFF200] shadow-blue-900/10 scale-105' 
-                : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200/80'
-            }`}
+            onClick={() => {
+              const el = document.getElementById('section-news');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="px-5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 shadow-sm"
           >
-            <span className="text-amber-500 animate-pulse text-sm">🔥</span>
-            <span>Tin tức mới nhất (2 ngày)</span>
+            📰 Tất cả chuyên mục
           </button>
-
-          {categories.filter(c => c.status !== false).map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveNewsTab(cat.id)}
-              className={`px-5 py-2.5 rounded-2xl text-xs font-bold transition-all cursor-pointer border ${
-                activeNewsTab === cat.id 
-                  ? 'bg-[#0054A6] text-[#FFF200] border-[#FFF200] shadow-md shadow-blue-900/10 scale-105' 
-                  : 'bg-white text-slate-600 hover:bg-slate-100 border-slate-200/80'
-              }`}
-            >
-              {cat.name}
-            </button>
-          ))}
+          {categories.filter(c => c.status !== false).map((cat) => {
+            const count = visibleArticles.filter(a => a.categoryId === cat.id).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => {
+                  const el = document.getElementById(`news-category-row-${cat.id}`);
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }}
+                className="px-5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 shadow-sm"
+              >
+                {cat.name} ({count})
+              </button>
+            );
+          })}
         </div>
 
-        {displayedArticles.length === 0 ? (
+        {/* Render horizontal list of articles for each category */}
+        {visibleArticles.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center max-w-xl mx-auto border border-slate-200/60 shadow-lg relative z-10 animate-in fade-in duration-300">
             <Calendar className="w-12 h-12 text-[#0054A6]/20 mx-auto mb-4" />
             <h3 className="text-base font-black text-slate-800 uppercase tracking-tight mb-2 font-display">Chưa có bài viết mới</h3>
             <p className="text-xs text-slate-500 leading-relaxed font-sans">
-              {activeNewsTab === 'LATEST' 
-                ? 'Hiện tại không có tin tức tiêu điểm mới nào được đẩy lên trong vòng 2 ngày qua. Bạn vui lòng bấm chọn các danh mục chi tiết phía trên để xem các lưu trữ bài báo cũ.' 
-                : 'Hiện tại chưa có bài viết nào thuộc danh mục này, hoặc đang chờ cập nhật.'}
+              Hiện tại chưa có bài viết nào được đăng tải trên website.
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10">
-            {displayedArticles.map((article) => {
-              const catName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
+          <div className="space-y-16 relative z-10">
+            {/* 1. LATEST ARTICLES (TIN MỚI NHẤT) SECTION */}
+            {(() => {
+              const latestArticles = visibleArticles.filter(article => {
+                if (!article.showInNews) return false;
+                const itemDate = new Date(article.date);
+                const now = new Date();
+                const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+                const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const diffTime = d2.getTime() - d1.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays >= 0 && diffDays <= 2;
+              });
+
+              if (latestArticles.length === 0) return null;
+
               return (
-                <article 
-                  key={article.id}
-                  onClick={() => onSelectArticle(article)}
-                  className="bg-white rounded-[2rem] overflow-hidden shadow-md hover:shadow-2xl border border-slate-100/80 group cursor-pointer transition-all duration-300 transform hover:-translate-y-2 flex flex-col hover:border-[#0054A6]/30"
-                >
-                  {/* Responsive Image with requested zoom hover */}
-                  <div className="relative h-52 w-full overflow-hidden bg-slate-100">
-                    <img 
-                      src={article.image} 
-                      alt={article.title} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
-                    
-                    {/* Category badge */}
-                    <span className="absolute top-4 left-4 bg-[#0054A6] text-[#FFF200] text-[9px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border border-[#FFF200]/20 shadow-lg">
-                      {catName}
-                    </span>
-                  </div>
-
-                  {/* Info and excerpt */}
-                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                <div id="news-category-row-LATEST" className="bg-gradient-to-r from-orange-50/50 via-amber-50/30 to-transparent p-6 sm:p-8 rounded-[2.5rem] border border-orange-100/60 relative group">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                     <div>
-                      <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                        <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
-                          <Calendar className="w-3.5 h-3.5 text-[#0054A6]" />
-                          {article.date}
-                        </span>
-                        <span>•</span>
-                        <span>Mã: #{article.id}</span>
-                      </div>
-
-                      <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-3 mb-2 line-clamp-2 font-display">
-                        {article.title}
+                      <span className="text-amber-600 text-[10px] font-black uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Hot News</span>
+                      <h3 className="text-lg font-black text-slate-800 uppercase italic mt-1 tracking-tight font-display flex items-center gap-2">
+                        <span className="text-amber-500 animate-pulse">🔥</span>
+                        <span>Tin tức mới nhất (2 ngày qua)</span>
                       </h3>
-                      
-                      <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed font-sans">
-                        {article.content}
-                      </p>
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-100/80 flex items-center justify-between text-xs font-black text-[#0054A6] uppercase tracking-wider">
-                      <span>Xem chi tiết bài báo</span>
-                      <ExternalLink className="w-4 h-4 transition-transform group-hover:translate-x-1 text-[#FFF200] fill-[#0054A6]" />
                     </div>
                   </div>
-                </article>
+
+                  {/* Horizontal Scroll track with sidebar arrows */}
+                  <div className="relative px-1">
+                    {/* Left Arrow Button */}
+                    <button
+                      type="button"
+                      onClick={() => scrollRow('LATEST', 'left')}
+                      className="absolute -left-3 sm:-left-6 top-[40%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
+                      title="Lướt qua trái"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <div
+                      ref={el => { rowScrollRefs.current['LATEST'] = el; }}
+                      className="flex gap-6 overflow-x-auto scrollbar-none pb-2 scroll-smooth select-none snap-x snap-mandatory"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                      {latestArticles.map((article) => {
+                        const catName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
+                        return (
+                          <article
+                            key={`latest-${article.id}`}
+                            onClick={() => onSelectArticle(article)}
+                            className="w-[280px] sm:w-[330px] shrink-0 bg-white rounded-[2rem] overflow-hidden shadow-md hover:shadow-xl border border-slate-100/80 group cursor-pointer transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col hover:border-orange-500/20 snap-start"
+                          >
+                            <div className="relative h-44 w-full overflow-hidden bg-slate-100">
+                              <img
+                                src={article.image}
+                                alt={article.title}
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
+                              <span className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border border-orange-400/20 shadow-lg">
+                                {catName}
+                              </span>
+                            </div>
+
+                            <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                              <div>
+                                <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                  <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
+                                    <Calendar className="w-3.5 h-3.5 text-[#0054A6]" />
+                                    {article.date}
+                                  </span>
+                                  <span>•</span>
+                                  <span>Mã: #{article.id}</span>
+                                </div>
+                                <h3 className="font-bold text-slate-800 text-sm leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
+                                  {article.title}
+                                </h3>
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans">
+                                  {article.content}
+                                </p>
+                              </div>
+
+                              <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-black text-[#0054A6] uppercase tracking-wider">
+                                <span>Xem chi tiết</span>
+                                <ChevronRight className="w-4.5 h-4.5 transition-transform group-hover:translate-x-1 text-[#0054A6]" />
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+
+                    {/* Right Arrow Button */}
+                    <button
+                      type="button"
+                      onClick={() => scrollRow('LATEST', 'right')}
+                      className="absolute -right-3 sm:-right-6 top-[40%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
+                      title="Lướt qua phải"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 2. MAIN CATEGORY ROWS */}
+            {categories.filter(c => c.status !== false).map((cat) => {
+              const catArticles = visibleArticles.filter(a => a.categoryId === cat.id);
+              if (catArticles.length === 0) return null; // Skip empty categories
+
+              return (
+                <div key={cat.id} id={`news-category-row-${cat.id}`} className="relative group">
+                  {/* Category Header & Arrows Row */}
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <span className="w-3 h-3 rounded-full bg-[#0054A6]"></span>
+                      <div>
+                        <h3 className="text-base font-black text-slate-800 uppercase italic tracking-tight font-display">
+                          {cat.name}
+                        </h3>
+                        {cat.description && (
+                          <p className="text-[11px] text-slate-400 mt-0.5 font-sans italic">{cat.description}</p>
+                        )}
+                      </div>
+                      <span className="bg-slate-100 text-slate-600 text-[10px] font-black font-mono px-2.5 py-1 rounded-full border border-slate-200/50">
+                        {catArticles.length} bài viết
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Horizontal Scroll track with sidebar arrows */}
+                  <div className="relative px-1">
+                    {/* Left Arrow Button */}
+                    <button
+                      type="button"
+                      onClick={() => scrollRow(cat.id, 'left')}
+                      className="absolute -left-3 sm:-left-6 top-[45%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
+                      title="Lướt qua trái"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+
+                    <div
+                      ref={el => { rowScrollRefs.current[cat.id] = el; }}
+                      className="flex gap-6 overflow-x-auto scrollbar-none pb-4 scroll-smooth select-none snap-x snap-mandatory"
+                      style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                    >
+                      {catArticles.map((article) => {
+                        return (
+                          <article
+                            key={article.id}
+                            onClick={() => onSelectArticle(article)}
+                            className="w-[280px] sm:w-[330px] shrink-0 bg-white rounded-[2rem] overflow-hidden shadow-md hover:shadow-xl border border-slate-100/80 group/card cursor-pointer transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col hover:border-[#0054A6]/20 snap-start"
+                          >
+                            {/* Responsive Image with requested zoom hover */}
+                            <div className="relative h-44 w-full overflow-hidden bg-slate-100">
+                              <img
+                                src={article.image}
+                                alt={article.title}
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
+                            </div>
+
+                            {/* Info and excerpt */}
+                            <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                              <div>
+                                <div className="flex items-center gap-3 text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                                  <span className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded">
+                                    <Calendar className="w-3.5 h-3.5 text-[#0054A6]" />
+                                    {article.date}
+                                  </span>
+                                  <span>•</span>
+                                  <span>Mã: #{article.id}</span>
+                                </div>
+
+                                <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase tracking-tight group-hover/card:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
+                                  {article.title}
+                                </h3>
+                                
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans">
+                                  {article.content}
+                                </p>
+                              </div>
+
+                              <div className="pt-3 border-t border-slate-100/80 flex items-center justify-between text-xs font-black text-[#0054A6] uppercase tracking-wider">
+                                <span>Xem chi tiết</span>
+                                <ChevronRight className="w-4.5 h-4.5 transition-transform group-hover/card:translate-x-1 text-[#0054A6]" />
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+
+                    {/* Right Arrow Button */}
+                    <button
+                      type="button"
+                      onClick={() => scrollRow(cat.id, 'right')}
+                      className="absolute -right-3 sm:-right-6 top-[45%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
+                      title="Lướt qua phải"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -606,7 +825,7 @@ export default function UserView({
               Lịch trình thi đấu & Võ nghiệp
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-              Giải đấu & Sự kiện võ thuật
+              giải đấu & sự kiện Vovinam
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
@@ -614,60 +833,111 @@ export default function UserView({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {tournaments.map((t) => (
-              <div 
-                key={t.id}
-                onClick={() => onSelectTournament(t)}
-                className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl cursor-pointer group transition-all duration-300 transform hover:-translate-y-2 flex flex-col hover:border-[#0054A6]/20"
-              >
-                <div className="relative h-52 overflow-hidden bg-slate-900">
-                  <img 
-                    src={t.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80'} 
-                    alt={t.name}
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
-                  
-                  {/* Status Indicator Badge with custom colors */}
-                  <span className={`absolute top-4 right-4 text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-xl shadow-lg text-white ${
-                    t.status === 'đang diễn ra' ? 'bg-gradient-to-r from-emerald-600 to-green-500 shadow-emerald-950/20' :
-                    t.status === 'sắp diễn ra' ? 'bg-gradient-to-r from-amber-500 to-yellow-500 shadow-amber-950/20' : 
-                    'bg-gradient-to-r from-rose-600 to-red-500 shadow-rose-950/20'
-                  }`}>
-                    {t.status}
+          {/* Status Filter Tabs */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 mb-12 relative z-10">
+            {[
+              { id: 'all', label: 'Tất cả giải đấu', icon: '🏆', color: 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50' },
+              { id: 'đang diễn ra', label: 'Đang diễn ra', icon: '🟢', color: 'border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-50' },
+              { id: 'sắp diễn ra', label: 'Sắp diễn ra', icon: '🟡', color: 'border-amber-200 text-amber-700 bg-amber-50/50 hover:bg-amber-50' },
+              { id: 'đã kết thúc', label: 'Đã kết thúc', icon: '🔴', color: 'border-rose-200 text-rose-700 bg-rose-50/50 hover:bg-rose-50' }
+            ].map(tab => {
+              const isActive = tournamentStatusFilter === tab.id;
+              let activeClasses = '';
+              if (isActive) {
+                if (tab.id === 'all') activeClasses = 'bg-[#0054A6] text-white border-[#0054A6] shadow-md scale-[1.03]';
+                else if (tab.id === 'đang diễn ra') activeClasses = 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.03]';
+                else if (tab.id === 'sắp diễn ra') activeClasses = 'bg-amber-500 text-white border-amber-500 shadow-md scale-[1.03]';
+                else if (tab.id === 'đã kết thúc') activeClasses = 'bg-rose-600 text-white border-rose-600 shadow-md scale-[1.03]';
+              } else {
+                activeClasses = `${tab.color} border shadow-sm`;
+              }
+              
+              // Count matching tournaments
+              const count = tournaments.filter(t => {
+                const norm = getNormalizedTournamentStatus(t.status);
+                return tab.id === 'all' || norm === tab.id;
+              }).length;
+
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setTournamentStatusFilter(tab.id)}
+                  className={`px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-black transition-all duration-300 flex items-center gap-2 cursor-pointer ${activeClasses}`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500 font-bold'}`}>
+                    {count}
                   </span>
-                </div>
+                </button>
+              );
+            })}
+          </div>
 
-                <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
-                  <div>
-                    <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase group-hover:text-[#0054A6] transition-colors line-clamp-2 font-display">
-                      {t.name}
-                    </h3>
-
-                    <div className="space-y-2.5 text-xs text-slate-500 mt-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100/60">
-                      <div className="flex items-center gap-2.5">
-                        <Calendar className="w-4 h-4 text-[#0054A6] flex-shrink-0" />
-                        <span className="truncate">Thời gian: <strong className="text-slate-700 font-bold">{t.date}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-2.5">
-                        <MapPin className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                        <span className="truncate">Địa điểm: <strong className="text-slate-700 font-bold">{t.location}</strong></span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-slate-100/80 flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-wider">
-                    <span>Mã sự kiện: #{t.id}</span>
-                    <span className="text-[#0054A6] group-hover:translate-x-1 transition-transform flex items-center gap-1 font-extrabold">
-                      Xem chi tiết <span className="text-sm">→</span>
+          {visibleTournaments.length === 0 ? (
+            <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-150 shadow-lg animate-in fade-in duration-300 relative z-10">
+              <span className="text-4xl block mb-3">🏆</span>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-1 font-display">Không có giải đấu</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-sans">
+                Hiện tại không có giải đấu nào thuộc trạng thái này được lưu hành trong võ nghiệp.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {visibleTournaments.map((t) => (
+                <div 
+                  key={t.id}
+                  onClick={() => onSelectTournament(t)}
+                  className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl cursor-pointer group transition-all duration-300 transform hover:-translate-y-2 flex flex-col hover:border-[#0054A6]/20"
+                >
+                  <div className="relative h-52 overflow-hidden bg-slate-900">
+                    <img 
+                      src={t.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80'} 
+                      alt={t.name}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
+                    
+                    {/* Status Indicator Badge with custom colors */}
+                    <span className={`absolute top-4 right-4 text-[9px] font-black uppercase tracking-wider px-3.5 py-1.5 rounded-xl shadow-lg text-white ${
+                      getNormalizedTournamentStatus(t.status) === 'đang diễn ra' ? 'bg-gradient-to-r from-emerald-600 to-green-500 shadow-emerald-950/20' :
+                      getNormalizedTournamentStatus(t.status) === 'sắp diễn ra' ? 'bg-gradient-to-r from-amber-500 to-yellow-500 shadow-amber-950/20' : 
+                      'bg-gradient-to-r from-rose-600 to-red-500 shadow-rose-950/20'
+                    }`}>
+                      {getNormalizedTournamentStatus(t.status)}
                     </span>
                   </div>
+
+                  <div className="p-6 flex-1 flex flex-col justify-between space-y-4">
+                    <div>
+                      <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase group-hover:text-[#0054A6] transition-colors line-clamp-2 font-display">
+                        {t.name}
+                      </h3>
+
+                      <div className="space-y-2.5 text-xs text-slate-500 mt-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100/60">
+                        <div className="flex items-center gap-2.5">
+                          <Calendar className="w-4 h-4 text-[#0054A6] flex-shrink-0" />
+                          <span className="truncate">Thời gian: <strong className="text-slate-700 font-bold">{t.date}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <MapPin className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                          <span className="truncate">Địa điểm: <strong className="text-slate-700 font-bold">{t.location}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100/80 flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-wider">
+                      <span>Mã sự kiện: #{t.id}</span>
+                      <span className="text-[#0054A6] group-hover:translate-x-1 transition-transform flex items-center gap-1 font-extrabold">
+                        Xem chi tiết <span className="text-sm">→</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -679,15 +949,52 @@ export default function UserView({
 
         <div className="text-center max-w-2xl mx-auto mb-16 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            Khoảnh khắc võ thuật tinh anh
+            Khoảnh khắc thi đấu
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-            Thư viện Highlights tinh hoa
+            Highlights trận đấu
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 max-w-lg mx-auto leading-relaxed">
             Tuyển tập những khoảnh khắc biểu diễn quyền thuật kịch tính, những đòn chân tấn công và bài quyền binh khí thượng thừa.
           </p>
+        </div>
+
+        {/* Search input for Highlights */}
+        <div className="max-w-lg mx-auto mb-12 relative z-10 px-4 sm:px-0">
+          <div className="relative group/search flex items-center bg-slate-900 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all duration-300 shadow-xl shadow-slate-950/40">
+            <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#FFF200] transition-colors" />
+            </span>
+            <input
+              type="text"
+              placeholder="Tìm theo ID môn sinh, tên VĐV hoặc tiêu đề..."
+              value={searchHighlightQuery}
+              onChange={(e) => setSearchHighlightQuery(e.target.value)}
+              className="w-full text-xs sm:text-sm pl-11 pr-16 py-3.5 bg-transparent text-slate-100 rounded-2xl outline-none transition-all placeholder:text-slate-500"
+            />
+            
+            <div className="absolute right-3 flex items-center gap-1.5">
+              {searchHighlightQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchHighlightQuery('')}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all cursor-pointer"
+                  title="Xóa tìm kiếm"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-950 px-2 py-1 rounded-md border border-slate-850">
+                {visibleHighlights.length}
+              </span>
+            </div>
+          </div>
+          {searchHighlightQuery && (
+            <p className="text-center text-[10px] text-slate-400 mt-2 font-mono">
+              Đang lọc theo từ khóa: <span className="text-[#FFF200] font-bold">"{searchHighlightQuery}"</span>
+            </p>
+          )}
         </div>
 
         {/* Bento grid layout */}
@@ -755,7 +1062,7 @@ export default function UserView({
           
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800 shadow-xl inline-block">
-              Bảng vàng vinh danh võ đường
+              Vinh danh thành tích
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white uppercase italic mt-3 tracking-tight font-display">
               Thành tích xuất sắc & Huy chương đạt được
@@ -927,11 +1234,11 @@ export default function UserView({
         {/* Soft background glow */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="text-center max-w-2xl mx-auto mb-16 relative z-10">
+        <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
             Đội ngũ võ sư tâm huyết
           </span>
-          <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
+          <h2 className="text-3xl sm:text-4xl font-black text-slate-950 uppercase italic mt-3 tracking-tight font-display">
             Ban huấn luyện chính nhiệm
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
@@ -940,71 +1247,171 @@ export default function UserView({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10">
-          {visibleCoaches.map((coach) => (
-            <div 
-              key={coach.id}
-              className="bg-white rounded-[2rem] p-8 border border-slate-100 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between"
+        {/* Show/Hide Toggle Button */}
+        <div className="flex justify-center mb-8 relative z-10">
+          <button
+            onClick={() => setShowAllCoaches(!showAllCoaches)}
+            className="px-6 py-2.5 rounded-2xl bg-white border-2 border-[#0054A6]/20 hover:border-[#0054A6] hover:bg-slate-50 text-slate-800 hover:text-[#0054A6] font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
+          >
+            {showAllCoaches ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Ban huấn luyện'}
+          </button>
+        </div>
+
+        {showAllCoaches ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10 animate-in fade-in slide-in-from-bottom-3 duration-300">
+            {visibleCoaches.map((coach) => (
+              <div 
+                key={coach.id}
+                onClick={() => setSelectedCoach(coach)}
+                className="bg-white rounded-[2rem] p-8 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between cursor-pointer"
+              >
+                <div>
+                  {/* Photo with beautiful dual ring indicator */}
+                  <div className="w-32 h-32 mx-auto rounded-full overflow-hidden p-1.5 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-xl relative group-hover:scale-105 transition-transform duration-300">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
+                      <img 
+                        src={coach.photo} 
+                        alt={coach.fullName} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+
+                  <h3 className="font-black text-slate-950 text-lg sm:text-xl mt-5 uppercase tracking-tight font-display">
+                    {coach.fullName}
+                  </h3>
+                  
+                  <div className="flex justify-center items-center gap-2 mt-2 flex-wrap">
+                    {(() => {
+                      const style = getBeltStyle(coach.rank);
+                      return (
+                        <span className={`text-[10px] font-black border px-3.5 py-1.5 rounded-xl uppercase tracking-wider ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
+                          {coach.rank}
+                        </span>
+                      );
+                    })()}
+                    {coach.status !== false ? (
+                      <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
+                        Hoạt động
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
+                        Ngưng hoạt động
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[10px] text-slate-500 font-extrabold uppercase mt-2.5 font-mono">
+                    Sinh năm: {coach.birthYear} • ID: {coach.id}
+                  </p>
+
+                  <p className="text-xs text-slate-700 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-100/80 italic relative font-medium">
+                    "{coach.experience}"
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-100 text-[10px] text-[#0054A6] font-black uppercase tracking-wider group-hover:text-[#FFF200] group-hover:bg-[#0054A6] py-1.5 rounded-xl transition-all duration-300">
+                  Xem chi tiết võ sư →
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Slider Row */
+          <div className="relative z-10 group/slider">
+            {/* Scroll Navigation Buttons */}
+            <button
+              onClick={() => scrollRow('COACHES', 'left')}
+              className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
+              title="Trượt sang trái"
             >
-              <div>
-                {/* Photo with beautiful dual ring indicator */}
-                <div className="w-32 h-32 mx-auto rounded-full overflow-hidden p-1.5 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-xl relative group-hover:scale-105 transition-transform duration-300">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
-                    <img 
-                      src={coach.photo} 
-                      alt={coach.fullName} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
+              <ChevronLeft className="w-5 h-5 text-slate-700" />
+            </button>
+            <button
+              onClick={() => scrollRow('COACHES', 'right')}
+              className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
+              title="Trượt sang phải"
+            >
+              <ChevronRight className="w-5 h-5 text-slate-700" />
+            </button>
+
+            <div
+              ref={(el) => (rowScrollRefs.current['COACHES'] = el)}
+              className="flex gap-6 overflow-x-auto scrollbar-none pb-6 scroll-smooth snap-x snap-mandatory px-2"
+            >
+              {visibleCoaches.map((coach) => (
+                <div 
+                  key={coach.id}
+                  onClick={() => setSelectedCoach(coach)}
+                  className="w-[280px] sm:w-[330px] shrink-0 snap-start bg-white rounded-[2rem] p-6 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-1 flex flex-col justify-between cursor-pointer"
+                >
+                  <div>
+                    {/* Photo with beautiful dual ring indicator */}
+                    <div className="w-28 h-28 mx-auto rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-md relative group-hover:scale-105 transition-transform duration-300">
+                      <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
+                        <img 
+                          src={coach.photo} 
+                          alt={coach.fullName} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    </div>
+
+                    <h3 className="font-black text-slate-950 text-base sm:text-lg mt-4 uppercase tracking-tight font-display">
+                      {coach.fullName}
+                    </h3>
+                    
+                    <div className="flex justify-center items-center gap-1.5 mt-2 flex-wrap">
+                      {(() => {
+                        const style = getBeltStyle(coach.rank);
+                        return (
+                          <span className={`text-[9px] font-black border px-3 py-1 rounded-xl uppercase tracking-wider ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
+                            {coach.rank}
+                          </span>
+                        );
+                      })()}
+                      {coach.status !== false ? (
+                        <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl uppercase tracking-wider">
+                          Hoạt động
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1 rounded-xl uppercase tracking-wider">
+                          Ngưng HĐ
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="text-[9px] text-slate-500 font-extrabold uppercase mt-2 font-mono">
+                      Sinh năm: {coach.birthYear} • ID: {coach.id}
+                    </p>
+
+                    <p className="text-xs text-slate-700 font-sans leading-relaxed mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-100/80 italic line-clamp-3 relative font-medium">
+                      "{coach.experience}"
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100 text-[9px] text-[#0054A6] font-black uppercase tracking-wider group-hover:text-[#FFF200] group-hover:bg-[#0054A6] py-1.5 rounded-xl transition-all duration-300">
+                    Xem chi tiết võ sư →
                   </div>
                 </div>
-
-                <h3 className="font-black text-slate-800 text-base sm:text-lg mt-5 uppercase tracking-tight font-display">
-                  {coach.fullName}
-                </h3>
-                
-                <div className="flex justify-center items-center gap-2 mt-2 flex-wrap">
-                  <span className="text-[10px] font-black text-[#0054A6] bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-xl uppercase tracking-wider">
-                    {coach.rank}
-                  </span>
-                  {coach.status !== false ? (
-                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
-                      Hoạt động
-                    </span>
-                  ) : (
-                    <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
-                      Ngưng hoạt động
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-[10px] text-slate-400 font-extrabold uppercase mt-2.5 font-mono">
-                  Sinh năm: {coach.birthYear}
-                </p>
-
-                <p className="text-xs text-slate-600 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-100/80 italic relative">
-                  "{coach.experience}"
-                </p>
-              </div>
-
-              <div className="mt-6 pt-5 border-t border-slate-100 text-[10px] text-slate-400 font-black uppercase tracking-wider">
-                Môn Phái Vovinam Việt Võ Đạo
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        )}
       </section>
 
 
       {/* 8. THÀNH VIÊN (Members) */}
       <section className="py-20 bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border-t border-slate-200/50 scroll-mt-32" id="section-members">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-16">
+          <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
               Thế hệ tiếp nối xuất sắc
             </span>
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-              Hồ sơ môn sinh nổi bật
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-950 uppercase italic mt-3 tracking-tight font-display">
+              Thành viên CLB
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
@@ -1012,53 +1419,167 @@ export default function UserView({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
-            {visibleMembers.map((m) => (
-              <div 
-                key={m.id}
-                onClick={() => setSelectedMember(m)}
-                className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-slate-200/80 overflow-hidden group-hover:scale-105 transition-transform duration-300">
-                    <img 
-                      src={m.photo} 
-                      alt={m.fullName} 
-                      className="w-full h-full rounded-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
-                  
-                  <h4 className="font-black text-slate-800 text-xs sm:text-sm mt-4 line-clamp-1 font-display uppercase tracking-tight group-hover:text-[#0054A6] transition-colors">
-                    {m.fullName}
-                  </h4>
-                  
-                  <div className="flex justify-center items-center gap-1.5 mt-2 flex-wrap">
-                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl uppercase tracking-wider">
-                      {m.rank}
-                    </span>
-                    {m.status !== false ? (
-                      <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                        Hoạt động
-                      </span>
-                    ) : (
-                      <span className="text-[8px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                        Ngưng HĐ
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="text-[9px] text-slate-400 mt-2.5 uppercase font-extrabold tracking-wider font-mono">
-                    Sinh năm {m.birthYear} • ID: {m.id}
-                  </div>
-                </div>
-
-                <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
-                  Hồ sơ chi tiết →
-                </div>
-              </div>
-            ))}
+          {/* Show/Hide Toggle Button */}
+          <div className="flex justify-center mb-8 relative z-10">
+            <button
+              onClick={() => setShowAllMembers(!showAllMembers)}
+              className="px-6 py-2.5 rounded-2xl bg-white border-2 border-[#0054A6]/20 hover:border-[#0054A6] hover:bg-slate-50 text-slate-800 hover:text-[#0054A6] font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
+            >
+              {showAllMembers ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Thành viên'}
+            </button>
           </div>
+
+          {showAllMembers ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 relative z-10 animate-in fade-in slide-in-from-bottom-3 duration-300">
+              {visibleMembers.map((m) => (
+                <div 
+                  key={m.id}
+                  onClick={() => setSelectedMember(m)}
+                  className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
+                >
+                  <div>
+                    <div 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (m.photo) {
+                          setZoomedPhoto(m.photo);
+                        } else {
+                          setSelectedMember(m);
+                        }
+                      }}
+                      className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
+                      title="Bấm vào ảnh để phóng to chi tiết"
+                    >
+                      <img 
+                        src={m.photo} 
+                        alt={m.fullName} 
+                        className="w-full h-full rounded-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    
+                    <h4 className="font-black text-slate-950 text-sm sm:text-base mt-4 line-clamp-1 font-display uppercase tracking-tight group-hover:text-[#0054A6] transition-colors">
+                      {m.fullName}
+                    </h4>
+                    
+                    <div className="flex justify-center items-center gap-1.5 mt-2 flex-wrap">
+                      {(() => {
+                        const style = getBeltStyle(m.rank);
+                        return (
+                          <span className={`text-[9px] font-black border px-3 py-1 rounded-xl uppercase tracking-wider ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
+                            {m.rank}
+                          </span>
+                        );
+                      })()}
+                      {m.status !== false ? (
+                        <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">
+                          Hoạt động
+                        </span>
+                      ) : (
+                        <span className="text-[8px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">
+                          Ngưng HĐ
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="text-[9px] text-slate-500 mt-2.5 uppercase font-extrabold tracking-wider font-mono">
+                      Sinh năm {m.birthYear} • ID: {m.id}
+                    </div>
+                  </div>
+
+                  <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
+                    Hồ sơ chi tiết →
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* Slider Row */
+            <div className="relative z-10 group/slider">
+              {/* Scroll Navigation Buttons */}
+              <button
+                onClick={() => scrollRow('MEMBERS', 'left')}
+                className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
+                title="Trượt sang trái"
+              >
+                <ChevronLeft className="w-5 h-5 text-slate-700" />
+              </button>
+              <button
+                onClick={() => scrollRow('MEMBERS', 'right')}
+                className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
+                title="Trượt sang phải"
+              >
+                <ChevronRight className="w-5 h-5 text-slate-700" />
+              </button>
+
+              <div
+                ref={(el) => (rowScrollRefs.current['MEMBERS'] = el)}
+                className="flex gap-6 overflow-x-auto scrollbar-none pb-6 scroll-smooth snap-x snap-mandatory px-2"
+              >
+                {visibleMembers.map((m) => (
+                  <div 
+                    key={m.id}
+                    onClick={() => setSelectedMember(m)}
+                    className="w-[200px] sm:w-[240px] shrink-0 snap-start bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
+                  >
+                    <div>
+                      <div 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (m.photo) {
+                            setZoomedPhoto(m.photo);
+                          } else {
+                            setSelectedMember(m);
+                          }
+                        }}
+                        className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
+                        title="Bấm vào ảnh để phóng to chi tiết"
+                      >
+                        <img 
+                          src={m.photo} 
+                          alt={m.fullName} 
+                          className="w-full h-full rounded-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      
+                      <h4 className="font-black text-slate-950 text-xs sm:text-sm mt-4 line-clamp-1 font-display uppercase tracking-tight group-hover:text-[#0054A6] transition-colors">
+                        {m.fullName}
+                      </h4>
+                      
+                      <div className="flex justify-center items-center gap-1 mt-2 flex-wrap">
+                        {(() => {
+                          const style = getBeltStyle(m.rank);
+                          return (
+                            <span className={`text-[9px] font-black border px-2 py-0.5 rounded-xl uppercase tracking-wider ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
+                              {m.rank}
+                            </span>
+                          );
+                        })()}
+                        {m.status !== false ? (
+                          <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-lg uppercase tracking-wider">
+                            Hoạt động
+                          </span>
+                        ) : (
+                          <span className="text-[8px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-lg uppercase tracking-wider">
+                            Ngưng HĐ
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="text-[9px] text-slate-500 mt-2.5 uppercase font-extrabold tracking-wider font-mono">
+                        Sinh năm {m.birthYear} • ID: {m.id}
+                      </div>
+                    </div>
+
+                    <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
+                      Hồ sơ chi tiết →
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1068,7 +1589,7 @@ export default function UserView({
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-              Mạng lưới điểm tập quận 4
+              Địa điểm võ đường
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
               Các điểm tập luyện Vovinam Xóm Chiếu
@@ -1250,7 +1771,6 @@ export default function UserView({
       <footer className="bg-slate-950 text-slate-400 py-12 border-t border-slate-900 text-center text-xs">
         <div className="max-w-7xl mx-auto px-4 space-y-6">
           <p className="text-[#FFF200] font-black uppercase tracking-widest mb-2 font-display text-base">Vovinam Xóm Chiếu - Việt Võ Đạo</p>
-          <p className="text-slate-500 max-w-xl mx-auto leading-relaxed">{webConfig.footerText}</p>
           <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-semibold flex-wrap">
             <span>SEO Title: {webConfig.seoTitle}</span>
             <span>•</span>
@@ -1267,7 +1787,44 @@ export default function UserView({
           achievements={achievements} 
           clubs={clubs} 
           onClose={() => setSelectedMember(null)} 
+          onZoomPhoto={(url) => setZoomedPhoto(url)}
         />
+      )}
+
+      {selectedCoach && (
+        <CoachDetailModal 
+          coach={selectedCoach} 
+          clubs={clubs} 
+          onClose={() => setSelectedCoach(null)} 
+        />
+      )}
+
+      {zoomedPhoto && (
+        <div 
+          className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setZoomedPhoto(null)}
+        >
+          <button 
+            onClick={() => setZoomedPhoto(null)}
+            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all border border-white/20 cursor-pointer"
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <div className="max-w-3xl max-h-[80vh] overflow-hidden rounded-2xl border border-white/15 shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+            <img 
+              src={zoomedPhoto} 
+              alt="Môn sinh" 
+              className="w-full max-h-[75vh] object-contain mx-auto rounded-xl"
+              referrerPolicy="no-referrer"
+            />
+            <div className="absolute bottom-4 left-4 right-4 text-center">
+              <span className="bg-black/70 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
+                Chi tiết ảnh môn sinh CLB Vovinam Xóm Chiếu
+              </span>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

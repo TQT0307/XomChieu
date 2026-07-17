@@ -62,7 +62,6 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
               <Eye className="w-4 h-4 text-[#0054A6]" />
               {article.views + 1} lượt xem
             </span>
-            <span className="ml-auto text-slate-400 italic">Tòa soạn Vovinam Xóm Chiếu</span>
           </div>
 
           {/* Newspaper Layout Content */}
@@ -75,17 +74,7 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
           </div>
 
           {/* Footer of the article */}
-          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[#0054A6] text-white rounded-full flex items-center justify-center font-bold text-xs border border-[#FFF200]">
-                VXC
-              </div>
-              <div>
-                <p className="text-xs font-bold text-slate-800">Ban Biên Tập Vovinam Xóm Chiếu</p>
-                <p className="text-[10px] text-slate-500">Môn phái Việt Võ Đạo Việt Nam</p>
-              </div>
-            </div>
-            
+          <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-end">
             <button 
               onClick={onClose}
               className="flex items-center gap-2 bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"

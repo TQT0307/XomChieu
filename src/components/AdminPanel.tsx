@@ -3,7 +3,8 @@ import {
   FileText, FolderOpen, Users, Award, Trophy, Film, Settings, 
   Plus, Edit2, Trash2, Save, X, Search, Map, CheckCircle2, ShieldAlert,
   Shield, History, Key, LogOut, Lock, ShieldCheck, Swords,
-  User, Eye, EyeOff, ClipboardList, Info, Check, UserCheck
+  User, Eye, EyeOff, ClipboardList, Info, Check, UserCheck,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig,
@@ -30,6 +31,7 @@ interface AdminPanelProps {
   setHighlights: React.Dispatch<React.SetStateAction<Highlight[]>>;
   webConfig: WebConfig;
   setWebConfig: React.Dispatch<React.SetStateAction<WebConfig>>;
+  onBackToWebsite?: () => void;
 }
 
 type AdminTab = 
@@ -50,24 +52,174 @@ function ImageInput({
   label, 
   value, 
   onChange, 
-  id 
+  id,
+  aspectRatio = '16:9'
 }: { 
   label: string; 
   value: string; 
   onChange: (val: string) => void; 
   id: string;
+  aspectRatio?: '1:1' | '16:9' | '4:3';
 }) {
   const [mode, setMode] = useState<'url' | 'file'>('file');
+
+  // Alignment workspace states
+  const [rawImage, setRawImage] = useState<string | null>(null);
+  const [selectedRatio, setSelectedRatio] = useState<'1:1' | '16:9' | '4:3'>(aspectRatio);
+  const [zoom, setZoom] = useState<number>(100);
+  const [panX, setPanX] = useState<number>(0);
+  const [panY, setPanY] = useState<number>(0);
+  const [rotation, setRotation] = useState<number>(0);
+
+  // Sync aspect ratio when it changes from parent
+  useEffect(() => {
+    setSelectedRatio(aspectRatio);
+  }, [aspectRatio]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const initialPanX = panX;
+    const initialPanY = panY;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const deltaX = moveEvent.clientX - startX;
+      const deltaY = moveEvent.clientY - startY;
+      setPanX(initialPanX + deltaX);
+      setPanY(initialPanY + deltaY);
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const startX = e.touches[0].clientX;
+    const startY = e.touches[0].clientY;
+    const initialPanX = panX;
+    const initialPanY = panY;
+
+    const handleTouchMove = (moveEvent: TouchEvent) => {
+      if (moveEvent.touches.length !== 1) return;
+      const deltaX = moveEvent.touches[0].clientX - startX;
+      const deltaY = moveEvent.touches[0].clientY - startY;
+      setPanX(initialPanX + deltaX);
+      setPanY(initialPanY + deltaY);
+    };
+
+    const handleTouchEnd = () => {
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        onChange(reader.result as string);
+        if (typeof reader.result === 'string') {
+          setRawImage(reader.result);
+          // Reset alignment params for a new image
+          setZoom(100);
+          setPanX(0);
+          setPanY(0);
+          setRotation(0);
+        }
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const cropImage = () => {
+    if (!rawImage) return;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // high-quality dimensions
+      let targetWidth = 800;
+      let targetHeight = 450; // 16:9
+      if (selectedRatio === '1:1') {
+        targetWidth = 600;
+        targetHeight = 600;
+      } else if (selectedRatio === '4:3') {
+        targetWidth = 800;
+        targetHeight = 600;
+      }
+
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+
+      ctx.save();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, targetWidth, targetHeight);
+
+      // Center
+      ctx.translate(targetWidth / 2, targetHeight / 2);
+      ctx.rotate((rotation * Math.PI) / 180);
+
+      const scale = zoom / 100;
+      
+      const isSwapped = (rotation % 180 !== 0);
+      const drawWidthImg = isSwapped ? img.height : img.width;
+      const drawHeightImg = isSwapped ? img.width : img.height;
+
+      const scaleX = targetWidth / drawWidthImg;
+      const scaleY = targetHeight / drawHeightImg;
+      const coverScale = Math.max(scaleX, scaleY);
+
+      const finalWidth = img.width * coverScale * scale;
+      const finalHeight = img.height * coverScale * scale;
+
+      // Panning relative to high-resolution canvas size
+      const previewWidth = selectedRatio === '1:1' ? 280 : 400;
+      const scaleFactorX = targetWidth / previewWidth;
+      const scaleFactorY = targetHeight / (previewWidth * (targetHeight / targetWidth));
+      
+      const canvasPanX = panX * scaleFactorX;
+      const canvasPanY = panY * scaleFactorY;
+
+      ctx.drawImage(
+        img,
+        -finalWidth / 2 + canvasPanX,
+        -finalHeight / 2 + canvasPanY,
+        finalWidth,
+        finalHeight
+      );
+
+      ctx.restore();
+
+      try {
+        const resultBase64 = canvas.toDataURL('image/jpeg', 0.85);
+        onChange(resultBase64);
+        setRawImage(null);
+      } catch (err) {
+        console.error("Canvas export failed:", err);
+        // Fallback for CORS
+        onChange(rawImage);
+        setRawImage(null);
+        alert("Lưu ý: Không thể cắt trực tiếp ảnh từ link ngoài do chính sách bảo mật CORS. Gốc của ảnh đã được lưu.");
+      }
+    };
+    img.onerror = () => {
+      onChange(rawImage);
+      setRawImage(null);
+    };
+    img.src = rawImage;
   };
 
   return (
@@ -103,10 +255,25 @@ function ImageInput({
             accept="image/*"
             id={id}
             onChange={handleFileChange}
-            className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0054A6] hover:file:bg-blue-100 cursor-pointer border p-1 rounded-lg bg-slate-50"
+            className="w-full text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-[#0054A6] hover:file:bg-blue-100 cursor-pointer border p-1 rounded-lg bg-slate-50 flex-1"
           />
-          {value && value.startsWith('data:') && (
-            <img src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0" referrerPolicy="no-referrer" />
+          {value && (
+            <div className="flex items-center gap-1.5">
+              <img src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0" referrerPolicy="no-referrer" />
+              <button
+                type="button"
+                onClick={() => {
+                  setRawImage(value);
+                  setZoom(100);
+                  setPanX(0);
+                  setPanY(0);
+                  setRotation(0);
+                }}
+                className="text-[10px] text-[#0054A6] hover:underline font-bold bg-blue-50 px-2 py-1.5 rounded-lg border border-blue-100 cursor-pointer"
+              >
+                Căn chỉnh
+              </button>
+            </div>
           )}
         </div>
       ) : (
@@ -117,11 +284,251 @@ function ImageInput({
             value={value && !value.startsWith('data:') ? value : ''}
             onChange={e => onChange(e.target.value)}
             placeholder="Ví dụ: https://images.unsplash.com/photo..."
-            className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none"
+            className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none flex-1"
           />
-          {value && !value.startsWith('data:') && (
-            <img src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0 text-xs" referrerPolicy="no-referrer" />
+          {value && (
+            <div className="flex items-center gap-1.5">
+              <img src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0 text-xs" referrerPolicy="no-referrer" />
+              <button
+                type="button"
+                onClick={() => {
+                  setRawImage(value);
+                  setZoom(100);
+                  setPanX(0);
+                  setPanY(0);
+                  setRotation(0);
+                }}
+                className="text-[10px] text-[#0054A6] hover:underline font-bold bg-blue-50 px-2 py-1.5 rounded-lg border border-blue-100 cursor-pointer"
+              >
+                Căn chỉnh
+              </button>
+            </div>
           )}
+        </div>
+      )}
+
+      {/* Alignment & Cropping workspace modal */}
+      {rawImage && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="bg-slate-900 text-white rounded-3xl border border-white/10 w-full max-w-4xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-white/10 flex items-center justify-between bg-slate-950">
+              <div>
+                <h3 className="font-black text-sm uppercase tracking-wider text-[#FFF200]">Bộ công cụ căn chỉnh & cắt khung hình</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Cân chỉnh ảnh chuẩn xác để hiển thị đẹp nhất trên trang người dùng</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRawImage(null)}
+                className="p-1.5 bg-white/5 hover:bg-white/10 rounded-full text-slate-400 hover:text-white transition-all cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-slate-900">
+              {/* Left Side: Live Preview Area */}
+              <div className="flex flex-col items-center justify-center space-y-3">
+                <span className="text-[10px] uppercase font-black tracking-widest text-[#FFF200] bg-[#FFF200]/10 border border-[#FFF200]/20 px-2.5 py-1 rounded-full">
+                  KHUNG HIỂN THỊ THỰC TẾ TRÊN WEB (Tỉ lệ {selectedRatio})
+                </span>
+                
+                {/* Visual crop frame wrapper */}
+                <div className="bg-slate-950 p-4 rounded-2xl border border-white/5 w-full flex items-center justify-center min-h-[340px]">
+                  <div 
+                    onMouseDown={handleMouseDown}
+                    onTouchStart={handleTouchStart}
+                    className={`relative overflow-hidden border-2 border-dashed border-[#FFF200]/50 shadow-2xl bg-slate-900 cursor-move select-none ${
+                      selectedRatio === '16:9' ? 'aspect-video w-full max-w-[400px]' :
+                      selectedRatio === '4:3' ? 'aspect-[4/3] w-full max-w-[360px]' :
+                      'aspect-square w-full max-w-[280px] rounded-2xl'
+                    }`}
+                    title="Kéo thả trực tiếp để di chuyển ảnh vừa khung"
+                  >
+                    <img
+                      src={rawImage}
+                      alt="Crop target"
+                      referrerPolicy="no-referrer"
+                      className="absolute max-w-none origin-center pointer-events-none transition-none select-none"
+                      style={{
+                        top: '50%',
+                        left: '50%',
+                        transform: `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${zoom / 100}) rotate(${rotation}deg)`,
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                    
+                    {/* Visual Guideline Grid Overlay */}
+                    <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+                      <div className="border-r border-b border-white"></div>
+                      <div className="border-r border-b border-white"></div>
+                      <div className="border-b border-white"></div>
+                      <div className="border-r border-b border-white"></div>
+                      <div className="border-r border-b border-white"></div>
+                      <div className="border-b border-white"></div>
+                      <div className="border-r border-white"></div>
+                      <div className="border-r border-white"></div>
+                      <div></div>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-[#FFF200]/90 italic text-center font-bold">
+                  💡 MẸO: Nhấn giữ và KÉO THẢ chuột/tay trực tiếp lên ảnh để di chuyển vừa khung hình
+                </p>
+                <p className="text-[9px] text-slate-500 italic text-center">
+                  Khoảng trắng bên ngoài viền nét đứt vàng sẽ được tự động cắt bỏ
+                </p>
+              </div>
+
+              {/* Right Side: Controllers */}
+              <div className="space-y-5 bg-slate-950/40 p-5 rounded-2xl border border-white/5">
+                {/* Ratio Selection */}
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">1. Chọn tỉ lệ khung hình</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['16:9', '4:3', '1:1'] as const).map(ratio => (
+                      <button
+                        key={ratio}
+                        type="button"
+                        onClick={() => setSelectedRatio(ratio)}
+                        className={`text-xs py-2 px-1.5 rounded-xl font-bold border transition-all cursor-pointer ${
+                          selectedRatio === ratio
+                            ? 'bg-[#0054A6] text-white border-[#0054A6] shadow-md shadow-[#0054A6]/20'
+                            : 'bg-slate-800 text-slate-300 border-white/5 hover:bg-slate-700'
+                        }`}
+                      >
+                        {ratio === '16:9' ? '16:9 (Bài viết/CLB)' : ratio === '4:3' ? '4:3 (Thành tích)' : '1:1 (HLV/Môn sinh)'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Zoom Controller */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">2. Thu phóng (Zoom: {zoom}%)</span>
+                    <button
+                      type="button"
+                      onClick={() => setZoom(100)}
+                      className="text-[9px] font-black text-[#FFF200] uppercase hover:underline"
+                    >
+                      Mặc định
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="300"
+                    value={zoom}
+                    onChange={e => setZoom(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FFF200]"
+                  />
+                </div>
+
+                {/* Pan X Controller */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">3. Dịch Ngang (Trái - Phải: {panX}px)</span>
+                    <button
+                      type="button"
+                      onClick={() => setPanX(0)}
+                      className="text-[9px] font-black text-[#FFF200] uppercase hover:underline"
+                    >
+                      Giữa
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min="-250"
+                    max="250"
+                    value={panX}
+                    onChange={e => setPanX(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+
+                {/* Pan Y Controller */}
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">4. Dịch Dọc (Lên - Xuống: {panY}px)</span>
+                    <button
+                      type="button"
+                      onClick={() => setPanY(0)}
+                      className="text-[9px] font-black text-[#FFF200] uppercase hover:underline"
+                    >
+                      Giữa
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min="-250"
+                    max="250"
+                    value={panY}
+                    onChange={e => setPanY(parseInt(e.target.value))}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                  />
+                </div>
+
+                {/* Rotation and Helpers */}
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">5. Xoay góc ảnh</span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setRotation(prev => (prev - 90 + 360) % 360)}
+                      className="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 py-1.5 px-3 rounded-lg border border-white/5 font-semibold flex-1 cursor-pointer"
+                    >
+                      ↺ Xoay trái 90°
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRotation(prev => (prev + 90) % 360)}
+                      className="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 py-1.5 px-3 rounded-lg border border-white/5 font-semibold flex-1 cursor-pointer"
+                    >
+                      ↻ Xoay phải 90°
+                    </button>
+                  </div>
+                </div>
+
+                {/* Global Reset */}
+                <div className="pt-2 border-t border-white/5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setZoom(100);
+                      setPanX(0);
+                      setPanY(0);
+                      setRotation(0);
+                    }}
+                    className="text-xs bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 py-2 px-4 rounded-xl font-bold cursor-pointer w-full border border-white/5 transition-all"
+                  >
+                    Reset về mặc định
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer actions */}
+            <div className="p-5 border-t border-white/10 bg-slate-950 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setRawImage(null)}
+                className="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 px-5 py-2.5 rounded-xl font-bold cursor-pointer transition-all border border-white/5"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={cropImage}
+                className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-black cursor-pointer shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-1.5 uppercase"
+              >
+                <Check className="w-4 h-4" /> Xác nhận cắt & lưu
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -137,7 +544,8 @@ export default function AdminPanel({
   tournaments, setTournaments,
   clubs, setClubs,
   highlights, setHighlights,
-  webConfig, setWebConfig
+  webConfig, setWebConfig,
+  onBackToWebsite
 }: AdminPanelProps) {
   
   // Custom Toasts and Deletion Confirms
@@ -244,10 +652,31 @@ export default function AdminPanel({
   const [coachForm, setCoachForm] = useState<Partial<Coach>>({});
   const [memberForm, setMemberForm] = useState<Partial<Member>>({});
   const [achievementForm, setAchievementForm] = useState<Partial<Achievement>>({});
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [tournamentForm, setTournamentForm] = useState<Partial<Tournament>>({});
   const [clubForm, setClubForm] = useState<Partial<Club>>({});
   const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [] });
   const [webConfigForm, setWebConfigForm] = useState<WebConfig>(webConfig);
+
+  // Sync webConfig from props
+  useEffect(() => {
+    setWebConfigForm(webConfig);
+  }, [webConfig]);
+
+  // Banner editor states
+  const [editingBannerId, setEditingBannerId] = useState<string | null>(null);
+  const [bannerForm, setBannerForm] = useState({
+    id: '',
+    image: '',
+    title: '',
+    subtitle: '',
+    alignmentPct: 50
+  });
+  const [isAddingBanner, setIsAddingBanner] = useState(false);
+  const [previewBannerIndex, setPreviewBannerIndex] = useState(0);
+  const [isDraggingY, setIsDraggingY] = useState(false);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [dragStartPct, setDragStartPct] = useState(50);
 
   // Admin Account Form States
   const [adminForm, setAdminForm] = useState<Partial<AdminAccount>>({
@@ -482,7 +911,7 @@ export default function AdminPanel({
     setMemberForm({ id: '', fullName: '', birthYear: 2005, rank: 'Lam Đai', clubId: clubs[0]?.id || '', status: true, photo: '' });
     setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString() });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '' });
-    setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '' });
+    setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapUrl: '' });
     setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''] });
   };
 
@@ -567,9 +996,15 @@ export default function AdminPanel({
       case 'tournaments':
         setTournamentForm(item);
         break;
-      case 'clubs':
-        setClubForm(item);
+      case 'clubs': {
+        const associatedCoachIds = coaches.filter(c => c.clubId === item.id).map(c => c.id);
+        setClubForm({
+          coachIds: item.coachIds ? item.coachIds : associatedCoachIds,
+          googleMapUrl: item.googleMapUrl || '',
+          ...item
+        });
         break;
+      }
       case 'highlights':
         setHighlightForm({
           ...item,
@@ -583,10 +1018,30 @@ export default function AdminPanel({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'articles') {
+      let finalId: string | number = articleForm.id !== undefined ? articleForm.id : '';
+      if (typeof finalId === 'string') finalId = finalId.trim();
+      
+      // If blank ID is provided for new article, auto-generate it
+      if (!finalId) {
+        finalId = articles.length > 0 ? Math.max(...articles.map(a => {
+          const parsed = parseInt(String(a.id), 10);
+          return isNaN(parsed) ? 0 : parsed;
+        })) + 1 : 1;
+      } else {
+        // Try to parse to number if it's purely numeric
+        const numParsed = parseInt(String(finalId), 10);
+        if (!isNaN(numParsed) && String(numParsed) === String(finalId)) {
+          finalId = numParsed;
+        }
+      }
+
       if (editId === null) {
-        const nextId = articles.length > 0 ? Math.max(...articles.map(a => a.id)) + 1 : 1;
+        if (articles.some(a => String(a.id) === String(finalId))) {
+          showToast('ID bài viết này đã tồn tại!', 'error');
+          return;
+        }
         const newArt: Article = {
-          id: nextId,
+          id: finalId,
           title: articleForm.title || 'Bài viết mới',
           content: articleForm.content || '',
           categoryId: articleForm.categoryId || categories[0]?.id || 'TIN_CLB',
@@ -597,11 +1052,15 @@ export default function AdminPanel({
           showInNews: articleForm.showInNews || false,
         };
         setArticles(prev => [newArt, ...prev]);
-        addLog('Thêm', 'articles', `Đã thêm bài viết mới: "${newArt.title}"`);
+        addLog('Thêm', 'articles', `Đã thêm bài viết mới: "${newArt.title}" (ID: ${finalId})`);
         showToast('Thêm bài viết mới thành công!', 'success');
       } else {
-        setArticles(prev => prev.map(a => a.id === editId ? { ...a, ...articleForm } as Article : a));
-        addLog('Sửa', 'articles', `Đã cập nhật bài viết: "${articleForm.title}"`);
+        if (String(finalId) !== String(editId) && articles.some(a => String(a.id) === String(finalId))) {
+          showToast('ID bài viết này đã tồn tại!', 'error');
+          return;
+        }
+        setArticles(prev => prev.map(a => String(a.id) === String(editId) ? { ...a, ...articleForm, id: finalId } as Article : a));
+        addLog('Sửa', 'articles', `Đã cập nhật bài viết: "${articleForm.title}" (ID: ${finalId})`);
         showToast('Cập nhật bài viết thành công!', 'success');
       }
     } else if (activeTab === 'categories') {
@@ -613,8 +1072,12 @@ export default function AdminPanel({
         addLog('Thêm', 'categories', `Đã thêm danh mục mới: "${categoryForm.name}" (ID: ${catId})`);
         showToast('Thêm danh mục mới thành công!', 'success');
       } else {
-        setCategories(prev => prev.map(c => c.id === editId ? { ...c, ...categoryForm } as Category : c));
-        addLog('Sửa', 'categories', `Đã cập nhật danh mục: "${categoryForm.name}"`);
+        if (catId !== editId && categories.some(c => c.id === catId)) {
+          showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
+          return;
+        }
+        setCategories(prev => prev.map(c => c.id === editId ? { ...c, ...categoryForm, id: catId } as Category : c));
+        addLog('Sửa', 'categories', `Đã cập nhật danh mục: "${categoryForm.name}" (ID: ${catId})`);
         showToast('Cập nhật danh mục thành công!', 'success');
       }
     } else if (activeTab === 'coaches') {
@@ -626,8 +1089,12 @@ export default function AdminPanel({
         addLog('Thêm', 'coaches', `Đã thêm huấn luyện viên mới: "${coachForm.fullName}" (ID: ${id})`);
         showToast('Thêm huấn luyện viên thành công!', 'success');
       } else {
-        setCoaches(prev => prev.map(c => c.id === editId ? { ...c, ...coachForm } as Coach : c));
-        addLog('Sửa', 'coaches', `Đã cập nhật huấn luyện viên: "${coachForm.fullName}"`);
+        if (id !== editId && coaches.some(c => c.id === id)) {
+          showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
+          return;
+        }
+        setCoaches(prev => prev.map(c => c.id === editId ? { ...c, ...coachForm, id } as Coach : c));
+        addLog('Sửa', 'coaches', `Đã cập nhật huấn luyện viên: "${coachForm.fullName}" (ID: ${id})`);
         showToast('Cập nhật huấn luyện viên thành công!', 'success');
       }
     } else if (activeTab === 'members') {
@@ -639,8 +1106,12 @@ export default function AdminPanel({
         addLog('Thêm', 'members', `Đã thêm môn sinh mới: "${memberForm.fullName}" (ID: ${id})`);
         showToast('Thêm môn sinh mới thành công!', 'success');
       } else {
-        setMembers(prev => prev.map(m => m.id === editId ? { ...m, ...memberForm } as Member : m));
-        addLog('Sửa', 'members', `Đã cập nhật thông tin môn sinh: "${memberForm.fullName}"`);
+        if (id !== editId && members.some(m => m.id === id)) {
+          showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
+          return;
+        }
+        setMembers(prev => prev.map(m => m.id === editId ? { ...m, ...memberForm, id } as Member : m));
+        addLog('Sửa', 'members', `Đã cập nhật thông tin môn sinh: "${memberForm.fullName}" (ID: ${id})`);
         showToast('Cập nhật thông tin môn sinh thành công!', 'success');
       }
     } else if (activeTab === 'achievements') {
@@ -652,8 +1123,12 @@ export default function AdminPanel({
         addLog('Thêm', 'achievements', `Đã thêm thành tích mới: "${achievementForm.title}" (ID: ${id})`);
         showToast('Thêm thành tích mới thành công!', 'success');
       } else {
-        setAchievements(prev => prev.map(a => a.id === editId ? { ...a, ...achievementForm } as Achievement : a));
-        addLog('Sửa', 'achievements', `Đã cập nhật thành tích: "${achievementForm.title}"`);
+        if (id !== editId && achievements.some(a => a.id === id)) {
+          showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
+          return;
+        }
+        setAchievements(prev => prev.map(a => a.id === editId ? { ...a, ...achievementForm, id } as Achievement : a));
+        addLog('Sửa', 'achievements', `Đã cập nhật thành tích: "${achievementForm.title}" (ID: ${id})`);
         showToast('Cập nhật thành tích thành công!', 'success');
       }
     } else if (activeTab === 'tournaments') {
@@ -665,21 +1140,43 @@ export default function AdminPanel({
         addLog('Thêm', 'tournaments', `Đã thêm giải đấu mới: "${tournamentForm.name}" (ID: ${id})`);
         showToast('Thêm giải đấu mới thành công!', 'success');
       } else {
-        setTournaments(prev => prev.map(t => t.id === editId ? { ...t, ...tournamentForm } as Tournament : t));
-        addLog('Sửa', 'tournaments', `Đã cập nhật giải đấu: "${tournamentForm.name}"`);
+        if (id !== editId && tournaments.some(t => t.id === id)) {
+          showToast('ID này đã tồn tại ở giải đấu khác!', 'error');
+          return;
+        }
+        setTournaments(prev => prev.map(t => t.id === editId ? { ...t, ...tournamentForm, id } as Tournament : t));
+        addLog('Sửa', 'tournaments', `Đã cập nhật giải đấu: "${tournamentForm.name}" (ID: ${id})`);
         showToast('Cập nhật giải đấu thành công!', 'success');
       }
     } else if (activeTab === 'clubs') {
       const id = clubForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
+      const finalMapUrl = clubForm.googleMapUrl?.trim() || `https://maps.google.com/maps?q=${encodeURIComponent(clubForm.address || '')}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+      const finalClubForm = { ...clubForm, id, googleMapUrl: finalMapUrl };
+
+      // Update associated coaches
+      const selectedCoachIds = clubForm.coachIds || [];
+      setCoaches(prev => prev.map(coach => {
+        if (selectedCoachIds.includes(coach.id)) {
+          return { ...coach, clubId: id };
+        } else if (coach.clubId === id || (editId !== null && coach.clubId === editId)) {
+          return { ...coach, clubId: '' };
+        }
+        return coach;
+      }));
+
       if (editId === null) {
         if (clubs.some(c => c.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setClubs(prev => [...prev, clubForm as Club]);
+        setClubs(prev => [...prev, finalClubForm as Club]);
         addLog('Thêm', 'clubs', `Đã thêm câu lạc bộ mới: "${clubForm.name}" (ID: ${id})`);
         showToast('Thêm câu lạc bộ mới thành công!', 'success');
       } else {
-        setClubs(prev => prev.map(c => c.id === editId ? { ...c, ...clubForm } as Club : c));
-        addLog('Sửa', 'clubs', `Đã cập nhật câu lạc bộ: "${clubForm.name}"`);
+        if (id !== editId && clubs.some(c => c.id === id)) {
+          showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
+          return;
+        }
+        setClubs(prev => prev.map(c => c.id === editId ? { ...c, ...finalClubForm, id } as Club : c));
+        addLog('Sửa', 'clubs', `Đã cập nhật câu lạc bộ: "${clubForm.name}" (ID: ${id})`);
         showToast('Cập nhật câu lạc bộ thành công!', 'success');
       }
     } else if (activeTab === 'highlights') {
@@ -692,8 +1189,12 @@ export default function AdminPanel({
         addLog('Thêm', 'highlights', `Đã thêm Highlight mới: "${highlightForm.title}" (ID: ${id})`);
         showToast('Thêm highlight mới thành công!', 'success');
       } else {
-        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, mediaUrls: finalMediaUrls } as Highlight : h));
-        addLog('Sửa', 'highlights', `Đã cập nhật Highlight: "${highlightForm.title}"`);
+        if (id !== editId && highlights.some(h => h.id === id)) {
+          showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
+          return;
+        }
+        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, id, mediaUrls: finalMediaUrls } as Highlight : h));
+        addLog('Sửa', 'highlights', `Đã cập nhật Highlight: "${highlightForm.title}" (ID: ${id})`);
         showToast('Cập nhật highlight thành công!', 'success');
       }
     } else if (activeTab === 'webConfig') {
@@ -713,8 +1214,8 @@ export default function AdminPanel({
   const getFilteredData = () => {
     const q = searchQuery.toLowerCase().trim();
     switch (activeTab) {
-      case 'articles':
-        return articles.filter(a => {
+      case 'articles': {
+        const filteredArticles = articles.filter(a => {
           const matchSearch = !q ? true : (
             a.title.toLowerCase().includes(q) || 
             (a.content && a.content.toLowerCase().includes(q))
@@ -723,6 +1224,15 @@ export default function AdminPanel({
           const firstChar = a.title.trim().charAt(0).toUpperCase();
           return matchSearch && firstChar === alphabetFilter;
         });
+        return filteredArticles.sort((a, b) => {
+          const idA = parseInt(String(a.id), 10);
+          const idB = parseInt(String(b.id), 10);
+          if (!isNaN(idA) && !isNaN(idB)) {
+            return idB - idA;
+          }
+          return String(b.id).localeCompare(String(a.id), undefined, { numeric: true, sensitivity: 'base' });
+        });
+      }
       case 'categories':
         return categories.filter(c => !q ? true : (
           c.name.toLowerCase().includes(q) ||
@@ -865,14 +1375,16 @@ export default function AdminPanel({
               <Shield className="w-4 h-4 text-[#FFF200]" />
               <span>Đăng Nhập Quản Trị</span>
             </button>
-            
-            <div className="bg-amber-50 rounded-xl p-3 border border-amber-100 flex items-start gap-2 text-[10.5px] text-amber-800 leading-normal">
-              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-bold uppercase tracking-wide">Tài khoản mặc định:</p>
-                <p className="mt-0.5">Tài khoản: <code className="bg-amber-100 px-1 py-0.5 rounded font-black text-rose-700">admin</code> | Mật khẩu: <code className="bg-amber-100 px-1 py-0.5 rounded font-black text-rose-700">123</code></p>
-              </div>
-            </div>
+
+            {onBackToWebsite && (
+              <button
+                type="button"
+                onClick={onBackToWebsite}
+                className="w-full bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-700 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 border border-slate-200"
+              >
+                Quay lại website
+              </button>
+            )}
           </form>
         </div>
       </div>
@@ -1457,6 +1969,109 @@ export default function AdminPanel({
           {activeTab === 'webConfig' && (
             <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 animate-in fade-in duration-200">
               <h2 className="text-lg font-black text-[#0054A6] uppercase tracking-tight mb-6">Quản lý Cấu hình Website</h2>
+
+              {/* BACKUP & RESTORE DATA CONTROLS */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl p-4 sm:p-5 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-xs font-black text-[#0054A6] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>📦 HỆ THỐNG SAO LƯU & CHIA SẺ DỮ LIỆU</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-1 max-w-xl">
+                      Do dữ liệu chạy thử nghiệm được lưu trực tiếp trên trình duyệt của bạn (Local Storage), bạn có thể xuất toàn bộ nội dung của mình thành File sao lưu để gửi cho người khác hoặc nhập vào thiết bị khác để hiển thị đồng bộ!
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2 shrink-0">
+                    {/* Export */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try {
+                          const backupData = {
+                            vovinam_categories: categories,
+                            vovinam_articles: articles,
+                            vovinam_members: members,
+                            vovinam_coaches: coaches,
+                            vovinam_achievements: achievements,
+                            vovinam_tournaments: tournaments,
+                            vovinam_clubs: clubs,
+                            vovinam_highlights: highlights,
+                            vovinam_webConfig: webConfigForm
+                          };
+                          
+                          const jsonStr = JSON.stringify(backupData, null, 2);
+                          const blob = new Blob([jsonStr], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement('a');
+                          const dateStr = new Date().toISOString().split('T')[0];
+                          link.href = url;
+                          link.download = `vovinam_database_backup_${dateStr}.json`;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                          URL.revokeObjectURL(url);
+                          
+                          addLog('Sao lưu', 'system', 'Đã xuất file sao lưu dữ liệu (.json)');
+                          showToast('Đã tải xuống file sao lưu dữ liệu thành công!', 'success');
+                        } catch (err) {
+                          showToast('Không thể xuất file sao lưu!', 'error');
+                        }
+                      }}
+                      className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer"
+                    >
+                      <span>📥 Xuất Sao Lưu (JSON)</span>
+                    </button>
+
+                    {/* Import */}
+                    <label className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer">
+                      <input
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          
+                          if (confirm('Khôi phục dữ liệu sẽ ghi đè và thay thế toàn bộ danh mục, thành viên, bài viết hiện tại. Bạn có chắc chắn muốn khôi phục không?')) {
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                              try {
+                                const parsed = JSON.parse(event.target?.result as string);
+                                
+                                if (parsed.vovinam_categories) setCategories(parsed.vovinam_categories);
+                                if (parsed.vovinam_articles) setArticles(parsed.vovinam_articles);
+                                if (parsed.vovinam_members) setMembers(parsed.vovinam_members);
+                                if (parsed.vovinam_coaches) setCoaches(parsed.vovinam_coaches);
+                                if (parsed.vovinam_achievements) setAchievements(parsed.vovinam_achievements);
+                                if (parsed.vovinam_tournaments) setTournaments(parsed.vovinam_tournaments);
+                                if (parsed.vovinam_clubs) setClubs(parsed.vovinam_clubs);
+                                if (parsed.vovinam_highlights) setHighlights(parsed.vovinam_highlights);
+                                if (parsed.vovinam_webConfig) {
+                                  setWebConfig(parsed.vovinam_webConfig);
+                                  setWebConfigForm(parsed.vovinam_webConfig);
+                                }
+                                
+                                addLog('Khôi phục', 'system', 'Đã nhập dữ liệu khôi phục thành công từ file .json');
+                                showToast('Đã khôi phục và đồng bộ toàn bộ dữ liệu thành công!', 'success');
+                                
+                                // Reset file input
+                                e.target.value = '';
+                              } catch (err) {
+                                showToast('File sao lưu không đúng định dạng JSON hợp lệ!', 'error');
+                              }
+                            };
+                            reader.readAsText(file);
+                          } else {
+                            e.target.value = '';
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <span>📤 Nhập Sao Lưu (.json)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               <form onSubmit={handleSave} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1470,13 +2085,43 @@ export default function AdminPanel({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Đường dẫn Logo (URL)</label>
-                    <input 
-                      type="text" 
-                      value={webConfigForm.logo}
-                      onChange={e => setWebConfigForm({ ...webConfigForm, logo: e.target.value })}
-                      className="w-full text-sm border p-2 rounded-lg"
-                    />
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Logo website (Tải từ máy hoặc nhập URL)</label>
+                    <div className="space-y-1.5">
+                      <input 
+                        type="text" 
+                        value={webConfigForm.logo}
+                        onChange={e => setWebConfigForm({ ...webConfigForm, logo: e.target.value })}
+                        placeholder="Nhập đường dẫn URL hoặc chọn từ máy ở dưới..."
+                        className="w-full text-xs border p-2 rounded-lg"
+                      />
+                      <div className="flex items-center gap-2">
+                        <label className="flex-grow flex items-center justify-center border border-dashed border-[#0054A6]/30 hover:border-[#0054A6] rounded-lg py-1.5 px-3 text-[11px] font-bold text-[#0054A6] cursor-pointer bg-[#0054A6]/5 hover:bg-[#0054A6]/10 transition-colors">
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  if (typeof reader.result === 'string') {
+                                    setWebConfigForm({ ...webConfigForm, logo: reader.result });
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="hidden" 
+                          />
+                          <span>Chọn ảnh từ máy tính 📁</span>
+                        </label>
+                        {webConfigForm.logo && (
+                          <div className="w-8 h-8 border rounded-lg overflow-hidden flex-shrink-0 bg-white p-0.5">
+                            <img src={webConfigForm.logo} alt="Logo preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Địa chỉ chính</label>
@@ -1565,14 +2210,583 @@ export default function AdminPanel({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Chữ Chân Trang (Footer text)</label>
-                  <input 
-                    type="text" 
-                    value={webConfigForm.footerText}
-                    onChange={e => setWebConfigForm({ ...webConfigForm, footerText: e.target.value })}
-                    className="w-full text-sm border p-2 rounded-lg"
-                  />
+                {/* DYNAMIC HERO CAROUSEL BANNERS MANAGEMENT */}
+                <div className="border-t border-slate-200 pt-6 mt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Quản Lý Banner Động (Hero Carousel)</h3>
+                      <p className="text-[11px] text-slate-500">Các ảnh lớn chạy tự động ở đầu trang chủ của website. Căn chỉnh tỉ lệ trực quan trước khi lưu.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingBanner(true);
+                        setEditingBannerId(null);
+                        setBannerForm({
+                          id: Date.now().toString(),
+                          image: '',
+                          title: '',
+                          subtitle: '',
+                          alignmentPct: 50
+                        });
+                      }}
+                      className="flex items-center gap-1.5 bg-[#0054A6]/10 hover:bg-[#0054A6]/20 text-[#0054A6] text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Thêm Banner Mới</span>
+                    </button>
+                  </div>
+
+                  {/* BANNER HEIGHT & SIZE SELECTION */}
+                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Chiều cao / Kích thước hiển thị Banner</label>
+                      <p className="text-[11px] text-slate-500">Thay đổi tỉ lệ khung hình (Aspect Ratio) của toàn bộ các slide hiển thị ngoài trang chủ.</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { id: 'short', label: 'Thấp (Compact)', desc: 'h-[400px]' },
+                        { id: 'medium', label: 'Vừa (Cân đối)', desc: 'h-[500px]' },
+                        { id: 'large', label: 'Cao (Hùng vĩ)', desc: 'h-[600px]' },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setWebConfigForm({
+                            ...webConfigForm,
+                            bannerHeight: item.id as 'short' | 'medium' | 'large'
+                          })}
+                          className={`border rounded-xl p-2 text-center transition-all cursor-pointer ${
+                            (webConfigForm.bannerHeight || 'medium') === item.id
+                              ? 'border-[#0054A6] bg-blue-50 text-[#0054A6] ring-2 ring-blue-100 font-bold'
+                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          <div className="text-xs">{item.label}</div>
+                          <div className="text-[9px] opacity-70 mt-0.5">{item.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* REAL-TIME CAROUSEL MULTI-BANNER LIVE PREVIEW */}
+                  <div className="mb-6 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 relative text-white">
+                    <div className="flex items-center justify-between gap-2 mb-4 border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#FFF200] animate-pulse"></span>
+                        <h4 className="text-xs font-black uppercase tracking-wider text-[#FFF200]">
+                          💻 XEM TRƯỚC CAROUSEL TRANG CHỦ (LIVE PREVIEW)
+                        </h4>
+                      </div>
+                      <span className="text-[10px] bg-slate-800 px-2.5 py-1 rounded text-slate-400 font-mono">
+                        {(webConfigForm.banners || []).length > 0 
+                          ? `Slide ${Math.min(previewBannerIndex + 1, (webConfigForm.banners || []).length)} / ${(webConfigForm.banners || []).length}`
+                          : '0 / 0 Banners'
+                        }
+                      </span>
+                    </div>
+
+                    {/* Sliding Mockup Window */}
+                    {(webConfigForm.banners || []).length === 0 ? (
+                      <div className="h-[200px] flex flex-col items-center justify-center text-slate-500 bg-slate-950 rounded-xl border border-dashed border-slate-800">
+                        <span className="text-3xl mb-1">🖼️</span>
+                        <p className="text-xs font-bold">Chưa có banner tùy chọn nào được thêm.</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Hệ thống đang hiển thị 5 slide mặc định của võ đường.</p>
+                      </div>
+                    ) : (
+                      (() => {
+                        const activeBns = webConfigForm.banners || [];
+                        const safeIdx = previewBannerIndex >= activeBns.length ? 0 : previewBannerIndex;
+                        const activeBn = activeBns[safeIdx];
+                        
+                        // Parse alignment percentage
+                        let alignment = 50;
+                        const match = activeBn?.position?.match(/object-\[center_(\d+)%\]/);
+                        if (match) {
+                          alignment = parseInt(match[1]);
+                        }
+
+                        // Determine height depending on bannerHeight selection
+                        const configHeight = webConfigForm.bannerHeight || 'medium';
+                        const heightClasses = 
+                          configHeight === 'short' ? 'h-[160px] sm:h-[190px]' :
+                          configHeight === 'large' ? 'h-[230px] sm:h-[280px]' :
+                          'h-[190px] sm:h-[230px]'; // medium (default)
+
+                        const handleDragStart = (clientY: number) => {
+                          setIsDraggingY(true);
+                          setDragStartY(clientY);
+                          setDragStartPct(alignment);
+                        };
+
+                        const handleDragMove = (clientY: number, containerHeight: number) => {
+                          if (!isDraggingY) return;
+                          const deltaY = clientY - dragStartY;
+                          // Standardize sensitivity
+                          const pctChange = Math.round((deltaY / containerHeight) * 120);
+                          let newPct = dragStartPct - pctChange;
+                          if (newPct < 0) newPct = 0;
+                          if (newPct > 100) newPct = 100;
+
+                          // Update inside the webConfigForm array
+                          const updatedBanners = [...(webConfigForm.banners || [])];
+                          if (updatedBanners[safeIdx]) {
+                            updatedBanners[safeIdx] = {
+                              ...updatedBanners[safeIdx],
+                              position: `object-[center_${newPct}%]`
+                            };
+                            setWebConfigForm({
+                              ...webConfigForm,
+                              banners: updatedBanners
+                            });
+                          }
+                        };
+
+                        return (
+                          <div className="relative">
+                            {/* Drag Tip */}
+                            <div className="absolute top-2 left-2 z-30 bg-black/70 border border-slate-700/60 text-slate-300 text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-semibold pointer-events-none">
+                              <span className="animate-bounce">↕</span>
+                              <span>Nhấp & kéo thả trực tiếp trên ảnh để dời tiêu điểm đứng (Y-axis)</span>
+                            </div>
+
+                            <div 
+                              className={`w-full ${heightClasses} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
+                              onMouseDown={(e) => handleDragStart(e.clientY)}
+                              onMouseMove={(e) => handleDragMove(e.clientY, e.currentTarget.clientHeight)}
+                              onMouseUp={() => setIsDraggingY(false)}
+                              onMouseLeave={() => setIsDraggingY(false)}
+                              onTouchStart={(e) => {
+                                const touch = e.touches[0];
+                                if (touch) handleDragStart(touch.clientY);
+                              }}
+                              onTouchMove={(e) => {
+                                const touch = e.touches[0];
+                                if (touch) handleDragMove(touch.clientY, e.currentTarget.clientHeight);
+                              }}
+                              onTouchEnd={() => setIsDraggingY(false)}
+                            >
+                              {/* Background Image */}
+                              {activeBn?.image ? (
+                                <img
+                                  src={activeBn.image}
+                                  alt="Preview Slide"
+                                  className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
+                                  style={{ objectPosition: `center ${alignment}%` }}
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-500">
+                                  <span>Ảnh lỗi hoặc chưa có ảnh</span>
+                                </div>
+                              )}
+
+                              {/* Overlays */}
+                              <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/35 to-black/80 pointer-events-none"></div>
+                              <div className="absolute inset-0 opacity-15 bg-[linear-gradient(45deg,#0054A6_25%,transparent_25%,transparent_50%,#0054A6_50%,#0054A6_75%,transparent_75%,transparent)] bg-[length:14px_14px] pointer-events-none"></div>
+
+                              {/* Content Overlay */}
+                              <div className="relative z-10 w-full h-full flex flex-col justify-start pt-5 px-4 text-center text-white pointer-events-none">
+                                <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[7.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider mb-1.5 border border-[#FFF200]/25 mx-auto">
+                                  <span className="w-1 h-1 rounded-full bg-[#FFF200] animate-ping"></span>
+                                  <span>Môn Phái Việt Võ Đạo</span>
+                                </div>
+                                
+                                <h2 className="text-xs sm:text-sm font-black text-[#FFF200] uppercase tracking-tight italic mb-1 drop-shadow-md">
+                                  {activeBn?.title || "CHƯA NHẬP TIÊU ĐỀ"}
+                                </h2>
+                                <p className="text-[9px] text-slate-100 font-medium leading-tight max-w-xs mx-auto opacity-95 line-clamp-2 drop-shadow">
+                                  {activeBn?.subtitle || "Mô tả phụ cho banner."}
+                                </p>
+
+                                <div className="mt-2.5 flex gap-1.5 justify-center">
+                                  <span className="bg-[#FFF200] text-[#0054A6] px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                                    Khám phá
+                                  </span>
+                                  <span className="bg-white/10 text-white border border-white/15 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">
+                                    Thư viện
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Dragging Overlay Status */}
+                              {isDraggingY && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none z-20">
+                                  <div className="bg-[#0054A6] text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1 border border-[#FFF200]/40 shadow-xl animate-pulse">
+                                    <span>↕ Đang dời:</span>
+                                    <span className="text-[#FFF200]">{alignment}%</span>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Indicators at Bottom inside the slide mockup */}
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
+                                {activeBns.map((_, idx) => (
+                                  <span 
+                                    key={idx} 
+                                    className={`rounded-full transition-all ${idx === safeIdx ? 'w-4 h-1 bg-[#FFF200]' : 'w-1.5 h-1 bg-white/30'}`}
+                                  ></span>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Navigation Arrows for Preview */}
+                            <button
+                              type="button"
+                              onClick={() => setPreviewBannerIndex((prev) => (prev - 1 + activeBns.length) % activeBns.length)}
+                              className="absolute left-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/55 hover:bg-[#0054A6] text-white p-1.5 rounded-full border border-slate-700/50 hover:text-[#FFF200] transition-colors cursor-pointer"
+                              title="Banner trước"
+                            >
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewBannerIndex((prev) => (prev + 1) % activeBns.length)}
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2 z-20 bg-black/55 hover:bg-[#0054A6] text-white p-1.5 rounded-full border border-slate-700/50 hover:text-[#FFF200] transition-colors cursor-pointer"
+                              title="Banner sau"
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+
+                  {/* Banner Add/Edit form overlay or box if open */}
+                  {(isAddingBanner || editingBannerId) && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 mb-6 space-y-4 relative animate-in slide-in-from-top-4 duration-200">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingBanner(false);
+                          setEditingBannerId(null);
+                        }}
+                        className="absolute top-3 right-3 text-slate-400 hover:text-slate-600 p-1 bg-white hover:bg-slate-100 rounded-full border shadow-xs"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+
+                      <h4 className="text-xs font-black text-[#0054A6] uppercase tracking-wider">
+                        {isAddingBanner ? '✨ Thêm Banner Mới' : '📝 Chỉnh Sửa Banner'}
+                      </h4>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Left Side: Inputs */}
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tiêu đề Banner</label>
+                            <input
+                              type="text"
+                              value={bannerForm.title}
+                              onChange={e => setBannerForm({ ...bannerForm, title: e.target.value })}
+                              placeholder="VD: Vinh Quang Việt Võ Đạo..."
+                              className="w-full text-xs border p-2 rounded-lg bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Mô tả ngắn</label>
+                            <textarea
+                              value={bannerForm.subtitle}
+                              onChange={e => setBannerForm({ ...bannerForm, subtitle: e.target.value })}
+                              placeholder="VD: Nhiều huy chương vàng đạt được tại các giải trẻ toàn quốc..."
+                              rows={2}
+                              className="w-full text-xs border p-2 rounded-lg bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Đường dẫn ảnh (URL hoặc tải lên)</label>
+                            <input
+                              type="text"
+                              value={bannerForm.image}
+                              onChange={e => setBannerForm({ ...bannerForm, image: e.target.value })}
+                              placeholder="Nhập đường dẫn URL ảnh hoặc chọn file ở dưới..."
+                              className="w-full text-xs border p-2 rounded-lg bg-white mb-2"
+                            />
+                            <label className="flex items-center justify-center border border-dashed border-[#0054A6]/30 hover:border-[#0054A6] rounded-lg py-1.5 px-3 text-[11px] font-bold text-[#0054A6] cursor-pointer bg-[#0054A6]/5 hover:bg-[#0054A6]/10 transition-colors">
+                              <input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    // Compress image before saving if it is too big
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      if (typeof reader.result === 'string') {
+                                        const img = new Image();
+                                        img.onload = () => {
+                                          // Simple canvas resize to avoid massive base64 in localstorage
+                                          const canvas = document.createElement('canvas');
+                                          let width = img.width;
+                                          let height = img.height;
+                                          
+                                          // Max width 1200px
+                                          if (width > 1200) {
+                                            height = Math.round((height * 1200) / width);
+                                            width = 1200;
+                                          }
+                                          
+                                          canvas.width = width;
+                                          canvas.height = height;
+                                          const ctx = canvas.getContext('2d');
+                                          if (ctx) {
+                                            ctx.drawImage(img, 0, 0, width, height);
+                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality JPEG
+                                            setBannerForm(prev => ({ ...prev, image: compressedBase64 }));
+                                          } else {
+                                            setBannerForm(prev => ({ ...prev, image: reader.result as string }));
+                                          }
+                                        };
+                                        img.src = reader.result;
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                                className="hidden" 
+                              />
+                              <span>Tải ảnh từ máy & Tự động nén dung lượng 📁</span>
+                            </label>
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between items-center mb-1">
+                              <label className="block text-[11px] font-bold text-slate-500 uppercase">Căn chỉnh dọc hình ảnh (Y-axis)</label>
+                              <span className="text-xs font-black text-[#0054A6]">{bannerForm.alignmentPct}%</span>
+                            </div>
+                            <input
+                              type="range"
+                              min="0"
+                              max="100"
+                              value={bannerForm.alignmentPct}
+                              onChange={e => setBannerForm({ ...bannerForm, alignmentPct: parseInt(e.target.value) })}
+                              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#0054A6]"
+                            />
+                            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                              <span>0% (Đỉnh ảnh)</span>
+                              <span>50% (Chính giữa)</span>
+                              <span>100% (Đáy ảnh)</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right Side: LIVE PREVIEW SINGLE */}
+                        <div className="flex flex-col h-full">
+                          <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-[#0054A6]" />
+                            <span>XEM TRƯỚC SƠ BỘ SLIDE</span>
+                          </label>
+                          
+                          <div className="flex-grow border border-slate-300 rounded-xl overflow-hidden relative bg-slate-900 flex flex-col justify-between h-[180px] sm:h-[220px] shadow-inner select-none">
+                            {bannerForm.image ? (
+                              <img
+                                src={bannerForm.image}
+                                alt="Single Preview Background"
+                                className="absolute inset-0 w-full h-full object-cover"
+                                style={{ objectPosition: `center ${bannerForm.alignmentPct}%` }}
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-950 p-4 text-center">
+                                <span className="text-2xl">🖼️</span>
+                                <span className="text-[10px] mt-1 font-bold">Chưa có ảnh. Tải ảnh lên để căn chỉnh</span>
+                              </div>
+                            )}
+
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70 pointer-events-none"></div>
+
+                            {/* Content Mockup */}
+                            <div className="relative z-10 w-full h-full flex flex-col justify-start pt-6 px-4 text-center text-white pointer-events-none">
+                              <h2 className="text-xs sm:text-sm font-black text-[#FFF200] uppercase tracking-tight italic mb-1">
+                                {bannerForm.title || "TIÊU ĐỀ BANNER MOCKUP"}
+                              </h2>
+                              <p className="text-[9px] text-slate-100 font-medium leading-tight line-clamp-2">
+                                {bannerForm.subtitle || "Mô tả ngắn của slide."}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsAddingBanner(false);
+                            setEditingBannerId(null);
+                          }}
+                          className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-4 py-1.5 rounded-lg cursor-pointer"
+                        >
+                          Hủy bỏ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!bannerForm.image) {
+                              alert('Vui lòng thêm hình ảnh cho banner!');
+                              return;
+                            }
+                            // Save or Add Banner inside local form state
+                            const currentBanners = [...(webConfigForm.banners || [])];
+                            const updatedBannerItem = {
+                              id: bannerForm.id || Date.now().toString(),
+                              image: bannerForm.image,
+                              title: bannerForm.title || 'Tiêu Đề Banner',
+                              subtitle: bannerForm.subtitle || '',
+                              position: `object-[center_${bannerForm.alignmentPct}%]`
+                            };
+
+                            if (editingBannerId) {
+                              // Update
+                              const idx = currentBanners.findIndex(b => b.id === editingBannerId);
+                              if (idx !== -1) {
+                                currentBanners[idx] = updatedBannerItem;
+                              }
+                            } else {
+                              // Add
+                              currentBanners.push(updatedBannerItem);
+                            }
+
+                            setWebConfigForm({
+                              ...webConfigForm,
+                              banners: currentBanners
+                            });
+                            setIsAddingBanner(false);
+                            setEditingBannerId(null);
+                          }}
+                          className="bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-4 py-1.5 rounded-lg cursor-pointer"
+                        >
+                          {editingBannerId ? 'Cập Nhật Banner' : 'Xác Nhận Thêm'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Current Banners Grid with drag-like order shifting and delete */}
+                  <div className="space-y-3">
+                    {(webConfigForm.banners || []).length === 0 ? (
+                      <div className="bg-slate-50 border border-dashed rounded-xl p-6 text-center text-slate-500 text-xs">
+                        Chưa cấu hình banner động riêng. Hệ thống đang sử dụng các banner mặc định của CLB.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3">
+                        {(webConfigForm.banners || []).map((banner, index) => {
+                          // Parse alignmentPct from positioning string like object-[center_XX%] or default to 50
+                          let pct = 50;
+                          const match = banner.position?.match(/object-\[center_(\d+)%\]/);
+                          if (match) {
+                            pct = parseInt(match[1]);
+                          }
+
+                          return (
+                            <div key={banner.id} className="bg-white border rounded-xl p-3 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-xs hover:border-slate-300 transition-colors">
+                              <div className="flex items-center gap-3 w-full sm:w-auto">
+                                {/* Micro Thumbnail */}
+                                <div className="w-16 h-12 bg-slate-900 border rounded-lg overflow-hidden flex-shrink-0 relative">
+                                  <img
+                                    src={banner.image}
+                                    alt="Thumbnail"
+                                    className="w-full h-full object-cover"
+                                    style={{ objectPosition: `center ${pct}%` }}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <div className="absolute inset-0 bg-black/10"></div>
+                                </div>
+
+                                <div className="min-w-0 flex-grow">
+                                  <h5 className="text-xs font-black text-slate-800 uppercase truncate leading-tight">
+                                    {index + 1}. {banner.title || "Không có tiêu đề"}
+                                  </h5>
+                                  <p className="text-[10px] text-slate-500 truncate max-w-sm mt-0.5">
+                                    {banner.subtitle || "Không có mô tả phụ"}
+                                  </p>
+                                  <span className="inline-block text-[9px] font-bold text-[#0054A6] bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5 mt-1">
+                                    Căn dọc: {pct}%
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Order management + Edit + Delete */}
+                              <div className="flex items-center gap-2 w-full sm:w-auto justify-end border-t sm:border-t-0 pt-2 sm:pt-0">
+                                {/* Shifting order */}
+                                <button
+                                  type="button"
+                                  disabled={index === 0}
+                                  onClick={() => {
+                                    const currentBanners = [...(webConfigForm.banners || [])];
+                                    const temp = currentBanners[index];
+                                    currentBanners[index] = currentBanners[index - 1];
+                                    currentBanners[index - 1] = temp;
+                                    setWebConfigForm({ ...webConfigForm, banners: currentBanners });
+                                  }}
+                                  className={`p-1 text-xs bg-white text-slate-600 transition-colors ${index === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer border rounded-lg'}`}
+                                  title="Di chuyển lên"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={index === (webConfigForm.banners || []).length - 1}
+                                  onClick={() => {
+                                    const currentBanners = [...(webConfigForm.banners || [])];
+                                    const temp = currentBanners[index];
+                                    currentBanners[index] = currentBanners[index + 1];
+                                    currentBanners[index + 1] = temp;
+                                    setWebConfigForm({ ...webConfigForm, banners: currentBanners });
+                                  }}
+                                  className={`p-1 text-xs bg-white text-slate-600 transition-colors ${index === (webConfigForm.banners || []).length - 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-50 cursor-pointer border rounded-lg'}`}
+                                  title="Di chuyển xuống"
+                                >
+                                  ▼
+                                </button>
+
+                                {/* Edit */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingBannerId(banner.id);
+                                    setIsAddingBanner(false);
+                                    setBannerForm({
+                                      id: banner.id,
+                                      image: banner.image,
+                                      title: banner.title,
+                                      subtitle: banner.subtitle,
+                                      alignmentPct: pct
+                                    });
+                                  }}
+                                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-[#0054A6] hover:bg-[#0054A6]/5 transition-colors cursor-pointer"
+                                  title="Sửa banner"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+
+                                {/* Delete */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm('Bạn có chắc chắn muốn xóa banner này?')) {
+                                      const currentBanners = (webConfigForm.banners || []).filter(b => b.id !== banner.id);
+                                      setWebConfigForm({ ...webConfigForm, banners: currentBanners });
+                                      if (previewBannerIndex >= currentBanners.length && currentBanners.length > 0) {
+                                        setPreviewBannerIndex(currentBanners.length - 1);
+                                      }
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg border border-slate-200 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                                  title="Xóa banner"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className="pt-4 flex justify-end">
@@ -1629,6 +2843,16 @@ export default function AdminPanel({
                         />
                       </div>
                       <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mã Bài Viết (ID tự chọn)</label>
+                        <input 
+                          type="text" 
+                          placeholder="Nhập ID tự chọn (hoặc để trống để tự động tăng)"
+                          value={articleForm.id || ''}
+                          onChange={e => setArticleForm({ ...articleForm, id: e.target.value })}
+                          className="w-full text-sm border p-2 rounded-lg"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Danh mục</label>
                         <select 
                           value={articleForm.categoryId || ''}
@@ -1644,6 +2868,7 @@ export default function AdminPanel({
                           value={articleForm.image || ''}
                           onChange={val => setArticleForm({ ...articleForm, image: val })}
                           id="article-image-uploader"
+                          aspectRatio="16:9"
                         />
                       </div>
                       <div>
@@ -1653,6 +2878,16 @@ export default function AdminPanel({
                           value={articleForm.date || ''}
                           onChange={e => setArticleForm({ ...articleForm, date: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Lượt xem bài viết</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          value={articleForm.views !== undefined ? articleForm.views : 0}
+                          onChange={e => setArticleForm({ ...articleForm, views: parseInt(e.target.value) || 0 })}
+                          className="w-full text-sm border p-2 rounded-lg"
                         />
                       </div>
                     </div>
@@ -1709,7 +2944,6 @@ export default function AdminPanel({
                           value={categoryForm.id || ''}
                           onChange={e => setCategoryForm({ ...categoryForm, id: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
-                          disabled={editId !== null}
                           placeholder="Ví dụ: TIN_CLB, KIEU_MAU"
                         />
                       </div>
@@ -1764,7 +2998,6 @@ export default function AdminPanel({
                           value={coachForm.id || ''}
                           onChange={e => setCoachForm({ ...coachForm, id: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
-                          disabled={editId !== null}
                           placeholder="Ví dụ: HLV_THIEN"
                         />
                       </div>
@@ -1783,6 +3016,7 @@ export default function AdminPanel({
                           value={coachForm.photo || ''}
                           onChange={val => setCoachForm({ ...coachForm, photo: val })}
                           id="coach-photo-uploader"
+                          aspectRatio="1:1"
                         />
                       </div>
                       <div>
@@ -1847,7 +3081,6 @@ export default function AdminPanel({
                           value={memberForm.id || ''}
                           onChange={e => setMemberForm({ ...memberForm, id: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
-                          disabled={editId !== null}
                           placeholder="Ví dụ: TV001"
                         />
                       </div>
@@ -1866,6 +3099,7 @@ export default function AdminPanel({
                           value={memberForm.photo || ''}
                           onChange={val => setMemberForm({ ...memberForm, photo: val })}
                           id="member-photo-uploader"
+                          aspectRatio="1:1"
                         />
                       </div>
                       <div>
@@ -1921,12 +3155,145 @@ export default function AdminPanel({
                           value={achievementForm.id || ''}
                           onChange={e => setAchievementForm({ ...achievementForm, id: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
-                          disabled={editId !== null}
                           placeholder="Ví dụ: TT001"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Họ và tên môn sinh đạt giải</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại huy chương</label>
+                        <select 
+                          value={achievementForm.medalType || 'Vàng'}
+                          onChange={e => setAchievementForm({ ...achievementForm, medalType: e.target.value as any })}
+                          className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
+                        >
+                          <option value="Vàng">🥇 Huy Chương Vàng</option>
+                          <option value="Bạc">🥈 Huy Chương Bạc</option>
+                          <option value="Đồng">🥉 Huy Chương Đồng</option>
+                          <option value="Khác">🏆 Khác</option>
+                        </select>
+                      </div>
+
+                      {/* Dynamic Coach/Member ID Lookup Section */}
+                      <div className="sm:col-span-2 bg-blue-50/20 p-4 rounded-xl border border-[#0054A6]/20">
+                        <h3 className="text-xs font-bold text-[#0054A6] uppercase tracking-wider mb-2.5">
+                          Liên kết người đạt giải (Bằng cách nhập hoặc chọn ID)
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Nhập ID Môn sinh hoặc HLV</label>
+                            <input 
+                              type="text" 
+                              placeholder="Ví dụ: TV001 hoặc HLV_THIEN"
+                              value={(achievementForm.memberIds && achievementForm.memberIds[0]) || ''}
+                              onChange={e => {
+                                const val = e.target.value.trim();
+                                const foundMember = members.find(m => m.id.toLowerCase() === val.toLowerCase());
+                                const foundCoach = coaches.find(c => c.id.toLowerCase() === val.toLowerCase());
+                                
+                                if (foundMember) {
+                                  setAchievementForm({
+                                    ...achievementForm,
+                                    athleteName: foundMember.fullName,
+                                    memberIds: [foundMember.id]
+                                  });
+                                } else if (foundCoach) {
+                                  setAchievementForm({
+                                    ...achievementForm,
+                                    athleteName: foundCoach.fullName,
+                                    memberIds: [foundCoach.id]
+                                  });
+                                } else {
+                                  // Just set the state's ID list
+                                  setAchievementForm({
+                                    ...achievementForm,
+                                    memberIds: [val]
+                                  });
+                                }
+                              }}
+                              className="w-full text-sm border border-[#0054A6]/30 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Chọn nhanh từ danh sách CLB</label>
+                            <select
+                              value={(achievementForm.memberIds && achievementForm.memberIds[0]) || ''}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const foundMember = members.find(m => m.id === val);
+                                const foundCoach = coaches.find(c => c.id === val);
+                                
+                                if (foundMember) {
+                                  setAchievementForm({
+                                    ...achievementForm,
+                                    athleteName: foundMember.fullName,
+                                    memberIds: [foundMember.id]
+                                  });
+                                } else if (foundCoach) {
+                                  setAchievementForm({
+                                    ...achievementForm,
+                                    athleteName: foundCoach.fullName,
+                                    memberIds: [foundCoach.id]
+                                  });
+                                }
+                              }}
+                              className="w-full text-sm border border-slate-300 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6]"
+                            >
+                              <option value="">-- Chọn Môn sinh hoặc HLV --</option>
+                              <optgroup label="Danh sách Huấn luyện viên">
+                                {coaches.map(c => (
+                                  <option key={c.id} value={c.id}>{c.fullName} (ID: {c.id})</option>
+                                ))}
+                              </optgroup>
+                              <optgroup label="Danh sách Môn sinh/Thành viên">
+                                {members.map(m => (
+                                  <option key={m.id} value={m.id}>{m.fullName} (ID: {m.id})</option>
+                                ))}
+                              </optgroup>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Real-time Match Visual Confirmation Card */}
+                        {(() => {
+                          const typedId = (achievementForm.memberIds && achievementForm.memberIds[0]) || '';
+                          const matchedMember = members.find(m => m.id.toLowerCase() === typedId.toLowerCase());
+                          const matchedCoach = coaches.find(c => c.id.toLowerCase() === typedId.toLowerCase());
+                          const person = matchedMember || matchedCoach;
+                          const isCoach = !!matchedCoach;
+
+                          if (person) {
+                            return (
+                              <div className="mt-3 p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center gap-3 animate-fade-in">
+                                {person.photo || (person as any).photo ? (
+                                  <img src={person.photo || (person as any).photo} alt={person.fullName} className="w-9 h-9 rounded-full object-cover border border-emerald-300" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <div className="w-9 h-9 bg-emerald-200 text-emerald-800 rounded-full flex items-center justify-center font-bold text-xs border border-emerald-300">
+                                    {isCoach ? 'VS' : 'MS'}
+                                  </div>
+                                )}
+                                <div className="text-xs leading-tight">
+                                  <p className="font-extrabold text-emerald-950 uppercase tracking-wide">
+                                    {isCoach ? '🟢 Huấn Luyện Viên' : '🔵 Môn Sinh'}
+                                  </p>
+                                  <p className="font-bold text-slate-800 text-sm mt-0.5">{person.fullName}</p>
+                                  <p className="text-slate-500 text-[10px] mt-0.5">ID: {person.id} • Đai: {person.rank}</p>
+                                </div>
+                                <span className="ml-auto text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">✓ KHỚP HỒ SƠ</span>
+                              </div>
+                            );
+                          } else if (typedId) {
+                            return (
+                              <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-200 text-[11px] text-amber-800 font-medium">
+                                ⚠️ ID "<strong>{typedId}</strong>" chưa khớp với HLV hay Môn sinh nào. Bạn vẫn có thể điền họ tên thủ công ở dưới.
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Họ và tên người nhận giải (Môn sinh/HLV)</label>
                         <input 
                           type="text" 
                           value={achievementForm.athleteName || ''}
@@ -1951,6 +3318,7 @@ export default function AdminPanel({
                           value={achievementForm.image || ''}
                           onChange={val => setAchievementForm({ ...achievementForm, image: val })}
                           id="achievement-image-uploader"
+                          aspectRatio="4:3"
                         />
                       </div>
                       <div>
@@ -1964,19 +3332,6 @@ export default function AdminPanel({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại huy chương</label>
-                        <select 
-                          value={achievementForm.medalType || 'Vàng'}
-                          onChange={e => setAchievementForm({ ...achievementForm, medalType: e.target.value as any })}
-                          className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
-                        >
-                          <option value="Vàng">🥇 Huy Chương Vàng</option>
-                          <option value="Bạc">🥈 Huy Chương Bạc</option>
-                          <option value="Đồng">🥉 Huy Chương Đồng</option>
-                          <option value="Khác">🏆 Khác</option>
-                        </select>
-                      </div>
-                      <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (Tự điền)</label>
                         <input 
                           type="text" 
@@ -1987,7 +3342,7 @@ export default function AdminPanel({
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày đạt giải</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày đạt giải (Tự động tính Năm)</label>
                         <input 
                           type="date" 
                           value={achievementForm.date || ''}
@@ -1997,16 +3352,6 @@ export default function AdminPanel({
                             setAchievementForm({ ...achievementForm, date: d, year: y });
                           }}
                           className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Năm đạt giải</label>
-                        <input 
-                          type="text" 
-                          value={achievementForm.year || ''}
-                          onChange={e => setAchievementForm({ ...achievementForm, year: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none"
-                          placeholder="Ví dụ: 2026"
                         />
                       </div>
                     </div>
@@ -2024,47 +3369,62 @@ export default function AdminPanel({
                           Chưa có môn sinh nào trong danh sách hệ thống. Hãy thêm môn sinh trước.
                         </p>
                       ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
-                          {members.map(member => {
-                            const isChecked = achievementForm.memberIds?.includes(member.id) || false;
-                            return (
-                              <label 
-                                key={member.id} 
-                                className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer select-none transition-all ${
-                                  isChecked 
-                                    ? 'bg-blue-50 border-blue-200 text-[#0054A6] font-bold shadow-sm' 
-                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                                }`}
-                              >
-                                <input 
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={e => {
-                                    const currentIds = achievementForm.memberIds || [];
-                                    if (e.target.checked) {
-                                      setAchievementForm({ ...achievementForm, memberIds: [...currentIds, member.id] });
-                                    } else {
-                                      setAchievementForm({ ...achievementForm, memberIds: currentIds.filter(id => id !== member.id) });
-                                    }
-                                  }}
-                                  className="rounded border-slate-300 text-[#0054A6] focus:ring-[#0054A6] w-4 h-4 cursor-pointer"
-                                />
-                                <div className="flex items-center gap-2">
-                                  {member.photo ? (
-                                    <img src={member.photo} alt={member.fullName} className="w-7 h-7 rounded-full object-cover border" referrerPolicy="no-referrer" />
-                                  ) : (
-                                    <div className="w-7 h-7 bg-blue-100 text-[#0054A6] rounded-full flex items-center justify-center font-bold text-[10px]">
-                                      {member.fullName.charAt(0)}
+                        <div className="space-y-3">
+                          <input 
+                            type="text"
+                            placeholder="🔍 Nhập mã ID hoặc tên môn sinh để tìm kiếm nhanh..."
+                            value={memberSearchQuery}
+                            onChange={e => setMemberSearchQuery(e.target.value)}
+                            className="w-full text-xs border border-slate-200 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6]"
+                          />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
+                            {members
+                              .filter(member => {
+                                if (!memberSearchQuery) return true;
+                                const term = memberSearchQuery.toLowerCase().trim();
+                                return member.fullName.toLowerCase().includes(term) || member.id.toLowerCase().includes(term);
+                              })
+                              .map(member => {
+                                const isChecked = achievementForm.memberIds?.includes(member.id) || false;
+                                return (
+                                  <label 
+                                    key={member.id} 
+                                    className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer select-none transition-all ${
+                                      isChecked 
+                                        ? 'bg-blue-50 border-blue-200 text-[#0054A6] font-bold shadow-sm' 
+                                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <input 
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={e => {
+                                        const currentIds = achievementForm.memberIds || [];
+                                        if (e.target.checked) {
+                                          setAchievementForm({ ...achievementForm, memberIds: [...currentIds, member.id] });
+                                        } else {
+                                          setAchievementForm({ ...achievementForm, memberIds: currentIds.filter(id => id !== member.id) });
+                                        }
+                                      }}
+                                      className="rounded border-slate-300 text-[#0054A6] focus:ring-[#0054A6] w-4 h-4 cursor-pointer"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      {member.photo ? (
+                                        <img src={member.photo} alt={member.fullName} className="w-7 h-7 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                      ) : (
+                                        <div className="w-7 h-7 bg-blue-100 text-[#0054A6] rounded-full flex items-center justify-center font-bold text-[10px]">
+                                          {member.fullName.charAt(0)}
+                                        </div>
+                                      )}
+                                      <div className="text-left">
+                                        <p className="text-xs font-bold leading-tight">{member.fullName}</p>
+                                        <p className="text-[9px] text-slate-400 font-medium">{member.rank} (ID: {member.id})</p>
+                                      </div>
                                     </div>
-                                  )}
-                                  <div className="text-left">
-                                    <p className="text-xs font-bold leading-tight">{member.fullName}</p>
-                                    <p className="text-[9px] text-slate-400 font-medium">{member.rank}</p>
-                                  </div>
-                                </div>
-                              </label>
-                            );
-                          })}
+                                  </label>
+                                );
+                              })}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2091,8 +3451,7 @@ export default function AdminPanel({
                           type="text" 
                           value={tournamentForm.id || ''}
                           onChange={e => setTournamentForm({ ...tournamentForm, id: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg" required
-                          disabled={editId !== null}
+                          className="w-full text-sm border p-2 rounded-lg font-mono focus:ring-1 focus:ring-[#0054A6] outline-none" required
                           placeholder="Ví dụ: GD001"
                         />
                       </div>
@@ -2111,6 +3470,7 @@ export default function AdminPanel({
                           value={tournamentForm.image || ''}
                           onChange={val => setTournamentForm({ ...tournamentForm, image: val })}
                           id="tournament-image-uploader"
+                          aspectRatio="16:9"
                         />
                       </div>
                       <div>
@@ -2145,6 +3505,39 @@ export default function AdminPanel({
                         </select>
                       </div>
                     </div>
+
+                    <div className="space-y-4 border-t pt-4">
+                      <div>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Giới thiệu giải đấu</label>
+                        <textarea 
+                          value={tournamentForm.introduction || ''}
+                          onChange={e => setTournamentForm({ ...tournamentForm, introduction: e.target.value })}
+                          className="w-full text-sm border p-2 rounded-lg font-sans focus:ring-1 focus:ring-[#0054A6] outline-none"
+                          rows={3}
+                          placeholder="Nhập thông tin giới thiệu chi tiết về giải đấu..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Lịch trình giải đấu</label>
+                        <textarea 
+                          value={tournamentForm.schedule || ''}
+                          onChange={e => setTournamentForm({ ...tournamentForm, schedule: e.target.value })}
+                          className="w-full text-sm border p-2 rounded-lg font-mono focus:ring-1 focus:ring-[#0054A6] outline-none"
+                          rows={3}
+                          placeholder="Nhập chi tiết lịch trình thi đấu..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Điều lệ giải đấu</label>
+                        <textarea 
+                          value={tournamentForm.rules || ''}
+                          onChange={e => setTournamentForm({ ...tournamentForm, rules: e.target.value })}
+                          className="w-full text-sm border p-2 rounded-lg font-sans focus:ring-1 focus:ring-[#0054A6] outline-none"
+                          rows={3}
+                          placeholder="Nhập quy chế, điều lệ, và yêu cầu đăng ký thi đấu..."
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -2159,7 +3552,6 @@ export default function AdminPanel({
                           value={clubForm.id || ''}
                           onChange={e => setClubForm({ ...clubForm, id: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
-                          disabled={editId !== null}
                           placeholder="Ví dụ: CLB_XC"
                         />
                       </div>
@@ -2178,16 +3570,82 @@ export default function AdminPanel({
                           value={clubForm.image || ''}
                           onChange={val => setClubForm({ ...clubForm, image: val })}
                           id="club-image-uploader"
+                          aspectRatio="16:9"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Võ sư/HLV phụ trách</label>
-                        <input 
-                          type="text" 
-                          value={clubForm.headCoach || ''}
-                          onChange={e => setClubForm({ ...clubForm, headCoach: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg" required
-                        />
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <label className="block text-xs font-bold text-[#0054A6] uppercase mb-1">Tra cứu Võ sư/HLV phụ trách chính qua ID</label>
+                        <div className="flex gap-2 mb-2">
+                          <input 
+                            type="text" 
+                            placeholder="Nhập ID HLV (Ví dụ: HLV_THIEN)"
+                            value={coaches.find(c => c.fullName === clubForm.headCoach)?.id || ''}
+                            onChange={e => {
+                              const val = e.target.value.trim();
+                              const found = coaches.find(c => c.id.toLowerCase() === val.toLowerCase());
+                              if (found) {
+                                setClubForm({
+                                  ...clubForm,
+                                  headCoach: found.fullName,
+                                  coachIds: (clubForm.coachIds || []).includes(found.id)
+                                    ? clubForm.coachIds
+                                    : [...(clubForm.coachIds || []), found.id]
+                                });
+                              }
+                            }}
+                            className="text-sm border border-[#0054A6]/30 p-2 rounded-lg flex-1 bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                          />
+                          <select
+                            value={coaches.find(c => c.fullName === clubForm.headCoach)?.id || ''}
+                            onChange={e => {
+                              const found = coaches.find(c => c.id === e.target.value);
+                              if (found) {
+                                setClubForm({
+                                  ...clubForm,
+                                  headCoach: found.fullName,
+                                  coachIds: (clubForm.coachIds || []).includes(found.id)
+                                    ? clubForm.coachIds
+                                    : [...(clubForm.coachIds || []), found.id]
+                                });
+                              }
+                            }}
+                            className="text-xs border border-slate-300 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6]"
+                          >
+                            <option value="">-- Chọn nhanh --</option>
+                            {coaches.map(c => (
+                              <option key={c.id} value={c.id}>{c.fullName} ({c.id})</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-500 uppercase mb-0.5">Tên Võ sư/HLV phụ trách chính</label>
+                          <input 
+                            type="text" 
+                            value={clubForm.headCoach || ''}
+                            onChange={e => setClubForm({ ...clubForm, headCoach: e.target.value })}
+                            className="w-full text-xs border p-1.5 rounded-lg bg-white" required
+                            placeholder="Tự động điền khi khớp ID hoặc nhập thủ công"
+                          />
+                        </div>
+                        {(() => {
+                          const matchedCoach = coaches.find(c => c.fullName === clubForm.headCoach);
+                          if (matchedCoach) {
+                            return (
+                              <div className="flex items-center gap-2 mt-2 p-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                                {matchedCoach.photo ? (
+                                  <img src={matchedCoach.photo} alt={matchedCoach.fullName} className="w-6 h-6 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <div className="w-6 h-6 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center text-[9px] font-bold">VS</div>
+                                )}
+                                <div className="text-[10px] leading-tight text-emerald-800">
+                                  <p className="font-bold">✓ Xác nhận: {matchedCoach.fullName}</p>
+                                  <p className="text-[9px] text-emerald-600">ID: {matchedCoach.id} • Đẳng cấp: {matchedCoach.rank}</p>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Địa chỉ chính xác (Dùng định vị bản đồ)</label>
@@ -2218,6 +3676,52 @@ export default function AdminPanel({
                           placeholder="Ví dụ: 18:00 - 19:30 & 19:30 - 21:00"
                         />
                       </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                          Chọn các huấn luyện viên phụ trách CLB (Tự động cập nhật hình ảnh và thông tin của họ)
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 border border-slate-200/80 p-3 rounded-lg bg-slate-50 max-h-48 overflow-y-auto">
+                          {coaches.map(coach => {
+                            const isChecked = (clubForm.coachIds || []).includes(coach.id);
+                            return (
+                              <label key={coach.id} className="flex items-center gap-3 p-2 bg-white rounded-md border border-slate-100 hover:border-[#0054A6]/30 cursor-pointer select-none">
+                                <input 
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={e => {
+                                    const currentIds = clubForm.coachIds || [];
+                                    const nextIds = e.target.checked 
+                                      ? [...currentIds, coach.id]
+                                      : currentIds.filter(id => id !== coach.id);
+                                    
+                                    // Auto-set headCoach to the first checked coach if headCoach is empty
+                                    const updatedFields: any = { coachIds: nextIds };
+                                    if (e.target.checked && !clubForm.headCoach) {
+                                      updatedFields.headCoach = coach.fullName;
+                                    }
+                                    setClubForm({ ...clubForm, ...updatedFields });
+                                  }}
+                                  className="w-4 h-4 text-[#0054A6] rounded focus:ring-[#0054A6]"
+                                />
+                                {coach.photo ? (
+                                  <img src={coach.photo} alt={coach.fullName} className="w-8 h-8 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-[#0054A6]/10 text-[#0054A6] font-bold text-xs flex items-center justify-center border">
+                                    VS
+                                  </div>
+                                )}
+                                <div className="text-xs">
+                                  <p className="font-bold text-slate-800 leading-tight">{coach.fullName}</p>
+                                  <p className="text-[10px] text-slate-500">{coach.rank} • ID: {coach.id}</p>
+                                </div>
+                              </label>
+                            );
+                          })}
+                          {coaches.length === 0 && (
+                            <p className="col-span-full text-center text-xs text-slate-500 py-4">Chưa có huấn luyện viên nào trên hệ thống. Hãy tạo HLV ở tab Huấn luyện viên trước.</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <input 
@@ -2241,8 +3745,7 @@ export default function AdminPanel({
                           type="text" 
                           value={highlightForm.id || ''}
                           onChange={e => setHighlightForm({ ...highlightForm, id: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg" required
-                          disabled={editId !== null}
+                          className="w-full text-sm border p-2 rounded-lg font-mono focus:ring-1 focus:ring-[#0054A6]" required
                           placeholder="Ví dụ: HL001"
                         />
                       </div>
@@ -2255,14 +3758,75 @@ export default function AdminPanel({
                           className="w-full text-sm border p-2 rounded-lg" required
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên vận động viên biểu diễn</label>
-                        <input 
-                          type="text" 
-                          value={highlightForm.athleteName || ''}
-                          onChange={e => setHighlightForm({ ...highlightForm, athleteName: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg" required
-                        />
+                      <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <label className="block text-xs font-bold text-[#0054A6] uppercase mb-1">Tra cứu Vận động viên (HLV hoặc Môn sinh) qua ID</label>
+                        <div className="flex gap-2 mb-2">
+                          <input 
+                            type="text" 
+                            placeholder="Nhập ID (Ví dụ: TV001)"
+                            value={coaches.find(c => c.fullName === highlightForm.athleteName)?.id || members.find(m => m.fullName === highlightForm.athleteName)?.id || ''}
+                            onChange={e => {
+                              const val = e.target.value.trim();
+                              const foundMember = members.find(m => m.id.toLowerCase() === val.toLowerCase());
+                              const foundCoach = coaches.find(c => c.id.toLowerCase() === val.toLowerCase());
+                              if (foundMember) {
+                                setHighlightForm({ ...highlightForm, athleteName: foundMember.fullName });
+                              } else if (foundCoach) {
+                                setHighlightForm({ ...highlightForm, athleteName: foundCoach.fullName });
+                              }
+                            }}
+                            className="text-xs border border-[#0054A6]/30 p-2 rounded-lg flex-1 bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                          />
+                          <select
+                            value={coaches.find(c => c.fullName === highlightForm.athleteName)?.id || members.find(m => m.fullName === highlightForm.athleteName)?.id || ''}
+                            onChange={e => {
+                              const val = e.target.value;
+                              const foundMember = members.find(m => m.id === val);
+                              const foundCoach = coaches.find(c => c.id === val);
+                              if (foundMember) {
+                                setHighlightForm({ ...highlightForm, athleteName: foundMember.fullName });
+                              } else if (foundCoach) {
+                                setHighlightForm({ ...highlightForm, athleteName: foundCoach.fullName });
+                              }
+                            }}
+                            className="text-xs border border-slate-300 p-1.5 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6]"
+                          >
+                            <option value="">-- Chọn nhanh --</option>
+                            <optgroup label="Huấn luyện viên">
+                              {coaches.map(c => (
+                                <option key={c.id} value={c.id}>{c.fullName} ({c.id})</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Môn sinh">
+                              {members.map(m => (
+                                <option key={m.id} value={m.id}>{m.fullName} ({m.id})</option>
+                              ))}
+                            </optgroup>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-black text-slate-500 uppercase mb-0.5">Tên vận động viên biểu diễn</label>
+                          <input 
+                            type="text" 
+                            value={highlightForm.athleteName || ''}
+                            onChange={e => setHighlightForm({ ...highlightForm, athleteName: e.target.value })}
+                            className="w-full text-xs border p-1.5 rounded-lg bg-white" required
+                            placeholder="Tự động điền khi khớp ID hoặc nhập thủ công"
+                          />
+                        </div>
+                        {(() => {
+                          const matchedMember = members.find(m => m.fullName === highlightForm.athleteName);
+                          const matchedCoach = coaches.find(c => c.fullName === highlightForm.athleteName);
+                          const person = matchedMember || matchedCoach;
+                          if (person) {
+                            return (
+                              <div className="flex items-center gap-2 mt-1.5 p-1 bg-emerald-50 rounded-lg border border-emerald-100">
+                                <span className="text-[10px] text-emerald-700 font-bold">✓ Xác nhận: {person.fullName} (ID: {person.id} • Đai: {person.rank})</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                       <div>
                         <ImageInput 
@@ -2270,6 +3834,7 @@ export default function AdminPanel({
                           value={highlightForm.thumbnail || ''}
                           onChange={val => setHighlightForm({ ...highlightForm, thumbnail: val })}
                           id="highlight-thumbnail-uploader"
+                          aspectRatio="16:9"
                         />
                       </div>
                       <div>
@@ -2287,40 +3852,101 @@ export default function AdminPanel({
 
                     {/* MULTIPLE MEDIA URLS MANAGEMENT */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      <h4 className="text-xs font-bold text-slate-600 uppercase mb-2">
-                        Quản lý các nguồn ảnh / video chi tiết ({highlightForm.mediaUrls?.length || 0})
+                      <h4 className="text-xs font-black text-slate-700 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                        <span>Quản lý các nguồn ảnh / video chi tiết ({highlightForm.mediaUrls?.length || 0})</span>
                       </h4>
-                      <p className="text-[10px] text-slate-400 mb-3">
-                        Thêm nhiều đường dẫn. File dạng .mp4 sẽ được phát bằng trình phát video, link ảnh sẽ hiển thị dạng gallery.
+                      <p className="text-[10px] text-slate-400 mb-4">
+                        Bạn có thể chọn tải file ảnh/video từ máy lên trực tiếp, hoặc dán đường dẫn URL từ internet. Các file video tải từ máy lên sẽ được xem và phát trực tiếp.
                       </p>
                       
-                      <div className="space-y-2">
-                        {highlightForm.mediaUrls?.map((url, idx) => (
-                          <div key={idx} className="flex gap-2">
-                            <input 
-                              type="text"
-                              value={url}
-                              placeholder="Nhập link ảnh (URL) hoặc video .mp4"
-                              onChange={e => {
-                                const copy = [...(highlightForm.mediaUrls || [])];
-                                copy[idx] = e.target.value;
-                                setHighlightForm({ ...highlightForm, mediaUrls: copy });
-                              }}
-                              className="flex-1 text-xs border p-2 bg-white rounded-lg"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const copy = [...(highlightForm.mediaUrls || [])];
-                                copy.splice(idx, 1);
-                                setHighlightForm({ ...highlightForm, mediaUrls: copy });
-                              }}
-                              className="px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded text-xs font-bold"
-                            >
-                              Xóa
-                            </button>
-                          </div>
-                        ))}
+                      <div className="space-y-3">
+                        {highlightForm.mediaUrls?.map((url, idx) => {
+                          const isBase64 = url.startsWith('data:');
+                          const isVideo = url.startsWith('data:video') || url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg');
+                          return (
+                            <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-[#0054A6]">TẬP TIN CHI TIẾT #{idx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const copy = [...(highlightForm.mediaUrls || [])];
+                                    copy.splice(idx, 1);
+                                    setHighlightForm({ ...highlightForm, mediaUrls: copy });
+                                  }}
+                                  className="text-rose-600 hover:text-rose-800 text-xs font-black uppercase"
+                                >
+                                  Xóa bỏ
+                                </button>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input 
+                                  type="text"
+                                  value={isBase64 ? '📁 [Tập tin đã chọn từ máy]' : url}
+                                  placeholder="Dán đường dẫn URL tại đây hoặc chọn Tải từ máy..."
+                                  disabled={isBase64}
+                                  onChange={e => {
+                                    const copy = [...(highlightForm.mediaUrls || [])];
+                                    copy[idx] = e.target.value;
+                                    setHighlightForm({ ...highlightForm, mediaUrls: copy });
+                                  }}
+                                  className="flex-1 text-xs border p-2 rounded-lg bg-slate-50/50 outline-none focus:ring-1 focus:ring-[#0054A6] disabled:bg-slate-100 disabled:text-slate-500 font-mono"
+                                />
+                                <div className="flex gap-1.5 flex-shrink-0">
+                                  <label className="bg-blue-50 text-[#0054A6] hover:bg-blue-100 text-xs font-bold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-1 transition-all">
+                                    <input 
+                                      type="file"
+                                      accept="image/*,video/*"
+                                      className="hidden"
+                                      onChange={e => {
+                                        const file = e.target.files?.[0];
+                                        if (file) {
+                                          const reader = new FileReader();
+                                          reader.onloadend = () => {
+                                            const copy = [...(highlightForm.mediaUrls || [])];
+                                            copy[idx] = reader.result as string;
+                                            setHighlightForm({ ...highlightForm, mediaUrls: copy });
+                                          };
+                                          reader.readAsDataURL(file);
+                                        }
+                                      }}
+                                    />
+                                    <span>Tải file từ máy</span>
+                                  </label>
+                                  {isBase64 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const copy = [...(highlightForm.mediaUrls || [])];
+                                        copy[idx] = '';
+                                        setHighlightForm({ ...highlightForm, mediaUrls: copy });
+                                      }}
+                                      className="bg-slate-100 text-slate-600 hover:bg-slate-200 text-xs font-bold px-2.5 py-2 rounded-lg"
+                                    >
+                                      Xóa file/Nhập URL
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Preview area */}
+                              {url && (
+                                <div className="flex items-center gap-2 pt-1.5 border-t border-slate-100 mt-1">
+                                  {isVideo ? (
+                                    <div className="text-[10px] text-purple-600 font-bold flex items-center gap-1.5">
+                                      <span>🎥 Xem trước video:</span>
+                                      <video src={url} className="w-20 h-12 object-cover rounded border bg-black" controls />
+                                    </div>
+                                  ) : (
+                                    <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1.5">
+                                      <span>🖼️ Xem trước ảnh:</span>
+                                      <img src={url} alt="Preview" className="w-12 h-12 object-cover rounded border bg-slate-50" referrerPolicy="no-referrer" />
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
 
                       <button
@@ -2331,9 +3957,9 @@ export default function AdminPanel({
                             mediaUrls: [...(highlightForm.mediaUrls || []), ''] 
                           });
                         }}
-                        className="mt-3 inline-flex items-center gap-1.5 bg-[#0054A6] text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer"
+                        className="mt-3 inline-flex items-center gap-1.5 bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-all"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Thêm đường dẫn truyền thông
+                        <Plus className="w-3.5 h-3.5" /> Thêm tư liệu mới (Ảnh hoặc Video)
                       </button>
                     </div>
 
