@@ -46,6 +46,7 @@ type AdminTab =
   | 'webConfig'
   | 'admins'
   | 'history'
+  | 'dbSync'
   | 'changePassword';
 
 function ImageInput({ 
@@ -1216,6 +1217,104 @@ export default function AdminPanel({
     setEditId(null);
   };
 
+  // Database status and sync states
+  const [dbStatus, setDbStatus] = useState<any>(null);
+  const [loadingDbStatus, setLoadingDbStatus] = useState(false);
+  const [isSyncingCloud, setIsSyncingCloud] = useState(false);
+  const [isFetchingCloud, setIsFetchingCloud] = useState(false);
+
+  const fetchDbStatus = () => {
+    setLoadingDbStatus(true);
+    fetch('/api/db-status')
+      .then(res => res.json())
+      .then(data => {
+        setDbStatus(data);
+        setLoadingDbStatus(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch database status:", err);
+        setLoadingDbStatus(false);
+      });
+  };
+
+  useEffect(() => {
+    if (activeTab === 'dbSync') {
+      fetchDbStatus();
+    }
+  }, [activeTab]);
+
+  const handleForceUploadToCloud = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn tải đè toàn bộ dữ liệu hiện tại lên Cloud? Thao tác này sẽ thay thế dữ liệu trên Cloud bằng dữ liệu bạn đang thấy trên máy tính này.")) {
+      return;
+    }
+
+    try {
+      setIsSyncingCloud(true);
+      const res = await fetch('/api/save-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categories,
+          articles,
+          members,
+          coaches,
+          achievements,
+          tournaments,
+          clubs,
+          highlights,
+          webConfig
+        })
+      });
+
+      if (!res.ok) throw new Error("Server error");
+      const result = await res.json();
+      if (result.success) {
+        showToast('Đồng bộ lên Cloud thành công! Dữ liệu thực đã được cập nhật cho tất cả mọi người truy cập!', 'success');
+        addLog('Đồng bộ', 'dbSync', 'Đã đẩy toàn bộ dữ liệu máy khách lên Cloud Database');
+        fetchDbStatus();
+      } else {
+        showToast('Không thể lưu dữ liệu lên Cloud!', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Lỗi mạng hoặc server không phản hồi!', 'error');
+    } finally {
+      setIsSyncingCloud(false);
+    }
+  };
+
+  const handleForceDownloadFromCloud = async () => {
+    if (!window.confirm("Bạn có chắc chắn muốn tải dữ liệu từ Cloud về máy? Hành động này sẽ ghi đè toàn bộ dữ liệu hiện tại của trình duyệt này bằng dữ liệu mới nhất từ Cloud.")) {
+      return;
+    }
+
+    try {
+      setIsFetchingCloud(true);
+      const res = await fetch('/api/data');
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      if (data) {
+        if (data.categories) setCategories(data.categories);
+        if (data.articles) setArticles(data.articles);
+        if (data.members) setMembers(data.members);
+        if (data.coaches) setCoaches(data.coaches);
+        if (data.achievements) setAchievements(data.achievements);
+        if (data.tournaments) setTournaments(data.tournaments);
+        if (data.clubs) setClubs(data.clubs);
+        if (data.highlights) setHighlights(data.highlights);
+        if (data.webConfig) setWebConfig(data.webConfig);
+
+        showToast('Đã tải và đồng bộ dữ liệu mới nhất từ Cloud thành công!', 'success');
+        addLog('Đồng bộ', 'dbSync', 'Đã kéo dữ liệu từ Cloud Database xuống trình duyệt');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Lỗi tải dữ liệu từ Cloud!', 'error');
+    } finally {
+      setIsFetchingCloud(false);
+    }
+  };
+
   // Alphabetic lookup for Articles
   const alphabet = 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' ');
 
@@ -1516,6 +1615,16 @@ export default function AdminPanel({
                   >
                     <History className={`w-4 h-4 ${activeTab === 'history' ? 'text-[#FFF200]' : 'text-amber-600'}`} />
                     <span>Lịch sử hệ thống</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveTab('dbSync'); setIsEditing(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      activeTab === 'dbSync' ? 'bg-[#0054A6] text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <CheckCircle2 className={`w-4 h-4 ${activeTab === 'dbSync' ? 'text-[#FFF200]' : 'text-teal-600'}`} />
+                    <span>Đồng bộ Cloud</span>
                   </button>
                 </nav>
               </div>
@@ -2808,6 +2917,130 @@ export default function AdminPanel({
                   </button>
                 </div>
               </form>
+            </div>
+          )}
+
+          {/* Cloud Database Sync View */}
+          {activeTab === 'dbSync' && (
+            <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 animate-in fade-in duration-200">
+              <div className="flex items-center gap-2 mb-5 border-b pb-4">
+                <CheckCircle2 className="w-5 h-5 text-teal-600" />
+                <h2 className="text-base font-black text-[#0054A6] uppercase tracking-tight">Đồng bộ dữ liệu Cloud</h2>
+              </div>
+
+              {/* Db Status Block */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-6">
+                <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3">Trạng thái kết nối Cloud Database</h3>
+                {loadingDbStatus ? (
+                  <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                    <span className="w-4 h-4 border-2 border-[#0054A6] border-t-transparent rounded-full animate-spin"></span>
+                    <span>Đang kiểm tra kết nối...</span>
+                  </div>
+                ) : dbStatus ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-3 bg-white rounded-xl border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600">Vercel KV REST URL:</span>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.vercelKvRest?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                            {dbStatus.vercelKvRest?.hasUrl ? 'Đã liên kết' : 'Chưa cấu hình'}
+                          </span>
+                        </div>
+                        {dbStatus.vercelKvRest?.hasUrl && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Test: <span className={dbStatus.vercelKvRest?.test?.includes('success') ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{dbStatus.vercelKvRest?.test || 'Chưa chạy'}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 bg-white rounded-xl border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600">MongoDB Atlas Connection:</span>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.mongoDb?.hasUri ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                            {dbStatus.mongoDb?.hasUri ? 'Đã liên kết' : 'Chưa cấu hình'}
+                          </span>
+                        </div>
+                        {dbStatus.mongoDb?.hasUri && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Test: <span className={dbStatus.mongoDb?.test?.includes('success') ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{dbStatus.mongoDb?.test || 'Chưa chạy'}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-medium">
+                      Phương thức lưu trữ hiện tại: <strong className="text-[#0054A6] font-bold">{dbStatus.storageType || 'Chưa xác định'}</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-xs text-rose-600 font-bold">Không thể kết nối tới server API để lấy trạng thái!</div>
+                )}
+                
+                <button
+                  type="button"
+                  onClick={fetchDbStatus}
+                  className="mt-3 text-xs text-[#0054A6] font-bold hover:underline"
+                >
+                  🔄 Tải lại trạng thái kết nối
+                </button>
+              </div>
+
+              {/* Sync Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-5 border border-dashed border-blue-200 rounded-2xl bg-blue-50/20 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-[#0054A6] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <span>📤 ĐẨY DỮ LIỆU LÊN CLOUD</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-600 leading-relaxed mb-4">
+                      Hành động này sẽ lấy toàn bộ các dữ liệu (môn sinh, huấn luyện viên, danh mục, bài viết, câu lạc bộ, v.v.) hiện tại của bạn và tải đè lên Cloud Database. Mọi người truy cập web sau đó sẽ lập tức thấy dữ liệu thực này.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSyncingCloud}
+                    onClick={handleForceUploadToCloud}
+                    className="w-full bg-[#0054A6] hover:bg-blue-800 text-white font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow disabled:opacity-50"
+                  >
+                    {isSyncingCloud ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Đang đồng bộ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Đẩy dữ liệu lên Cloud Database</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="p-5 border border-dashed border-teal-200 rounded-2xl bg-teal-50/10 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-teal-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <span>📥 KÉO DỮ LIỆU TỪ CLOUD VỀ MÁY</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-600 leading-relaxed mb-4">
+                      Tải dữ liệu thực tế đang được lưu trữ trên Cloud về máy tính hiện tại. Thao tác này sẽ ghi đè toàn bộ dữ liệu hiện tại trong trình duyệt của bạn bằng bản ghi mới nhất từ Cloud.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isFetchingCloud}
+                    onClick={handleForceDownloadFromCloud}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow disabled:opacity-50"
+                  >
+                    {isFetchingCloud ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Đang tải xuống...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Tải dữ liệu từ Cloud về máy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 

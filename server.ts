@@ -219,6 +219,9 @@ app.get("/api/db-status", async (req, res) => {
       path: DB_PATH,
       exists: fs.existsSync(DB_PATH)
     },
+    storageType: hasVercelKv 
+      ? "Vercel KV Cloud (Được khuyên dùng)" 
+      : (MONGODB_URI ? "MongoDB Atlas Cloud" : "Local File Fallback (db.json - Không đồng bộ)"),
     environment: {
       NODE_ENV: process.env.NODE_ENV,
       VERCEL: process.env.VERCEL,
