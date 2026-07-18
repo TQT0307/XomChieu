@@ -32,11 +32,18 @@ const kvToken = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TO
 
 const hasVercelKv = !!(kvUrl && kvToken);
 
-// Instantiate dynamic KV client
-const kv = createClient({
-  url: kvUrl || "",
-  token: kvToken || "",
-});
+// Instantiate dynamic KV client safely to avoid top-level crashes if environment variables are missing
+let kv: any = null;
+if (hasVercelKv) {
+  try {
+    kv = createClient({
+      url: kvUrl || "",
+      token: kvToken || "",
+    });
+  } catch (err) {
+    console.error("[Vercel KV] Failed to initialize client:", err);
+  }
+}
 
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
@@ -318,7 +325,7 @@ async function initServer() {
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
