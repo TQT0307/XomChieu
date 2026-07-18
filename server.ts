@@ -4,6 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { MongoClient } from "mongodb";
 import { kv } from "@vercel/kv";
+import { createClient as createRedisClient } from "redis";
 
 // Seed data
 import {
@@ -30,6 +31,37 @@ const DB_PATH = path.join(process.cwd(), "db.json");
 // Vercel KV Support Check
 const hasVercelKv = !!process.env.KV_REST_API_URL;
 
+// Redis Setup
+let redisClient: any = null;
+const REDIS_URL = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
+
+async function getRedisClient() {
+  if (!REDIS_URL) return null;
+  if (redisClient) return redisClient;
+  try {
+    redisClient = createRedisClient({
+      url: REDIS_URL,
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 5) {
+            console.error("[Redis] Reconnection attempts exceeded.");
+            return new Error("Reconnection failed");
+          }
+          return Math.min(retries * 100, 3000);
+        }
+      }
+    });
+    
+    redisClient.on("error", (err: any) => console.error("[Redis] Client Error:", err));
+    await redisClient.connect();
+    console.log("[Redis] Connected successfully to Vercel Redis.");
+    return redisClient;
+  } catch (err) {
+    console.error("[Redis] Connection failure:", err);
+    return null;
+  }
+}
+
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -50,7 +82,34 @@ async function getMongoClient(): Promise<MongoClient | null> {
 
 // Helper to get DB data (async)
 async function getDbData() {
-  // 1. Try Vercel KV first (100% free, 1-click in Vercel Storage dashboard, auto-injected environment variables)
+  // 1. Try Vercel Redis (TCP via KV_REDIS_URL) first (as this is verified connected in Vercel Dashboard)
+  const redis = await getRedisClient();
+  if (redis) {
+    try {
+      const dataStr = await redis.get("vovinam_db_state");
+      if (dataStr) {
+        return JSON.parse(dataStr);
+      } else {
+        const initialDb = {
+          categories: initialCategories,
+          articles: initialArticles,
+          members: initialMembers,
+          coaches: initialCoaches,
+          achievements: initialAchievements,
+          tournaments: initialTournaments,
+          clubs: initialClubs,
+          highlights: initialHighlights,
+          webConfig: initialWebConfig
+        };
+        await redis.set("vovinam_db_state", JSON.stringify(initialDb));
+        return initialDb;
+      }
+    } catch (err) {
+      console.error("[Redis] Read error, trying other fallbacks:", err);
+    }
+  }
+
+  // 2. Try Vercel KV (REST)
   if (hasVercelKv) {
     try {
       const data = await kv.get("vovinam_db_state");
@@ -76,7 +135,7 @@ async function getDbData() {
     }
   }
 
-  // 2. Try MongoDB Atlas if MONGODB_URI is provided
+  // 3. Try MongoDB Atlas if MONGODB_URI is provided
   const client = await getMongoClient();
   if (client) {
     try {
@@ -107,7 +166,7 @@ async function getDbData() {
     }
   }
 
-  // 3. Local file fallback for local development or simple environments
+  // 4. Local file fallback for local development or simple environments
   if (!fs.existsSync(DB_PATH)) {
     const initialDb = {
       categories: initialCategories,
@@ -144,10 +203,22 @@ async function getDbData() {
 
 // Helper to save DB data (async)
 async function saveDbData(data: any) {
-  // 1. Try Vercel KV first
+  const { _id, ...dataToSave } = data;
+
+  // 1. Try Vercel Redis (TCP via KV_REDIS_URL) first
+  const redis = await getRedisClient();
+  if (redis) {
+    try {
+      await redis.set("vovinam_db_state", JSON.stringify(dataToSave));
+      return true;
+    } catch (err) {
+      console.error("[Redis] Write error, trying fallbacks:", err);
+    }
+  }
+
+  // 2. Try Vercel KV (REST)
   if (hasVercelKv) {
     try {
-      const { _id, ...dataToSave } = data;
       await kv.set("vovinam_db_state", dataToSave);
       return true;
     } catch (err) {
@@ -155,13 +226,12 @@ async function saveDbData(data: any) {
     }
   }
 
-  // 2. Try MongoDB Atlas
+  // 3. Try MongoDB Atlas
   const client = await getMongoClient();
   if (client) {
     try {
       const db = client.db("vovinam");
       const collection = db.collection("data");
-      const { _id, ...dataToSave } = data;
       await collection.replaceOne(
         { _id: "main_state" as any },
         { ...dataToSave },
@@ -170,11 +240,10 @@ async function saveDbData(data: any) {
       return true;
     } catch (e) {
       console.error("[MongoDB] Write error:", e);
-      return false;
     }
   }
 
-  // 3. Local file fallback
+  // 4. Local file fallback
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
     return true;
