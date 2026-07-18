@@ -3,7 +3,6 @@ import path from "path";
 import fs from "fs";
 import { MongoClient } from "mongodb";
 import { kv } from "@vercel/kv";
-import { createClient as createRedisClient } from "redis";
 
 // Seed data
 import {
@@ -29,37 +28,6 @@ const DB_PATH = path.join(process.cwd(), "db.json");
 
 // Vercel KV Support Check
 const hasVercelKv = !!process.env.KV_REST_API_URL;
-
-// Redis Setup
-let redisClient: any = null;
-const REDIS_URL = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
-
-async function getRedisClient() {
-  if (!REDIS_URL) return null;
-  if (redisClient) return redisClient;
-  try {
-    redisClient = createRedisClient({
-      url: REDIS_URL,
-      socket: {
-        reconnectStrategy: (retries) => {
-          if (retries > 5) {
-            console.error("[Redis] Reconnection attempts exceeded.");
-            return new Error("Reconnection failed");
-          }
-          return Math.min(retries * 100, 3000);
-        }
-      }
-    });
-    
-    redisClient.on("error", (err: any) => console.error("[Redis] Client Error:", err));
-    await redisClient.connect();
-    console.log("[Redis] Connected successfully to Vercel Redis.");
-    return redisClient;
-  } catch (err) {
-    console.error("[Redis] Connection failure:", err);
-    return null;
-  }
-}
 
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
@@ -107,34 +75,7 @@ async function getDbData() {
     }
   }
 
-  // 2. Try Vercel Redis (TCP via KV_REDIS_URL) as fallback
-  const redis = await getRedisClient();
-  if (redis) {
-    try {
-      const dataStr = await redis.get("vovinam_db_state");
-      if (dataStr) {
-        return JSON.parse(dataStr);
-      } else {
-        const initialDb = {
-          categories: initialCategories,
-          articles: initialArticles,
-          members: initialMembers,
-          coaches: initialCoaches,
-          achievements: initialAchievements,
-          tournaments: initialTournaments,
-          clubs: initialClubs,
-          highlights: initialHighlights,
-          webConfig: initialWebConfig
-        };
-        await redis.set("vovinam_db_state", JSON.stringify(initialDb));
-        return initialDb;
-      }
-    } catch (err) {
-      console.error("[Redis TCP] Read error, trying other fallbacks:", err);
-    }
-  }
-
-  // 3. Try MongoDB Atlas if MONGODB_URI is provided
+  // 2. Try MongoDB Atlas if MONGODB_URI is provided
   const client = await getMongoClient();
   if (client) {
     try {
@@ -214,18 +155,7 @@ async function saveDbData(data: any) {
     }
   }
 
-  // 2. Try Vercel Redis (TCP via KV_REDIS_URL)
-  const redis = await getRedisClient();
-  if (redis) {
-    try {
-      await redis.set("vovinam_db_state", JSON.stringify(dataToSave));
-      return true;
-    } catch (err) {
-      console.error("[Redis TCP] Write error, trying fallbacks:", err);
-    }
-  }
-
-  // 3. Try MongoDB Atlas
+  // 2. Try MongoDB Atlas
   const client = await getMongoClient();
   if (client) {
     try {
@@ -242,7 +172,7 @@ async function saveDbData(data: any) {
     }
   }
 
-  // 4. Local file fallback
+  // 3. Local file fallback
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
     return true;
@@ -259,12 +189,6 @@ app.get("/api/db-status", async (req, res) => {
       hasUrl: !!process.env.KV_REST_API_URL,
       hasToken: !!process.env.KV_REST_API_TOKEN,
       url: process.env.KV_REST_API_URL ? `${process.env.KV_REST_API_URL.substring(0, 20)}...` : null,
-      test: "not_run",
-      error: null
-    },
-    vercelRedisTcp: {
-      hasUrl: !!REDIS_URL,
-      url: REDIS_URL ? `${REDIS_URL.substring(0, 20)}...` : null,
       test: "not_run",
       error: null
     },
@@ -295,25 +219,6 @@ app.get("/api/db-status", async (req, res) => {
     } catch (err: any) {
       status.vercelKvRest.test = "failed";
       status.vercelKvRest.error = err.message || err;
-    }
-  }
-
-  // Test Redis TCP
-  if (REDIS_URL) {
-    try {
-      const start = Date.now();
-      const redis = await getRedisClient();
-      if (redis) {
-        const pingPromise = redis.ping();
-        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 1.5s")), 1500));
-        await Promise.race([pingPromise, timeoutPromise]);
-        status.vercelRedisTcp.test = `success (took ${Date.now() - start}ms)`;
-      } else {
-        status.vercelRedisTcp.test = "failed_to_initialize_client";
-      }
-    } catch (err: any) {
-      status.vercelRedisTcp.test = "failed";
-      status.vercelRedisTcp.error = err.message || err;
     }
   }
 
