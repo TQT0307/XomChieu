@@ -191,8 +191,34 @@ export default function UserView({
 
   // Filter visible items based on status
   const visibleArticles = articles.filter(a => a.status !== false);
-  const visibleCoaches = coaches;
-  const visibleMembers = members;
+  
+  const [searchCoachQuery, setSearchCoachQuery] = useState<string>('');
+  const [searchMemberQuery, setSearchMemberQuery] = useState<string>('');
+
+  const visibleCoaches = coaches.filter(c => {
+    if (c.status === false) return false;
+    const q = searchCoachQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      c.id.toLowerCase().includes(q) ||
+      c.fullName.toLowerCase().includes(q) ||
+      (c.rank && c.rank.toLowerCase().includes(q)) ||
+      (c.experience && c.experience.toLowerCase().includes(q)) ||
+      (c.birthYear && String(c.birthYear).includes(q))
+    );
+  });
+
+  const visibleMembers = members.filter(m => {
+    if (m.status === false) return false;
+    const q = searchMemberQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      m.id.toLowerCase().includes(q) ||
+      m.fullName.toLowerCase().includes(q) ||
+      (m.rank && m.rank.toLowerCase().includes(q)) ||
+      (m.birthYear && String(m.birthYear).includes(q))
+    );
+  });
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
   const visibleTournaments = tournaments.filter(t => {
@@ -1247,17 +1273,61 @@ export default function UserView({
           </p>
         </div>
 
-        {/* Show/Hide Toggle Button */}
-        <div className="flex justify-center mb-8 relative z-10">
-          <button
-            onClick={() => setShowAllCoaches(!showAllCoaches)}
-            className="px-6 py-2.5 rounded-2xl bg-white border-2 border-[#0054A6]/20 hover:border-[#0054A6] hover:bg-slate-50 text-slate-800 hover:text-[#0054A6] font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
-          >
-            {showAllCoaches ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Ban huấn luyện'}
-          </button>
+        {/* Search input for Coaches */}
+        <div className="max-w-md mx-auto mb-6 relative z-10 px-4 sm:px-0">
+          <div className="relative group/search flex items-center bg-white border border-slate-200 hover:border-slate-300 focus-within:border-[#0054A6] focus-within:ring-4 focus-within:ring-[#0054A6]/10 rounded-2xl transition-all duration-300 shadow-md">
+            <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#0054A6] transition-colors" />
+            </span>
+            <input
+              type="text"
+              placeholder="Nhập ID, Họ tên, Đai hoặc Năm sinh võ sư..."
+              value={searchCoachQuery}
+              onChange={(e) => setSearchCoachQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-3 bg-transparent text-slate-800 text-xs sm:text-sm outline-none font-medium placeholder:text-slate-400"
+            />
+            {searchCoachQuery && (
+              <button 
+                onClick={() => setSearchCoachQuery('')}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {searchCoachQuery && (
+            <div className="text-center mt-2">
+              <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
+                Kết quả tìm kiếm cho: <span className="text-[#0054A6]">"{searchCoachQuery}"</span> ({visibleCoaches.length})
+              </span>
+            </div>
+          )}
         </div>
 
-        {showAllCoaches ? (
+        {/* Show/Hide Toggle Button (Hidden when searching) */}
+        {!searchCoachQuery.trim() && (
+          <div className="flex justify-center mb-8 relative z-10">
+            <button
+              onClick={() => setShowAllCoaches(!showAllCoaches)}
+              className="px-6 py-2.5 rounded-2xl bg-white border-2 border-[#0054A6]/20 hover:border-[#0054A6] hover:bg-slate-50 text-slate-800 hover:text-[#0054A6] font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
+            >
+              {showAllCoaches ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Ban huấn luyện'}
+            </button>
+          </div>
+        )}
+
+        {visibleCoaches.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-slate-150 shadow-sm max-w-md mx-auto relative z-10 animate-in fade-in duration-200">
+            <span className="text-4xl">🔍</span>
+            <p className="text-xs text-slate-500 font-bold mt-3">Không tìm thấy võ sư nào phù hợp với từ khóa.</p>
+            <button 
+              onClick={() => setSearchCoachQuery('')}
+              className="mt-4 px-4 py-1.5 bg-[#0054A6] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors cursor-pointer"
+            >
+              Xóa bộ lọc
+            </button>
+          </div>
+        ) : showAllCoaches || searchCoachQuery.trim() ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10 animate-in fade-in slide-in-from-bottom-3 duration-300">
             {visibleCoaches.map((coach) => (
               <div 
@@ -1302,11 +1372,11 @@ export default function UserView({
                     )}
                   </div>
 
-                  <p className="text-[10px] text-slate-500 font-extrabold uppercase mt-2.5 font-mono">
+                  <p className="text-[11px] text-[#0054A6] font-black uppercase mt-3 font-mono tracking-wider">
                     Sinh năm: {coach.birthYear} • ID: {coach.id}
                   </p>
 
-                  <p className="text-xs text-slate-700 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-100/80 italic relative font-medium">
+                  <p className="text-xs text-slate-900 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-150/80 italic relative font-semibold">
                     "{coach.experience}"
                   </p>
                 </div>
@@ -1383,11 +1453,11 @@ export default function UserView({
                       )}
                     </div>
 
-                    <p className="text-[9px] text-slate-500 font-extrabold uppercase mt-2 font-mono">
+                    <p className="text-[10px] text-[#0054A6] font-black uppercase mt-2 font-mono tracking-wider">
                       Sinh năm: {coach.birthYear} • ID: {coach.id}
                     </p>
 
-                    <p className="text-xs text-slate-700 font-sans leading-relaxed mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-100/80 italic line-clamp-3 relative font-medium">
+                    <p className="text-xs text-slate-900 font-sans leading-relaxed mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-150/80 italic line-clamp-3 relative font-semibold">
                       "{coach.experience}"
                     </p>
                   </div>
@@ -1419,7 +1489,39 @@ export default function UserView({
             </p>
           </div>
 
-          {/* Show/Hide Toggle Button */}
+        {/* Search input for Members */}
+        <div className="max-w-md mx-auto mb-6 relative z-10 px-4 sm:px-0">
+          <div className="relative group/search flex items-center bg-white border border-slate-200 hover:border-slate-300 focus-within:border-[#0054A6] focus-within:ring-4 focus-within:ring-[#0054A6]/10 rounded-2xl transition-all duration-300 shadow-md">
+            <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#0054A6] transition-colors" />
+            </span>
+            <input
+              type="text"
+              placeholder="Nhập ID, Họ tên, Đai hoặc Năm sinh môn sinh..."
+              value={searchMemberQuery}
+              onChange={(e) => setSearchMemberQuery(e.target.value)}
+              className="w-full pl-10 pr-10 py-3 bg-transparent text-slate-800 text-xs sm:text-sm outline-none font-medium placeholder:text-slate-400"
+            />
+            {searchMemberQuery && (
+              <button 
+                onClick={() => setSearchMemberQuery('')}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {searchMemberQuery && (
+            <div className="text-center mt-2">
+              <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
+                Kết quả tìm kiếm cho: <span className="text-[#0054A6]">"{searchMemberQuery}"</span> ({visibleMembers.length})
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Show/Hide Toggle Button (Hidden when searching) */}
+        {!searchMemberQuery.trim() && (
           <div className="flex justify-center mb-8 relative z-10">
             <button
               onClick={() => setShowAllMembers(!showAllMembers)}
@@ -1428,9 +1530,21 @@ export default function UserView({
               {showAllMembers ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Thành viên'}
             </button>
           </div>
+        )}
 
-          {showAllMembers ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 relative z-10 animate-in fade-in slide-in-from-bottom-3 duration-300">
+        {visibleMembers.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-3xl border border-slate-150 shadow-sm max-w-md mx-auto relative z-10 animate-in fade-in duration-200">
+            <span className="text-4xl">🔍</span>
+            <p className="text-xs text-slate-500 font-bold mt-3">Không tìm thấy môn sinh nào phù hợp với từ khóa.</p>
+            <button 
+              onClick={() => setSearchMemberQuery('')}
+              className="mt-4 px-4 py-1.5 bg-[#0054A6] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors cursor-pointer"
+            >
+              Xóa bộ lọc
+            </button>
+          </div>
+        ) : showAllMembers || searchMemberQuery.trim() ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 relative z-10 animate-in fade-in slide-in-from-bottom-3 duration-300">
               {visibleMembers.map((m) => (
                 <div 
                   key={m.id}
@@ -1482,7 +1596,7 @@ export default function UserView({
                       )}
                     </div>
                     
-                    <div className="text-[9px] text-slate-500 mt-2.5 uppercase font-extrabold tracking-wider font-mono">
+                    <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
                       Sinh năm {m.birthYear} • ID: {m.id}
                     </div>
                   </div>
@@ -1567,7 +1681,7 @@ export default function UserView({
                         )}
                       </div>
                       
-                      <div className="text-[9px] text-slate-500 mt-2.5 uppercase font-extrabold tracking-wider font-mono">
+                      <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
                         Sinh năm {m.birthYear} • ID: {m.id}
                       </div>
                     </div>

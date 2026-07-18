@@ -185,3 +185,77 @@ export function getNormalizedTournamentStatus(status: any): 'đang diễn ra' | 
   return 'sắp diễn ra'; // Default fallback
 }
 
+export interface BeltRankDetails {
+  beltColor: 'blue' | 'yellow' | 'red' | 'white' | 'default';
+  beltName: string;
+  stripesCount: number; // 0, 1, 2, 3
+  stripeColor: string; // Hex code
+  bgClass: string;
+  textClass: string;
+  borderClass: string;
+  stripeBgClass: string;
+}
+
+export function parseBeltRank(rank: string): BeltRankDetails {
+  const r = (rank || '').toLowerCase().trim();
+  let beltColor: 'blue' | 'yellow' | 'red' | 'white' | 'default' = 'default';
+  let stripesCount = 0;
+  let stripeColor = '';
+  let bgClass = 'bg-slate-800/80';
+  let textClass = 'text-white';
+  let borderClass = 'border-slate-700';
+  let stripeBgClass = '';
+
+  // Determine stripes count based on Vietnamese numerals or numbers
+  if (r.includes('nhất') || r.includes('nhat') || r.includes(' 1') || r.includes(' i ') || r.includes('đệ nhất') || r.includes('de nhat') || r.endsWith(' i')) {
+    stripesCount = 1;
+  } else if (r.includes('nhị') || r.includes('nhi') || r.includes(' 2') || r.includes(' ii') || r.includes('đệ nhị') || r.includes('de nhi')) {
+    stripesCount = 2;
+  } else if (r.includes('tam') || r.includes(' 3') || r.includes(' iii') || r.includes('đệ tam') || r.includes('de tam')) {
+    stripesCount = 3;
+  } else if (r.includes('tứ') || r.includes('tu ') || r.includes(' 4') || r.includes(' iv') || r.includes('đệ tứ') || r.includes('de tu')) {
+    stripesCount = 4;
+  }
+
+  if (r.includes('lam') || r.includes('tự vệ') || r.includes('nhập môn') || r.includes('tu ve')) {
+    beltColor = 'blue';
+    stripeColor = '#FFF200'; // Yellow stripes
+    stripeBgClass = 'bg-[#FFF200]';
+    bgClass = 'bg-[#0054A6]/20';
+    textClass = 'text-[#FFF200]';
+    borderClass = 'border-[#0054A6]';
+  } else if (r.includes('hoàng') || r.includes('hoang')) {
+    beltColor = 'yellow';
+    stripeColor = '#EE1C24'; // Red stripes
+    stripeBgClass = 'bg-[#EE1C24]';
+    bgClass = 'bg-[#FFF200]/10';
+    textClass = 'text-[#FFF200]';
+    borderClass = 'border-[#FFF200]';
+  } else if (r.includes('hồng') || r.includes('hong') || r.includes('đỏ') || r.includes('do')) {
+    beltColor = 'red';
+    stripeColor = '#FFFFFF'; // White stripes
+    stripeBgClass = 'bg-white';
+    bgClass = 'bg-[#EE1C24]/10';
+    textClass = 'text-[#EE1C24]';
+    borderClass = 'border-[#EE1C24]';
+  } else if (r.includes('bạch') || r.includes('bach') || r.includes('trắng') || r.includes('trang')) {
+    beltColor = 'white';
+    stripeColor = '#0054A6'; // Blue stripes
+    stripeBgClass = 'bg-[#0054A6]';
+    bgClass = 'bg-white/15';
+    textClass = 'text-white';
+    borderClass = 'border-white';
+  }
+
+  return {
+    beltColor,
+    beltName: rank,
+    stripesCount,
+    stripeColor,
+    bgClass,
+    textClass,
+    borderClass,
+    stripeBgClass
+  };
+}
+

@@ -15,14 +15,15 @@ export default function ClubDetailModal({ club, coaches, onClose }: ClubDetailMo
   const mapSearchQuery = encodeURIComponent(club.address || club.name);
   const mapIframeUrl = club.googleMapUrl || `https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
-  // Find all associated coaches
-  const associatedCoaches = coaches.filter(coach => 
-    (club.coachIds && club.coachIds.includes(coach.id)) || 
-    (coach.clubId === club.id)
-  );
-
   // Identify the primary head coach object
-  const primaryCoach = associatedCoaches[0] || coaches.find(c => c.fullName.toLowerCase() === club.headCoach.toLowerCase());
+  const primaryCoach = coaches.find(c => c.id === club.headCoach || c.fullName === club.headCoach);
+
+  // Find all assistant coaches (exclude primary coach)
+  const associatedCoaches = coaches.filter(coach => {
+    const isPrimary = coach.id === club.headCoach || (primaryCoach && coach.fullName === primaryCoach.fullName);
+    const isInClubCoachIds = club.coachIds && club.coachIds.includes(coach.id);
+    return isInClubCoachIds && !isPrimary;
+  });
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">

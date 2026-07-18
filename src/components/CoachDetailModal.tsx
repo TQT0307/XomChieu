@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Calendar, User, MapPin, Award, Star, Quote } from 'lucide-react';
-import { Coach, Club, getBeltStyle } from '../types';
+import { Coach, Club, getBeltStyle, parseBeltRank } from '../types';
 
 interface CoachDetailModalProps {
   coach: Coach | null;
@@ -61,13 +61,66 @@ export default function CoachDetailModal({
                 )}
               </div>
 
-              <h3 className="text-xl sm:text-2xl font-black text-[#FFF200] uppercase italic tracking-tight font-display">
-                {coach.fullName}
-              </h3>
+              {/* Premium Name Frame styled like a Vovinam Belt */}
+              {(() => {
+                const details = parseBeltRank(coach.rank);
+                
+                let frameBg = 'bg-slate-900/60 border-slate-700/80 text-white';
+                let beltBg = 'bg-slate-700';
+                
+                if (details.beltColor === 'blue') {
+                  frameBg = 'bg-[#0054A6]/20 border-[#0054A6] text-white shadow-[#0054A6]/10';
+                  beltBg = 'bg-[#0054A6]';
+                } else if (details.beltColor === 'yellow') {
+                  frameBg = 'bg-amber-500/10 border-[#FFF200] text-amber-300 shadow-amber-500/5';
+                  beltBg = 'bg-[#FFF200]';
+                } else if (details.beltColor === 'red') {
+                  frameBg = 'bg-[#EE1C24]/10 border-[#EE1C24] text-red-200 shadow-[#EE1C24]/5';
+                  beltBg = 'bg-[#EE1C24]';
+                } else if (details.beltColor === 'white') {
+                  frameBg = 'bg-white/10 border-white text-slate-100 shadow-white/5';
+                  beltBg = 'bg-white';
+                }
 
-              <p className="text-xs text-slate-300 font-semibold uppercase tracking-wide">
-                ID: {coach.id} • Năm sinh: {coach.birthYear || 'Chưa cập nhật'}
-              </p>
+                return (
+                  <div className={`mt-3 p-3 sm:p-4 rounded-2xl border-2 shadow-xl flex items-center justify-between gap-4 relative overflow-hidden backdrop-blur-sm ${frameBg} w-full`}>
+                    {/* Background glow texture */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-white/[0.03] pointer-events-none" />
+                    
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl sm:text-2xl font-black uppercase italic tracking-tight font-display break-words">
+                        {coach.fullName}
+                      </h3>
+                      <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest mt-1">
+                        ID: {coach.id} • Sinh năm: {coach.birthYear || 'Chưa cập nhật'}
+                      </p>
+                    </div>
+
+                    {/* Vovinam Belt Tip Widget integrated right inside the frame */}
+                    <div className="flex-shrink-0 flex items-center self-start sm:self-center">
+                      <div className={`relative flex items-center h-8 px-2.5 rounded-lg border shadow-lg ${beltBg} border-black/10`}>
+                        {/* Belt Rank Label */}
+                        <span className={`text-[9px] font-black uppercase tracking-wider ${details.beltColor === 'yellow' ? 'text-[#0054A6]' : 'text-white'}`}>
+                          {coach.rank}
+                        </span>
+                        
+                        {/* Vertical stitched belt stripes (gạch) */}
+                        {details.stripesCount > 0 && (
+                          <div className="flex gap-1 pl-2 ml-2 border-l border-black/15 h-full items-center">
+                            {Array.from({ length: details.stripesCount }).map((_, idx) => (
+                              <div 
+                                key={idx} 
+                                className={`w-1 h-5 rounded-sm shadow-sm ${details.stripeBgClass}`}
+                                title={`${coach.rank} - ${details.stripesCount} Gạch`}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
