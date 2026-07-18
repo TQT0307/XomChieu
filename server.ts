@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
 import { MongoClient } from "mongodb";
 import { kv } from "@vercel/kv";
 import { createClient as createRedisClient } from "redis";
@@ -397,8 +396,9 @@ app.post("/api/save-all", async (req, res) => {
 
 // Vite or Static Assets handling
 async function initServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    const { createServer } = await import("vite");
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
