@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { MongoClient } from "mongodb";
-import { kv } from "@vercel/kv";
+import { createClient } from "@vercel/kv";
 
 // Seed data
 import {
@@ -26,8 +26,17 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 const DB_PATH = path.join(process.cwd(), "db.json");
 
-// Vercel KV Support Check
-const hasVercelKv = !!process.env.KV_REST_API_URL;
+// Support custom prefix for Vercel Redis (e.g. STORAGE_REST_API_URL or KV_REST_API_URL)
+const kvUrl = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL;
+const kvToken = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKEN;
+
+const hasVercelKv = !!(kvUrl && kvToken);
+
+// Instantiate dynamic KV client
+const kv = createClient({
+  url: kvUrl || "",
+  token: kvToken || "",
+});
 
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
@@ -186,9 +195,10 @@ async function saveDbData(data: any) {
 app.get("/api/db-status", async (req, res) => {
   const status: any = {
     vercelKvRest: {
-      hasUrl: !!process.env.KV_REST_API_URL,
-      hasToken: !!process.env.KV_REST_API_TOKEN,
-      url: process.env.KV_REST_API_URL ? `${process.env.KV_REST_API_URL.substring(0, 20)}...` : null,
+      hasUrl: !!kvUrl,
+      hasToken: !!kvToken,
+      url: kvUrl ? `${kvUrl.substring(0, 30)}...` : null,
+      isCustomStoragePrefix: !process.env.KV_REST_API_URL && !!process.env.STORAGE_REST_API_URL,
       test: "not_run",
       error: null
     },
@@ -210,7 +220,7 @@ app.get("/api/db-status", async (req, res) => {
   };
 
   // Test Vercel KV REST
-  if (process.env.KV_REST_API_URL) {
+  if (hasVercelKv) {
     try {
       const start = Date.now();
       const testVal = await kv.get("vovinam_db_state_test_ping");
