@@ -17,7 +17,7 @@ import {
 } from "./src/initialData";
 
 const app = express();
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT || "3000", 10);
 
 // Body parser
 app.use(express.json({ limit: "50mb" }));
@@ -134,9 +134,13 @@ async function initServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[Vovinam Board Server] Running at http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`[Vovinam Board Server] Running at http://localhost:${PORT}`);
+    });
+  }
 }
 
 initServer();
+
+export default app;
