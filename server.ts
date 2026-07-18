@@ -82,7 +82,33 @@ async function getMongoClient(): Promise<MongoClient | null> {
 
 // Helper to get DB data (async)
 async function getDbData() {
-  // 1. Try Vercel Redis (TCP via KV_REDIS_URL) first (as this is verified connected in Vercel Dashboard)
+  // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
+  if (hasVercelKv) {
+    try {
+      const data = await kv.get("vovinam_db_state");
+      if (data) {
+        return data;
+      } else {
+        const initialDb = {
+          categories: initialCategories,
+          articles: initialArticles,
+          members: initialMembers,
+          coaches: initialCoaches,
+          achievements: initialAchievements,
+          tournaments: initialTournaments,
+          clubs: initialClubs,
+          highlights: initialHighlights,
+          webConfig: initialWebConfig
+        };
+        await kv.set("vovinam_db_state", initialDb);
+        return initialDb;
+      }
+    } catch (err) {
+      console.error("[Vercel KV REST] Read error, trying other fallbacks:", err);
+    }
+  }
+
+  // 2. Try Vercel Redis (TCP via KV_REDIS_URL) as fallback
   const redis = await getRedisClient();
   if (redis) {
     try {
@@ -105,33 +131,7 @@ async function getDbData() {
         return initialDb;
       }
     } catch (err) {
-      console.error("[Redis] Read error, trying other fallbacks:", err);
-    }
-  }
-
-  // 2. Try Vercel KV (REST)
-  if (hasVercelKv) {
-    try {
-      const data = await kv.get("vovinam_db_state");
-      if (data) {
-        return data;
-      } else {
-        const initialDb = {
-          categories: initialCategories,
-          articles: initialArticles,
-          members: initialMembers,
-          coaches: initialCoaches,
-          achievements: initialAchievements,
-          tournaments: initialTournaments,
-          clubs: initialClubs,
-          highlights: initialHighlights,
-          webConfig: initialWebConfig
-        };
-        await kv.set("vovinam_db_state", initialDb);
-        return initialDb;
-      }
-    } catch (err) {
-      console.error("[Vercel KV] Read error, trying fallbacks:", err);
+      console.error("[Redis TCP] Read error, trying other fallbacks:", err);
     }
   }
 
@@ -205,24 +205,24 @@ async function getDbData() {
 async function saveDbData(data: any) {
   const { _id, ...dataToSave } = data;
 
-  // 1. Try Vercel Redis (TCP via KV_REDIS_URL) first
+  // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
+  if (hasVercelKv) {
+    try {
+      await kv.set("vovinam_db_state", dataToSave);
+      return true;
+    } catch (err) {
+      console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
+    }
+  }
+
+  // 2. Try Vercel Redis (TCP via KV_REDIS_URL)
   const redis = await getRedisClient();
   if (redis) {
     try {
       await redis.set("vovinam_db_state", JSON.stringify(dataToSave));
       return true;
     } catch (err) {
-      console.error("[Redis] Write error, trying fallbacks:", err);
-    }
-  }
-
-  // 2. Try Vercel KV (REST)
-  if (hasVercelKv) {
-    try {
-      await kv.set("vovinam_db_state", dataToSave);
-      return true;
-    } catch (err) {
-      console.error("[Vercel KV] Write error, trying fallbacks:", err);
+      console.error("[Redis TCP] Write error, trying fallbacks:", err);
     }
   }
 
@@ -254,6 +254,90 @@ async function saveDbData(data: any) {
 }
 
 // API Routes
+app.get("/api/db-status", async (req, res) => {
+  const status: any = {
+    vercelKvRest: {
+      hasUrl: !!process.env.KV_REST_API_URL,
+      hasToken: !!process.env.KV_REST_API_TOKEN,
+      url: process.env.KV_REST_API_URL ? `${process.env.KV_REST_API_URL.substring(0, 20)}...` : null,
+      test: "not_run",
+      error: null
+    },
+    vercelRedisTcp: {
+      hasUrl: !!REDIS_URL,
+      url: REDIS_URL ? `${REDIS_URL.substring(0, 20)}...` : null,
+      test: "not_run",
+      error: null
+    },
+    mongoDb: {
+      hasUri: !!MONGODB_URI,
+      uri: MONGODB_URI ? `${MONGODB_URI.substring(0, 20)}...` : null,
+      test: "not_run",
+      error: null
+    },
+    localFile: {
+      path: DB_PATH,
+      exists: fs.existsSync(DB_PATH)
+    },
+    environment: {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL: process.env.VERCEL,
+      PORT: PORT
+    }
+  };
+
+  // Test Vercel KV REST
+  if (process.env.KV_REST_API_URL) {
+    try {
+      const start = Date.now();
+      const testVal = await kv.get("vovinam_db_state_test_ping");
+      status.vercelKvRest.test = `success (took ${Date.now() - start}ms)`;
+      status.vercelKvRest.pingResult = testVal;
+    } catch (err: any) {
+      status.vercelKvRest.test = "failed";
+      status.vercelKvRest.error = err.message || err;
+    }
+  }
+
+  // Test Redis TCP
+  if (REDIS_URL) {
+    try {
+      const start = Date.now();
+      const redis = await getRedisClient();
+      if (redis) {
+        const pingPromise = redis.ping();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout after 1.5s")), 1500));
+        await Promise.race([pingPromise, timeoutPromise]);
+        status.vercelRedisTcp.test = `success (took ${Date.now() - start}ms)`;
+      } else {
+        status.vercelRedisTcp.test = "failed_to_initialize_client";
+      }
+    } catch (err: any) {
+      status.vercelRedisTcp.test = "failed";
+      status.vercelRedisTcp.error = err.message || err;
+    }
+  }
+
+  // Test MongoDB
+  if (MONGODB_URI) {
+    try {
+      const start = Date.now();
+      const client = await getMongoClient();
+      if (client) {
+        await client.db("admin").command({ ping: 1 });
+        status.mongoDb.test = `success (took ${Date.now() - start}ms)`;
+      } else {
+        status.mongoDb.test = "failed_to_initialize_client";
+      }
+    } catch (err: any) {
+      status.mongoDb.test = "failed";
+      status.mongoDb.error = err.message || err;
+    }
+  }
+
+  res.json(status);
+});
+
 app.get("/api/data", async (req, res) => {
   try {
     const db = await getDbData();
