@@ -4,6 +4,8 @@ import fs from "fs";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 
+import { createClient as createRedisRawClient } from "redis";
+
 // Seed data
 import {
   initialCategories,
@@ -45,6 +47,25 @@ if (hasVercelKv) {
   }
 }
 
+// Leak-proof timeout helper to prevent unhandled promise rejections in serverless environments
+async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMsg));
+    }, ms);
+  });
+  
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    if (timeoutId) clearTimeout(timeoutId);
+    return result;
+  } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
 // Support connection via TCP Redis (using 'redis' package with KV_REDIS_URL / REDIS_URL / KV_URL)
 const redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
 // If we already have Vercel KV REST, disable raw TCP Redis to prevent serverless execution timeout/crashes
@@ -64,8 +85,7 @@ async function getRedisClient() {
     redisClient = null;
   }
   try {
-    const { createClient: createRedisClient } = await import("redis");
-    redisClient = createRedisClient({
+    const client = createRedisRawClient({
       url: redisUrl,
       socket: {
         connectTimeout: 3000, // 3 seconds timeout
@@ -77,17 +97,15 @@ async function getRedisClient() {
       }
     });
     
-    redisClient.on("error", (err: any) => {
+    client.on("error", (err: any) => {
       console.error("[Redis Client Error]", err);
       redisClient = null;
     });
 
-    const connectPromise = redisClient.connect();
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Redis connection timeout after 3 seconds")), 3000)
-    );
-
-    await Promise.race([connectPromise, timeoutPromise]);
+    // Use our leak-proof timeout to connect
+    await withTimeout(client.connect(), 3000, "Redis connection timeout after 3 seconds");
+    
+    redisClient = client;
     console.log("[Redis] Connected successfully to Redis via TCP.");
     return redisClient;
   } catch (err) {
@@ -161,25 +179,25 @@ async function getDbData() {
     try {
       const client = await getRedisClient();
       if (client) {
-        // Wrap Redis GET in a 3-second timeout
-        const getPromise = client.get("vovinam_db_state");
-        const getTimeoutPromise = new Promise<null>((_, reject) =>
-          setTimeout(() => reject(new Error("Redis GET operation timed out")), 3000)
+        // Wrap Redis GET in a 3-second timeout using our leak-proof helper
+        const dataStr = await withTimeout(
+          client.get("vovinam_db_state"),
+          3000,
+          "Redis GET operation timed out"
         );
-        const dataStr = await Promise.race([getPromise, getTimeoutPromise]);
 
         if (dataStr) {
-          const parsed = JSON.parse(dataStr);
+          const parsed = JSON.parse(dataStr as string);
           memoryDb = parsed; // Sync memoryDb
           return parsed;
         } else {
           const initialDb = getInitialDbState();
-          // Wrap Redis SET in a 3-second timeout
-          const setPromise = client.set("vovinam_db_state", JSON.stringify(initialDb));
-          const setTimeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Redis SET operation timed out")), 3000)
+          // Wrap Redis SET in a 3-second timeout using our leak-proof helper
+          await withTimeout(
+            client.set("vovinam_db_state", JSON.stringify(initialDb)),
+            3000,
+            "Redis SET operation timed out"
           );
-          await Promise.race([setPromise, setTimeoutPromise]);
           memoryDb = initialDb;
           return initialDb;
         }
@@ -269,12 +287,12 @@ async function saveDbData(data: any) {
     try {
       const client = await getRedisClient();
       if (client) {
-        // Wrap Redis SET in a 3-second timeout
-        const setPromise = client.set("vovinam_db_state", JSON.stringify(dataToSave));
-        const setTimeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Redis SET operation timed out")), 3000)
+        // Wrap Redis SET in a 3-second timeout using our leak-proof helper
+        await withTimeout(
+          client.set("vovinam_db_state", JSON.stringify(dataToSave)),
+          3000,
+          "Redis SET operation timed out"
         );
-        await Promise.race([setPromise, setTimeoutPromise]);
         return true;
       }
     } catch (err) {
@@ -368,11 +386,7 @@ app.get("/api/db-status", async (req, res) => {
       const start = Date.now();
       const client = await getRedisClient();
       if (client) {
-        const pingPromise = client.ping();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("Redis PING timed out")), 3000)
-        );
-        await Promise.race([pingPromise, timeoutPromise]);
+        await withTimeout(client.ping(), 3000, "Redis PING timed out");
         status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
       } else {
         status.redisTcp.test = "failed_to_initialize_client";
