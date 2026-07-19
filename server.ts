@@ -123,12 +123,19 @@ async function getMongoClient(): Promise<MongoClient | null> {
   if (!MONGODB_URI) return null;
   if (mongoClient) return mongoClient;
   try {
-    mongoClient = new MongoClient(MONGODB_URI);
-    await mongoClient.connect();
+    const client = new MongoClient(MONGODB_URI, {
+      connectTimeoutMS: 3000,
+      socketTimeoutMS: 3000,
+      serverSelectionTimeoutMS: 3000,
+    });
+    // Use our leak-proof timeout to connect
+    await withTimeout(client.connect(), 3000, "MongoDB connection timeout after 3 seconds");
+    mongoClient = client;
     console.log("[MongoDB] Connected successfully to Cloud Atlas Database.");
     return mongoClient;
   } catch (err) {
     console.error("[MongoDB] Connection failure:", err);
+    mongoClient = null;
     return null;
   }
 }
@@ -155,14 +162,22 @@ async function getDbData() {
   // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
   if (hasVercelKv) {
     try {
-      const data = await kv.get("vovinam_db_state");
+      const data = await withTimeout(
+        kv.get("vovinam_db_state"),
+        3000,
+        "Vercel KV GET timed out"
+      );
       if (data) {
         memoryDb = data; // Sync memoryDb
         return data;
       } else {
         const initialDb = getInitialDbState();
         try {
-          await kv.set("vovinam_db_state", initialDb);
+          await withTimeout(
+            kv.set("vovinam_db_state", initialDb),
+            3000,
+            "Vercel KV SET timed out"
+          );
         } catch (setErr) {
           console.error("[Vercel KV REST] Initial set error:", setErr);
         }
@@ -213,7 +228,11 @@ async function getDbData() {
     try {
       const db = client.db("vovinam");
       const collection = db.collection("data");
-      const document = await collection.findOne({ _id: "main_state" as any });
+      const document = await withTimeout(
+        collection.findOne({ _id: "main_state" as any }),
+        3000,
+        "MongoDB findOne operation timed out"
+      );
       if (document) {
         const { _id, ...rest } = document;
         memoryDb = rest; // Sync memoryDb
@@ -222,7 +241,11 @@ async function getDbData() {
         // Initial insert
         const initialDb = getInitialDbState();
         try {
-          await collection.insertOne({ _id: "main_state" as any, ...initialDb });
+          await withTimeout(
+            collection.insertOne({ _id: "main_state" as any, ...initialDb }),
+            3000,
+            "MongoDB insertOne operation timed out"
+          );
         } catch (insertErr) {
           console.error("[MongoDB] Initial insert error:", insertErr);
         }
@@ -275,7 +298,11 @@ async function saveDbData(data: any) {
   // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
   if (hasVercelKv) {
     try {
-      await kv.set("vovinam_db_state", dataToSave);
+      await withTimeout(
+        kv.set("vovinam_db_state", dataToSave),
+        3000,
+        "Vercel KV SET timed out"
+      );
       return true;
     } catch (err) {
       console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
@@ -306,10 +333,14 @@ async function saveDbData(data: any) {
     try {
       const db = client.db("vovinam");
       const collection = db.collection("data");
-      await collection.replaceOne(
-        { _id: "main_state" as any },
-        { ...dataToSave },
-        { upsert: true }
+      await withTimeout(
+        collection.replaceOne(
+          { _id: "main_state" as any },
+          { ...dataToSave },
+          { upsert: true }
+        ),
+        3000,
+        "MongoDB replaceOne operation timed out"
       );
       return true;
     } catch (e) {
@@ -371,7 +402,11 @@ app.get("/api/db-status", async (req, res) => {
   if (hasVercelKv) {
     try {
       const start = Date.now();
-      const testVal = await kv.get("vovinam_db_state_test_ping");
+      const testVal = await withTimeout(
+        kv.get("vovinam_db_state_test_ping"),
+        3000,
+        "Vercel KV GET timed out"
+      );
       status.vercelKvRest.test = `success (took ${Date.now() - start}ms)`;
       status.vercelKvRest.pingResult = testVal;
     } catch (err: any) {
@@ -403,7 +438,11 @@ app.get("/api/db-status", async (req, res) => {
       const start = Date.now();
       const client = await getMongoClient();
       if (client) {
-        await client.db("admin").command({ ping: 1 });
+        await withTimeout(
+          client.db("admin").command({ ping: 1 }),
+          3000,
+          "MongoDB ping timed out"
+        );
         status.mongoDb.test = `success (took ${Date.now() - start}ms)`;
       } else {
         status.mongoDb.test = "failed_to_initialize_client";
