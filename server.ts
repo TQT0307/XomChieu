@@ -47,7 +47,8 @@ if (hasVercelKv) {
 
 // Support connection via TCP Redis (using 'redis' package with KV_REDIS_URL / REDIS_URL / KV_URL)
 const redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
-let hasRedis = !!redisUrl;
+// If we already have Vercel KV REST, disable raw TCP Redis to prevent serverless execution timeout/crashes
+let hasRedis = !!redisUrl && !hasVercelKv;
 let redisClient: any = null;
 
 async function getRedisClient() {
