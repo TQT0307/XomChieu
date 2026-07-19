@@ -53,19 +53,46 @@ let redisClient: any = null;
 
 async function getRedisClient() {
   if (!hasRedis) return null;
-  if (redisClient) return redisClient;
+  if (redisClient) {
+    try {
+      if (redisClient.isOpen) {
+        return redisClient;
+      }
+    } catch (e) {
+      // safe fallback
+    }
+    redisClient = null;
+  }
   try {
     const { createClient: createRedisClient } = await import("redis");
-    redisClient = createRedisClient({ url: redisUrl });
+    redisClient = createRedisClient({
+      url: redisUrl,
+      socket: {
+        connectTimeout: 3000, // 3 seconds timeout
+        keepAlive: false,     // Disable TCP socket keep-alive to allow serverless function to release handles quickly
+        reconnectStrategy: () => {
+          // Disable reconnect loops in serverless to prevent background thread/handle leaks
+          return false;
+        }
+      }
+    });
+    
     redisClient.on("error", (err: any) => {
       console.error("[Redis Client Error]", err);
+      redisClient = null;
     });
-    await redisClient.connect();
+
+    const connectPromise = redisClient.connect();
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Redis connection timeout after 3 seconds")), 3000)
+    );
+
+    await Promise.race([connectPromise, timeoutPromise]);
     console.log("[Redis] Connected successfully to Redis via TCP.");
     return redisClient;
   } catch (err) {
     console.error("[Redis] Failed to connect via TCP:", err);
-    hasRedis = false;
+    redisClient = null;
     return null;
   }
 }
@@ -134,14 +161,25 @@ async function getDbData() {
     try {
       const client = await getRedisClient();
       if (client) {
-        const dataStr = await client.get("vovinam_db_state");
+        // Wrap Redis GET in a 3-second timeout
+        const getPromise = client.get("vovinam_db_state");
+        const getTimeoutPromise = new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error("Redis GET operation timed out")), 3000)
+        );
+        const dataStr = await Promise.race([getPromise, getTimeoutPromise]);
+
         if (dataStr) {
           const parsed = JSON.parse(dataStr);
           memoryDb = parsed; // Sync memoryDb
           return parsed;
         } else {
           const initialDb = getInitialDbState();
-          await client.set("vovinam_db_state", JSON.stringify(initialDb));
+          // Wrap Redis SET in a 3-second timeout
+          const setPromise = client.set("vovinam_db_state", JSON.stringify(initialDb));
+          const setTimeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Redis SET operation timed out")), 3000)
+          );
+          await Promise.race([setPromise, setTimeoutPromise]);
           memoryDb = initialDb;
           return initialDb;
         }
@@ -231,7 +269,12 @@ async function saveDbData(data: any) {
     try {
       const client = await getRedisClient();
       if (client) {
-        await client.set("vovinam_db_state", JSON.stringify(dataToSave));
+        // Wrap Redis SET in a 3-second timeout
+        const setPromise = client.set("vovinam_db_state", JSON.stringify(dataToSave));
+        const setTimeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Redis SET operation timed out")), 3000)
+        );
+        await Promise.race([setPromise, setTimeoutPromise]);
         return true;
       }
     } catch (err) {
@@ -325,7 +368,11 @@ app.get("/api/db-status", async (req, res) => {
       const start = Date.now();
       const client = await getRedisClient();
       if (client) {
-        await client.ping();
+        const pingPromise = client.ping();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Redis PING timed out")), 3000)
+        );
+        await Promise.race([pingPromise, timeoutPromise]);
         status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
       } else {
         status.redisTcp.test = "failed_to_initialize_client";
