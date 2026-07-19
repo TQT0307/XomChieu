@@ -504,7 +504,8 @@ app.post("/api/save-all", async (req, res) => {
 // Vite or Static Assets handling
 async function initServer() {
   if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-    const { createServer } = await import("vite");
+    const viteModule = "vite";
+    const { createServer } = await import(viteModule);
     const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
