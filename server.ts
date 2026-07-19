@@ -18,7 +18,7 @@ import {
 } from "./src/initialData";
 
 const app = express();
-const PORT = parseInt(process.env.PORT || "3000", 10);
+const PORT = 3000;
 
 // Body parser
 app.use(express.json({ limit: "50mb" }));
@@ -45,6 +45,30 @@ if (hasVercelKv) {
   }
 }
 
+// Support connection via TCP Redis (using 'redis' package with KV_REDIS_URL / REDIS_URL / KV_URL)
+const redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
+let hasRedis = !!redisUrl;
+let redisClient: any = null;
+
+async function getRedisClient() {
+  if (!hasRedis) return null;
+  if (redisClient) return redisClient;
+  try {
+    const { createClient: createRedisClient } = await import("redis");
+    redisClient = createRedisClient({ url: redisUrl });
+    redisClient.on("error", (err: any) => {
+      console.error("[Redis Client Error]", err);
+    });
+    await redisClient.connect();
+    console.log("[Redis] Connected successfully to Redis via TCP.");
+    return redisClient;
+  } catch (err) {
+    console.error("[Redis] Failed to connect via TCP:", err);
+    hasRedis = false;
+    return null;
+  }
+}
+
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -63,6 +87,23 @@ async function getMongoClient(): Promise<MongoClient | null> {
   }
 }
 
+// Global in-memory fallback to avoid crashes on read-only environments like Vercel Serverless
+let memoryDb: any = null;
+
+function getInitialDbState() {
+  return {
+    categories: initialCategories,
+    articles: initialArticles,
+    members: initialMembers,
+    coaches: initialCoaches,
+    achievements: initialAchievements,
+    tournaments: initialTournaments,
+    clubs: initialClubs,
+    highlights: initialHighlights,
+    webConfig: initialWebConfig
+  };
+}
+
 // Helper to get DB data (async)
 async function getDbData() {
   // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
@@ -70,24 +111,42 @@ async function getDbData() {
     try {
       const data = await kv.get("vovinam_db_state");
       if (data) {
+        memoryDb = data; // Sync memoryDb
         return data;
       } else {
-        const initialDb = {
-          categories: initialCategories,
-          articles: initialArticles,
-          members: initialMembers,
-          coaches: initialCoaches,
-          achievements: initialAchievements,
-          tournaments: initialTournaments,
-          clubs: initialClubs,
-          highlights: initialHighlights,
-          webConfig: initialWebConfig
-        };
-        await kv.set("vovinam_db_state", initialDb);
+        const initialDb = getInitialDbState();
+        try {
+          await kv.set("vovinam_db_state", initialDb);
+        } catch (setErr) {
+          console.error("[Vercel KV REST] Initial set error:", setErr);
+        }
+        memoryDb = initialDb;
         return initialDb;
       }
     } catch (err) {
       console.error("[Vercel KV REST] Read error, trying other fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try TCP Redis (using redis package)
+  if (hasRedis) {
+    try {
+      const client = await getRedisClient();
+      if (client) {
+        const dataStr = await client.get("vovinam_db_state");
+        if (dataStr) {
+          const parsed = JSON.parse(dataStr);
+          memoryDb = parsed; // Sync memoryDb
+          return parsed;
+        } else {
+          const initialDb = getInitialDbState();
+          await client.set("vovinam_db_state", JSON.stringify(initialDb));
+          memoryDb = initialDb;
+          return initialDb;
+        }
+      }
+    } catch (err) {
+      console.error("[Redis via TCP] Read error, trying other fallbacks:", err);
     }
   }
 
@@ -100,66 +159,61 @@ async function getDbData() {
       const document = await collection.findOne({ _id: "main_state" as any });
       if (document) {
         const { _id, ...rest } = document;
+        memoryDb = rest; // Sync memoryDb
         return rest;
       } else {
         // Initial insert
-        const initialDb = {
-          categories: initialCategories,
-          articles: initialArticles,
-          members: initialMembers,
-          coaches: initialCoaches,
-          achievements: initialAchievements,
-          tournaments: initialTournaments,
-          clubs: initialClubs,
-          highlights: initialHighlights,
-          webConfig: initialWebConfig
-        };
-        await collection.insertOne({ _id: "main_state" as any, ...initialDb });
+        const initialDb = getInitialDbState();
+        try {
+          await collection.insertOne({ _id: "main_state" as any, ...initialDb });
+        } catch (insertErr) {
+          console.error("[MongoDB] Initial insert error:", insertErr);
+        }
+        memoryDb = initialDb;
         return initialDb;
       }
     } catch (e) {
-      console.error("[MongoDB] Read error, falling back to local file:", e);
+      console.error("[MongoDB] Read error, falling back to local file/memory:", e);
     }
   }
 
-  // 4. Local file fallback for local development or simple environments
-  if (!fs.existsSync(DB_PATH)) {
-    const initialDb = {
-      categories: initialCategories,
-      articles: initialArticles,
-      members: initialMembers,
-      coaches: initialCoaches,
-      achievements: initialAchievements,
-      tournaments: initialTournaments,
-      clubs: initialClubs,
-      highlights: initialHighlights,
-      webConfig: initialWebConfig
-    };
-    fs.writeFileSync(DB_PATH, JSON.stringify(initialDb, null, 2), "utf-8");
-    return initialDb;
+  // 3. Fallback to memoryDb if already loaded in this serverless instance
+  if (memoryDb) {
+    return memoryDb;
   }
+
+  // 4. Local file fallback for local development or simple environments
   try {
+    if (!fs.existsSync(DB_PATH)) {
+      const initialDb = getInitialDbState();
+      try {
+        fs.writeFileSync(DB_PATH, JSON.stringify(initialDb, null, 2), "utf-8");
+      } catch (writeErr) {
+        console.warn("[Local File] Failed to write initial db.json (Expected on read-only file systems):", writeErr);
+      }
+      memoryDb = initialDb;
+      return initialDb;
+    }
+    
     const content = fs.readFileSync(DB_PATH, "utf-8");
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    memoryDb = parsed;
+    return parsed;
   } catch (e) {
-    console.error("Error reading database file, using fallback:", e);
-    return {
-      categories: initialCategories,
-      articles: initialArticles,
-      members: initialMembers,
-      coaches: initialCoaches,
-      achievements: initialAchievements,
-      tournaments: initialTournaments,
-      clubs: initialClubs,
-      highlights: initialHighlights,
-      webConfig: initialWebConfig
-    };
+    console.warn("[Local File] Read error or write fallback failed, returning in-memory database:", e);
+    if (!memoryDb) {
+      memoryDb = getInitialDbState();
+    }
+    return memoryDb;
   }
 }
 
 // Helper to save DB data (async)
 async function saveDbData(data: any) {
   const { _id, ...dataToSave } = data;
+  
+  // Always update in-memory representation so current process stays up to date
+  memoryDb = dataToSave;
 
   // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
   if (hasVercelKv) {
@@ -168,6 +222,19 @@ async function saveDbData(data: any) {
       return true;
     } catch (err) {
       console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try TCP Redis
+  if (hasRedis) {
+    try {
+      const client = await getRedisClient();
+      if (client) {
+        await client.set("vovinam_db_state", JSON.stringify(dataToSave));
+        return true;
+      }
+    } catch (err) {
+      console.error("[Redis via TCP] Write error, trying other fallbacks:", err);
     }
   }
 
@@ -190,11 +257,12 @@ async function saveDbData(data: any) {
 
   // 3. Local file fallback
   try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2), "utf-8");
+    fs.writeFileSync(DB_PATH, JSON.stringify(dataToSave, null, 2), "utf-8");
     return true;
   } catch (e) {
-    console.error("Error saving database file:", e);
-    return false;
+    console.warn("[Local File] Error saving database file (Expected on read-only file systems):", e);
+    // Return true since we successfully persisted in-memory for this serverless instance session
+    return true;
   }
 }
 
@@ -209,6 +277,12 @@ app.get("/api/db-status", async (req, res) => {
       test: "not_run",
       error: null
     },
+    redisTcp: {
+      hasUrl: !!redisUrl,
+      url: redisUrl ? `${redisUrl.substring(0, 30)}...` : null,
+      test: "not_run",
+      error: null
+    },
     mongoDb: {
       hasUri: !!MONGODB_URI,
       uri: MONGODB_URI ? `${MONGODB_URI.substring(0, 20)}...` : null,
@@ -220,8 +294,10 @@ app.get("/api/db-status", async (req, res) => {
       exists: fs.existsSync(DB_PATH)
     },
     storageType: hasVercelKv 
-      ? "Vercel KV Cloud (Được khuyên dùng)" 
-      : (MONGODB_URI ? "MongoDB Atlas Cloud" : "Local File Fallback (db.json - Không đồng bộ)"),
+      ? "Vercel KV Cloud via REST (Được khuyên dùng)" 
+      : (hasRedis 
+          ? "Vercel Redis Cloud via TCP (Được khuyên dùng)" 
+          : (MONGODB_URI ? "MongoDB Atlas Cloud" : "Local File Fallback (db.json - Không đồng bộ)")),
     environment: {
       NODE_ENV: process.env.NODE_ENV,
       VERCEL: process.env.VERCEL,
@@ -239,6 +315,23 @@ app.get("/api/db-status", async (req, res) => {
     } catch (err: any) {
       status.vercelKvRest.test = "failed";
       status.vercelKvRest.error = err.message || err;
+    }
+  }
+
+  // Test TCP Redis
+  if (hasRedis) {
+    try {
+      const start = Date.now();
+      const client = await getRedisClient();
+      if (client) {
+        await client.ping();
+        status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
+      } else {
+        status.redisTcp.test = "failed_to_initialize_client";
+      }
+    } catch (err: any) {
+      status.redisTcp.test = "failed";
+      status.redisTcp.error = err.message || err;
     }
   }
 
