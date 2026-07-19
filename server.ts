@@ -70,48 +70,50 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string)
 const redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
 // If we already have Vercel KV REST, disable raw TCP Redis to prevent serverless execution timeout/crashes
 let hasRedis = !!redisUrl && !hasVercelKv;
-let redisClient: any = null;
 
-async function getRedisClient() {
-  if (!hasRedis) return null;
-  if (redisClient) {
-    try {
-      if (redisClient.isOpen) {
-        return redisClient;
+// Stateless, leak-proof connection manager for Redis TCP in serverless environments.
+// Opens connection, executes command, closes connection immediately to avoid stale sockets/crashes.
+async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promise<T | null> {
+  if (!hasRedis || !redisUrl) return null;
+  const client = createRedisRawClient({
+    url: redisUrl,
+    socket: {
+      connectTimeout: 3000, // 3 seconds timeout
+      reconnectStrategy: () => {
+        // Disable reconnect loops in serverless to prevent thread leaks
+        return false;
       }
-    } catch (e) {
-      // safe fallback
     }
-    redisClient = null;
-  }
-  try {
-    const client = createRedisRawClient({
-      url: redisUrl,
-      socket: {
-        connectTimeout: 3000, // 3 seconds timeout
-        keepAlive: false,     // Disable TCP socket keep-alive to allow serverless function to release handles quickly
-        reconnectStrategy: () => {
-          // Disable reconnect loops in serverless to prevent background thread/handle leaks
-          return false;
-        }
-      }
-    });
-    
-    client.on("error", (err: any) => {
-      console.error("[Redis Client Error]", err);
-      redisClient = null;
-    });
+  });
+  
+  client.on("error", (err: any) => {
+    // Suppress background errors to avoid unhandled exceptions crashing serverless processes
+    console.error("[Redis Transient Error]", err.message || err);
+  });
 
-    // Use our leak-proof timeout to connect
+  try {
+    // 1. Establish connection with absolute timeout
     await withTimeout(client.connect(), 3000, "Redis connection timeout after 3 seconds");
     
-    redisClient = client;
-    console.log("[Redis] Connected successfully to Redis via TCP.");
-    return redisClient;
+    // 2. Run the actual operation
+    const result = await commandFn(client);
+    
+    // 3. Gracefully disconnect
+    try {
+      await client.quit();
+    } catch {
+      try {
+        await client.disconnect();
+      } catch {}
+    }
+    
+    return result;
   } catch (err) {
-    console.error("[Redis] Failed to connect via TCP:", err);
-    redisClient = null;
-    return null;
+    // Forcefully disconnect on failure to release the socket
+    try {
+      await client.disconnect();
+    } catch {}
+    throw err;
   }
 }
 
@@ -192,30 +194,21 @@ async function getDbData() {
   // 1.5 Try TCP Redis (using redis package)
   if (hasRedis) {
     try {
-      const client = await getRedisClient();
-      if (client) {
-        // Wrap Redis GET in a 3-second timeout using our leak-proof helper
-        const dataStr = await withTimeout(
-          client.get("vovinam_db_state"),
-          3000,
-          "Redis GET operation timed out"
-        );
+      const dataStr = await runRedisCommand(async (client) => {
+        return await client.get("vovinam_db_state");
+      });
 
-        if (dataStr) {
-          const parsed = JSON.parse(dataStr as string);
-          memoryDb = parsed; // Sync memoryDb
-          return parsed;
-        } else {
-          const initialDb = getInitialDbState();
-          // Wrap Redis SET in a 3-second timeout using our leak-proof helper
-          await withTimeout(
-            client.set("vovinam_db_state", JSON.stringify(initialDb)),
-            3000,
-            "Redis SET operation timed out"
-          );
-          memoryDb = initialDb;
-          return initialDb;
-        }
+      if (dataStr) {
+        const parsed = JSON.parse(dataStr as string);
+        memoryDb = parsed; // Sync memoryDb
+        return parsed;
+      } else {
+        const initialDb = getInitialDbState();
+        await runRedisCommand(async (client) => {
+          await client.set("vovinam_db_state", JSON.stringify(initialDb));
+        });
+        memoryDb = initialDb;
+        return initialDb;
       }
     } catch (err) {
       console.error("[Redis via TCP] Read error, trying other fallbacks:", err);
@@ -223,37 +216,39 @@ async function getDbData() {
   }
 
   // 2. Try MongoDB Atlas if MONGODB_URI is provided
-  const client = await getMongoClient();
-  if (client) {
-    try {
-      const db = client.db("vovinam");
-      const collection = db.collection("data");
-      const document = await withTimeout(
-        collection.findOne({ _id: "main_state" as any }),
-        3000,
-        "MongoDB findOne operation timed out"
-      );
-      if (document) {
-        const { _id, ...rest } = document;
-        memoryDb = rest; // Sync memoryDb
-        return rest;
-      } else {
-        // Initial insert
-        const initialDb = getInitialDbState();
-        try {
-          await withTimeout(
-            collection.insertOne({ _id: "main_state" as any, ...initialDb }),
-            3000,
-            "MongoDB insertOne operation timed out"
-          );
-        } catch (insertErr) {
-          console.error("[MongoDB] Initial insert error:", insertErr);
+  if (MONGODB_URI) {
+    const client = await getMongoClient();
+    if (client) {
+      try {
+        const db = client.db("vovinam");
+        const collection = db.collection("data");
+        const document = await withTimeout(
+          collection.findOne({ _id: "main_state" as any }),
+          3000,
+          "MongoDB findOne operation timed out"
+        );
+        if (document) {
+          const { _id, ...rest } = document;
+          memoryDb = rest; // Sync memoryDb
+          return rest;
+        } else {
+          // Initial insert
+          const initialDb = getInitialDbState();
+          try {
+            await withTimeout(
+              collection.insertOne({ _id: "main_state" as any, ...initialDb }),
+              3000,
+              "MongoDB insertOne operation timed out"
+            );
+          } catch (insertErr) {
+            console.error("[MongoDB] Initial insert error:", insertErr);
+          }
+          memoryDb = initialDb;
+          return initialDb;
         }
-        memoryDb = initialDb;
-        return initialDb;
+      } catch (e) {
+        console.error("[MongoDB] Read error, falling back to local file/memory:", e);
       }
-    } catch (e) {
-      console.error("[MongoDB] Read error, falling back to local file/memory:", e);
     }
   }
 
@@ -312,39 +307,35 @@ async function saveDbData(data: any) {
   // 1.5 Try TCP Redis
   if (hasRedis) {
     try {
-      const client = await getRedisClient();
-      if (client) {
-        // Wrap Redis SET in a 3-second timeout using our leak-proof helper
-        await withTimeout(
-          client.set("vovinam_db_state", JSON.stringify(dataToSave)),
-          3000,
-          "Redis SET operation timed out"
-        );
-        return true;
-      }
+      await runRedisCommand(async (client) => {
+        await client.set("vovinam_db_state", JSON.stringify(dataToSave));
+      });
+      return true;
     } catch (err) {
       console.error("[Redis via TCP] Write error, trying other fallbacks:", err);
     }
   }
 
-  // 2. Try MongoDB Atlas
-  const client = await getMongoClient();
-  if (client) {
-    try {
-      const db = client.db("vovinam");
-      const collection = db.collection("data");
-      await withTimeout(
-        collection.replaceOne(
-          { _id: "main_state" as any },
-          { ...dataToSave },
-          { upsert: true }
-        ),
-        3000,
-        "MongoDB replaceOne operation timed out"
-      );
-      return true;
-    } catch (e) {
-      console.error("[MongoDB] Write error:", e);
+  // 2. Try MongoDB Atlas if MONGODB_URI is provided
+  if (MONGODB_URI) {
+    const client = await getMongoClient();
+    if (client) {
+      try {
+        const db = client.db("vovinam");
+        const collection = db.collection("data");
+        await withTimeout(
+          collection.replaceOne(
+            { _id: "main_state" as any },
+            { ...dataToSave },
+            { upsert: true }
+          ),
+          3000,
+          "MongoDB replaceOne operation timed out"
+        );
+        return true;
+      } catch (e) {
+        console.error("[MongoDB] Write error:", e);
+      }
     }
   }
 
@@ -419,13 +410,10 @@ app.get("/api/db-status", async (req, res) => {
   if (hasRedis) {
     try {
       const start = Date.now();
-      const client = await getRedisClient();
-      if (client) {
-        await withTimeout(client.ping(), 3000, "Redis PING timed out");
-        status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
-      } else {
-        status.redisTcp.test = "failed_to_initialize_client";
-      }
+      await runRedisCommand(async (client) => {
+        await client.ping();
+      });
+      status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
     } catch (err: any) {
       status.redisTcp.test = "failed";
       status.redisTcp.error = err.message || err;
