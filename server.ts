@@ -87,7 +87,7 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
   const client = createRedisRawClient({
     url: redisUrl,
     socket: {
-      connectTimeout: 5000, // 5 seconds timeout
+      connectTimeout: 2000, // 2 seconds timeout
       tls: isSecure, // Enforce TLS on rediss://
       reconnectStrategy: () => {
         // Disable reconnect loops in serverless to prevent thread leaks
@@ -103,7 +103,7 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
 
   try {
     // 1. Establish connection with absolute timeout
-    await withTimeout(client.connect(), 5000, "Redis connection timeout after 5 seconds");
+    await withTimeout(client.connect(), 2000, "Redis connection timeout after 2 seconds");
     
     // 2. Run the actual operation
     const result = await commandFn(client);
@@ -136,12 +136,12 @@ async function getMongoClient(): Promise<MongoClient | null> {
   if (mongoClient) return mongoClient;
   try {
     const client = new MongoClient(MONGODB_URI, {
-      connectTimeoutMS: 3000,
-      socketTimeoutMS: 3000,
-      serverSelectionTimeoutMS: 3000,
+      connectTimeoutMS: 2000,
+      socketTimeoutMS: 2000,
+      serverSelectionTimeoutMS: 2000,
     });
     // Use our leak-proof timeout to connect
-    await withTimeout(client.connect(), 3000, "MongoDB connection timeout after 3 seconds");
+    await withTimeout(client.connect(), 2000, "MongoDB connection timeout after 2 seconds");
     mongoClient = client;
     console.log("[MongoDB] Connected successfully to Cloud Atlas Database.");
     return mongoClient;
@@ -171,7 +171,37 @@ function getInitialDbState() {
 
 // Helper to get DB data (async)
 async function getDbData() {
-  // 1. Try TCP Redis (using redis package) first (Highly reliable and uses the direct TCP URL)
+  // 1. Try Vercel KV (REST) first in serverless/any environment if available (extremely fast, stateless, HTTP-based)
+  if (hasVercelKv) {
+    try {
+      const data = await withTimeout(
+        kv.get("vovinam_db_state"),
+        2000,
+        "Vercel KV GET timed out"
+      );
+      if (data) {
+        memoryDb = data; // Sync memoryDb
+        return data;
+      } else {
+        const initialDb = getInitialDbState();
+        try {
+          await withTimeout(
+            kv.set("vovinam_db_state", initialDb),
+            2000,
+            "Vercel KV SET timed out"
+          );
+        } catch (setErr) {
+          console.error("[Vercel KV REST] Initial set error:", setErr);
+        }
+        memoryDb = initialDb;
+        return initialDb;
+      }
+    } catch (err) {
+      console.error("[Vercel KV REST] Read error, trying other fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try TCP Redis (using redis package) as fallback or if REST is not configured
   if (hasRedis) {
     try {
       const dataStr = await runRedisCommand(async (client) => {
@@ -195,36 +225,6 @@ async function getDbData() {
     }
   }
 
-  // 1.5 Try Vercel KV (REST)
-  if (hasVercelKv) {
-    try {
-      const data = await withTimeout(
-        kv.get("vovinam_db_state"),
-        3000,
-        "Vercel KV GET timed out"
-      );
-      if (data) {
-        memoryDb = data; // Sync memoryDb
-        return data;
-      } else {
-        const initialDb = getInitialDbState();
-        try {
-          await withTimeout(
-            kv.set("vovinam_db_state", initialDb),
-            3000,
-            "Vercel KV SET timed out"
-          );
-        } catch (setErr) {
-          console.error("[Vercel KV REST] Initial set error:", setErr);
-        }
-        memoryDb = initialDb;
-        return initialDb;
-      }
-    } catch (err) {
-      console.error("[Vercel KV REST] Read error, trying other fallbacks:", err);
-    }
-  }
-
   // 2. Try MongoDB Atlas if MONGODB_URI is provided
   if (MONGODB_URI) {
     const client = await getMongoClient();
@@ -234,7 +234,7 @@ async function getDbData() {
         const collection = db.collection("data");
         const document = await withTimeout(
           collection.findOne({ _id: "main_state" as any }),
-          3000,
+          2000,
           "MongoDB findOne operation timed out"
         );
         if (document) {
@@ -247,7 +247,7 @@ async function getDbData() {
           try {
             await withTimeout(
               collection.insertOne({ _id: "main_state" as any, ...initialDb }),
-              3000,
+              2000,
               "MongoDB insertOne operation timed out"
             );
           } catch (insertErr) {
@@ -300,7 +300,21 @@ async function saveDbData(data: any) {
   // Always update in-memory representation so current process stays up to date
   memoryDb = dataToSave;
 
-  // 1. Try TCP Redis first as specified by the user
+  // 1. Try Vercel KV (REST) first as specified by the user for fast serverless performance
+  if (hasVercelKv) {
+    try {
+      await withTimeout(
+        kv.set("vovinam_db_state", dataToSave),
+        2000,
+        "Vercel KV SET timed out"
+      );
+      return true;
+    } catch (err) {
+      console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try TCP Redis (using redis package)
   if (hasRedis) {
     try {
       await runRedisCommand(async (client) => {
@@ -309,20 +323,6 @@ async function saveDbData(data: any) {
       return true;
     } catch (err) {
       console.error("[Redis via TCP] Write error, trying other fallbacks:", err);
-    }
-  }
-
-  // 1.5 Try Vercel KV (REST)
-  if (hasVercelKv) {
-    try {
-      await withTimeout(
-        kv.set("vovinam_db_state", dataToSave),
-        3000,
-        "Vercel KV SET timed out"
-      );
-      return true;
-    } catch (err) {
-      console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
     }
   }
 
@@ -339,7 +339,7 @@ async function saveDbData(data: any) {
             { ...dataToSave },
             { upsert: true }
           ),
-          3000,
+          2000,
           "MongoDB replaceOne operation timed out"
         );
         return true;
@@ -399,57 +399,68 @@ app.get("/api/db-status", async (req, res) => {
     }
   };
 
+  // Test all connections in parallel with short timeouts to prevent Vercel Gateway/Execution limits
+  const tests: Promise<any>[] = [];
+
   // Test Vercel KV REST
   if (hasVercelKv) {
-    try {
-      const start = Date.now();
-      const testVal = await withTimeout(
-        kv.get("vovinam_db_state_test_ping"),
-        3000,
-        "Vercel KV GET timed out"
-      );
-      status.vercelKvRest.test = `success (took ${Date.now() - start}ms)`;
-      status.vercelKvRest.pingResult = testVal;
-    } catch (err: any) {
-      status.vercelKvRest.test = "failed";
-      status.vercelKvRest.error = err.message || err;
-    }
+    tests.push((async () => {
+      try {
+        const start = Date.now();
+        const testVal = await withTimeout(
+          kv.get("vovinam_db_state_test_ping"),
+          2000,
+          "Vercel KV GET timed out"
+        );
+        status.vercelKvRest.test = `success (took ${Date.now() - start}ms)`;
+        status.vercelKvRest.pingResult = testVal;
+      } catch (err: any) {
+        status.vercelKvRest.test = "failed";
+        status.vercelKvRest.error = err.message || err;
+      }
+    })());
   }
 
   // Test TCP Redis
   if (hasRedis) {
-    try {
-      const start = Date.now();
-      await runRedisCommand(async (client) => {
-        await client.ping();
-      });
-      status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
-    } catch (err: any) {
-      status.redisTcp.test = "failed";
-      status.redisTcp.error = err.message || err;
-    }
+    tests.push((async () => {
+      try {
+        const start = Date.now();
+        await runRedisCommand(async (client) => {
+          await client.ping();
+        });
+        status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
+      } catch (err: any) {
+        status.redisTcp.test = "failed";
+        status.redisTcp.error = err.message || err;
+      }
+    })());
   }
 
   // Test MongoDB
   if (MONGODB_URI) {
-    try {
-      const start = Date.now();
-      const client = await getMongoClient();
-      if (client) {
-        await withTimeout(
-          client.db("admin").command({ ping: 1 }),
-          3000,
-          "MongoDB ping timed out"
-        );
-        status.mongoDb.test = `success (took ${Date.now() - start}ms)`;
-      } else {
-        status.mongoDb.test = "failed_to_initialize_client";
+    tests.push((async () => {
+      try {
+        const start = Date.now();
+        const client = await getMongoClient();
+        if (client) {
+          await withTimeout(
+            client.db("admin").command({ ping: 1 }),
+            2000,
+            "MongoDB ping timed out"
+          );
+          status.mongoDb.test = `success (took ${Date.now() - start}ms)`;
+        } else {
+          status.mongoDb.test = "failed_to_initialize_client";
+        }
+      } catch (err: any) {
+        status.mongoDb.test = "failed";
+        status.mongoDb.error = err.message || err;
       }
-    } catch (err: any) {
-      status.mongoDb.test = "failed";
-      status.mongoDb.error = err.message || err;
-    }
+    })());
   }
+
+  await Promise.all(tests);
 
   res.json(status);
 });
