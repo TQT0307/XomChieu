@@ -68,8 +68,8 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string)
 
 // Support connection via TCP Redis (using 'redis' package with KV_REDIS_URL / REDIS_URL / KV_URL)
 const redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
-// If we already have Vercel KV REST, disable raw TCP Redis to prevent serverless execution timeout/crashes
-let hasRedis = !!redisUrl && !hasVercelKv;
+// Enable raw TCP Redis regardless of whether REST variables are detected (as REST might be invalid/old)
+let hasRedis = !!redisUrl;
 
 // Stateless, leak-proof connection manager for Redis TCP in serverless environments.
 // Opens connection, executes command, closes connection immediately to avoid stale sockets/crashes.
