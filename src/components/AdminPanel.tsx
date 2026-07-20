@@ -1226,13 +1226,21 @@ export default function AdminPanel({
   const fetchDbStatus = () => {
     setLoadingDbStatus(true);
     fetch('/api/db-status')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) {
+          return res.text().then(text => {
+            throw new Error(`Mã lỗi ${res.status}: ${text.substring(0, 120)}`);
+          });
+        }
+        return res.json();
+      })
       .then(data => {
         setDbStatus(data);
         setLoadingDbStatus(false);
       })
       .catch(err => {
         console.error("Failed to fetch database status:", err);
+        setDbStatus({ error: err.message || String(err) });
         setLoadingDbStatus(false);
       });
   };
@@ -2936,7 +2944,7 @@ export default function AdminPanel({
                     <span className="w-4 h-4 border-2 border-[#0054A6] border-t-transparent rounded-full animate-spin"></span>
                     <span>Đang kiểm tra kết nối...</span>
                   </div>
-                ) : dbStatus ? (
+                ) : dbStatus && !dbStatus.error ? (
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="p-3 bg-white rounded-xl border space-y-1.5">
@@ -2983,6 +2991,13 @@ export default function AdminPanel({
                       Phương thức lưu trữ hiện tại: <strong className="text-[#0054A6] font-bold">{dbStatus.storageType || 'Chưa xác định'}</strong>
                     </div>
                   </div>
+                ) : dbStatus && dbStatus.error ? (
+                  <div className="space-y-2 py-1">
+                    <div className="text-xs text-rose-600 font-bold">Không thể kết nối tới server API để lấy trạng thái!</div>
+                    <div className="text-[10px] text-slate-500 font-mono bg-rose-50 border border-rose-100 p-3 rounded-xl leading-relaxed whitespace-pre-wrap">
+                      <strong>Chi tiết lỗi kỹ thuật:</strong> {dbStatus.error}
+                    </div>
+                  </div>
                 ) : (
                   <div className="text-xs text-rose-600 font-bold">Không thể kết nối tới server API để lấy trạng thái!</div>
                 )}
@@ -2990,7 +3005,7 @@ export default function AdminPanel({
                 <button
                   type="button"
                   onClick={fetchDbStatus}
-                  className="mt-3 text-xs text-[#0054A6] font-bold hover:underline"
+                  className="mt-3 text-xs text-[#0054A6] font-bold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   🔄 Tải lại trạng thái kết nối
                 </button>
@@ -3052,6 +3067,41 @@ export default function AdminPanel({
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+
+              {/* Vercel KV Setup Guide */}
+              <div className="mt-8 border-t border-slate-200 pt-6">
+                <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-50 text-[#0054A6] text-[10px] font-bold">i</span>
+                  <span>Hướng dẫn kích hoạt Cloud Database trên Vercel (Lưu trữ vĩnh viễn)</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
+                  Hiện tại dự án chưa được cấu hình lưu trữ Cloud bền vững nên máy chủ Vercel đang dùng <strong>Bộ nhớ tạm (Memory Fallback)</strong>. Bản lưu tạm này sẽ tự động biến mất và trở về mặc định sau một khoảng thời gian ngắn máy chủ không hoạt động (Vercel Cold Start) hoặc khi truy cập bằng thiết bị khác. Để kích hoạt cơ sở dữ liệu lưu vĩnh viễn và đồng bộ thời gian thực cho tất cả tài khoản, bạn chỉ cần làm theo 3 bước cực kỳ đơn giản sau:
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-[#0054A6]/5 rounded-2xl border border-[#0054A6]/10 space-y-1.5">
+                    <span className="text-[10px] uppercase font-black text-[#0054A6] tracking-wider block font-sans">BƯỚC 1: Vào trang quản lý</span>
+                    <p className="text-[10.5px] text-slate-600 leading-relaxed font-sans">
+                      Mở trang quản lý <strong>Vercel Dashboard</strong> của bạn và bấm chọn dự án website Vovinam này.
+                    </p>
+                  </div>
+                  <div className="p-4 bg-teal-50/20 rounded-2xl border border-teal-100 space-y-1.5">
+                    <span className="text-[10px] uppercase font-black text-teal-700 tracking-wider block font-sans">BƯỚC 2: Tạo KV (Redis)</span>
+                    <p className="text-[10.5px] text-slate-600 leading-relaxed font-sans">
+                      Chọn tab <strong>Storage</strong> ở thanh menu trên &rarr; bấm <strong>Connect Database</strong> &rarr; chọn <strong>KV (Redis)</strong> và làm theo hướng dẫn để tạo mới (Hoàn toàn miễn phí).
+                    </p>
+                  </div>
+                  <div className="p-4 bg-amber-50/30 rounded-2xl border border-amber-100 space-y-1.5">
+                    <span className="text-[10px] uppercase font-black text-amber-700 tracking-wider block font-sans">BƯỚC 3: Redeploy dự án</span>
+                    <p className="text-[10.5px] text-slate-600 leading-relaxed font-sans">
+                      Vercel sẽ tự động cấu hình các biến môi trường kết nối. Bạn chỉ cần chọn tab <strong>Deployments</strong> &rarr; bấm vào dấu 3 chấm của bản deploy mới nhất &rarr; chọn <strong>Redeploy</strong> để cập nhật biến môi trường, sau đó quay lại đây bấm <strong>Tải lại trạng thái kết nối</strong> là xong!
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-[11px] font-semibold flex items-center gap-2">
+                  <span className="text-emerald-500 font-bold">✔</span>
+                  <span>Sau khi liên kết thành công, website sẽ đồng bộ dữ liệu Cloud thật cho toàn bộ thiết bị, môn sinh và huấn luyện viên!</span>
                 </div>
               </div>
             </div>

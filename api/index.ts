@@ -33,7 +33,7 @@ app.use((req, res, next) => {
   // req.url có thể bị strip tiền tố /api (ví dụ thành /db-status).
   // Nếu req.url không bắt đầu bằng /api và không phải trang tĩnh /,
   // chúng ta tự động thêm tiền tố /api để khớp với các Express routes.
-  if (req.url && !req.url.startsWith("/api") && req.url !== "/") {
+  if (process.env.VERCEL && req.url && !req.url.startsWith("/api") && req.url !== "/") {
     const oldUrl = req.url;
     req.url = "/api" + req.url;
     console.log(`[Route Normalization] Rewrote ${oldUrl} to ${req.url}`);
@@ -374,7 +374,17 @@ async function saveDbData(data: any) {
 
 // API Routes
 app.get("/api/db-status", async (req, res) => {
+  let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
+  if (hasVercelKv) {
+    storageType = "Vercel KV (REST Database) - Bền vững lâu dài";
+  } else if (hasRedis) {
+    storageType = "Vercel Redis (TCP Socket) - Bền vững lâu dài";
+  } else if (MONGODB_URI) {
+    storageType = "MongoDB Atlas Cloud - Bền vững lâu dài";
+  }
+
   const status: any = {
+    storageType,
     vercelKvRest: {
       hasUrl: !!kvUrl,
       hasToken: !!kvToken,
