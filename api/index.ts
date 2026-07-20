@@ -43,24 +43,28 @@ app.use((req, res, next) => {
 
 const DB_PATH = path.join(process.cwd(), "db.json");
 
-// Support custom prefix for Vercel Redis (e.g. STORAGE_REST_API_URL or KV_REST_API_URL)
-const kvUrl = process.env.KV_REST_API_URL || process.env.STORAGE_REST_API_URL;
-const kvToken = process.env.KV_REST_API_TOKEN || process.env.STORAGE_REST_API_TOKEN;
+function isValidEnvVar(val: any): boolean {
+  return typeof val === "string" && val.trim() !== "" && val !== "undefined" && val !== "null";
+}
 
-const hasVercelKv = !!(kvUrl && kvToken);
+// Support custom prefix for Vercel Redis (e.g. STORAGE_REST_API_URL or KV_REST_API_URL)
+const kvUrl = isValidEnvVar(process.env.KV_REST_API_URL) ? process.env.KV_REST_API_URL : (isValidEnvVar(process.env.STORAGE_REST_API_URL) ? process.env.STORAGE_REST_API_URL : null);
+const kvToken = isValidEnvVar(process.env.KV_REST_API_TOKEN) ? process.env.KV_REST_API_TOKEN : (isValidEnvVar(process.env.STORAGE_REST_API_TOKEN) ? process.env.STORAGE_REST_API_TOKEN : null);
 
 // Instantiate dynamic KV client safely to avoid top-level crashes if environment variables are missing
 let kv: any = null;
-if (hasVercelKv) {
+if (kvUrl && kvToken) {
   try {
     kv = createClient({
-      url: kvUrl || "",
-      token: kvToken || "",
+      url: kvUrl,
+      token: kvToken,
     });
   } catch (err) {
     console.error("[Vercel KV] Failed to initialize client:", err);
   }
 }
+
+const hasVercelKv = !!(kvUrl && kvToken && kv);
 
 // Leak-proof timeout helper to prevent unhandled promise rejections in serverless environments
 async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
@@ -82,15 +86,19 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string)
 }
 
 // Support connection via TCP Redis (using 'redis' package with KV_REDIS_URL / REDIS_URL / KV_URL)
-let redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
-
-// Auto-upgrade non-TLS redis:// to TLS rediss:// for Upstash / Vercel KV endpoints which mandate TLS
-if (redisUrl && redisUrl.startsWith("redis://") && (redisUrl.includes(".upstash.io") || redisUrl.includes(".vercel-storage.com"))) {
-  redisUrl = redisUrl.replace("redis://", "rediss://");
-  console.log("[Redis Config] Upgraded redis:// to rediss:// for Upstash/Vercel host to enforce TLS");
+const rawRedisUrl = isValidEnvVar(process.env.KV_REDIS_URL) ? process.env.KV_REDIS_URL : (isValidEnvVar(process.env.REDIS_URL) ? process.env.REDIS_URL : (isValidEnvVar(process.env.KV_URL) ? process.env.KV_URL : null));
+let redisUrl: string | null = null;
+if (rawRedisUrl) {
+  redisUrl = rawRedisUrl;
+  // Auto-upgrade non-TLS redis:// to TLS rediss:// for Upstash / Vercel KV endpoints which mandate TLS
+  if (redisUrl.startsWith("redis://") && (redisUrl.includes(".upstash.io") || redisUrl.includes(".vercel-storage.com"))) {
+    redisUrl = redisUrl.replace("redis://", "rediss://");
+    console.log("[Redis Config] Upgraded redis:// to rediss:// for Upstash/Vercel host to enforce TLS");
+  }
 }
 
-let hasRedis = !!redisUrl;
+// Only use raw TCP Redis if Vercel KV REST is not available to avoid socket crashes/thread-leaks on Vercel Serverless
+const hasRedis = !!redisUrl && !hasVercelKv;
 
 // Stateless, leak-proof connection manager for Redis TCP in serverless environments.
 async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promise<T> {
@@ -141,7 +149,7 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
 
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = isValidEnvVar(process.env.MONGODB_URI) ? process.env.MONGODB_URI : null;
 
 async function getMongoClient(): Promise<MongoClient | null> {
   if (!MONGODB_URI) return null;
