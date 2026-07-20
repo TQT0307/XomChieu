@@ -161,7 +161,31 @@ function getInitialDbState() {
 
 // Helper to get DB data (async)
 async function getDbData() {
-  // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
+  // 1. Try TCP Redis (using redis package) first (Highly reliable and uses the direct TCP URL)
+  if (hasRedis) {
+    try {
+      const dataStr = await runRedisCommand(async (client) => {
+        return await client.get("vovinam_db_state");
+      });
+
+      if (dataStr) {
+        const parsed = JSON.parse(dataStr as string);
+        memoryDb = parsed; // Sync memoryDb
+        return parsed;
+      } else {
+        const initialDb = getInitialDbState();
+        await runRedisCommand(async (client) => {
+          await client.set("vovinam_db_state", JSON.stringify(initialDb));
+        });
+        memoryDb = initialDb;
+        return initialDb;
+      }
+    } catch (err) {
+      console.error("[Redis via TCP] Read error, trying other fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try Vercel KV (REST)
   if (hasVercelKv) {
     try {
       const data = await withTimeout(
@@ -188,30 +212,6 @@ async function getDbData() {
       }
     } catch (err) {
       console.error("[Vercel KV REST] Read error, trying other fallbacks:", err);
-    }
-  }
-
-  // 1.5 Try TCP Redis (using redis package)
-  if (hasRedis) {
-    try {
-      const dataStr = await runRedisCommand(async (client) => {
-        return await client.get("vovinam_db_state");
-      });
-
-      if (dataStr) {
-        const parsed = JSON.parse(dataStr as string);
-        memoryDb = parsed; // Sync memoryDb
-        return parsed;
-      } else {
-        const initialDb = getInitialDbState();
-        await runRedisCommand(async (client) => {
-          await client.set("vovinam_db_state", JSON.stringify(initialDb));
-        });
-        memoryDb = initialDb;
-        return initialDb;
-      }
-    } catch (err) {
-      console.error("[Redis via TCP] Read error, trying other fallbacks:", err);
     }
   }
 
@@ -290,7 +290,19 @@ async function saveDbData(data: any) {
   // Always update in-memory representation so current process stays up to date
   memoryDb = dataToSave;
 
-  // 1. Try Vercel KV (REST) first (Highly reliable in serverless environments)
+  // 1. Try TCP Redis first as specified by the user
+  if (hasRedis) {
+    try {
+      await runRedisCommand(async (client) => {
+        await client.set("vovinam_db_state", JSON.stringify(dataToSave));
+      });
+      return true;
+    } catch (err) {
+      console.error("[Redis via TCP] Write error, trying other fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try Vercel KV (REST)
   if (hasVercelKv) {
     try {
       await withTimeout(
@@ -301,18 +313,6 @@ async function saveDbData(data: any) {
       return true;
     } catch (err) {
       console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
-    }
-  }
-
-  // 1.5 Try TCP Redis
-  if (hasRedis) {
-    try {
-      await runRedisCommand(async (client) => {
-        await client.set("vovinam_db_state", JSON.stringify(dataToSave));
-      });
-      return true;
-    } catch (err) {
-      console.error("[Redis via TCP] Write error, trying other fallbacks:", err);
     }
   }
 
