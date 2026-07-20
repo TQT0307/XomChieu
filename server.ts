@@ -67,23 +67,33 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string)
 }
 
 // Support connection via TCP Redis (using 'redis' package with KV_REDIS_URL / REDIS_URL / KV_URL)
-const redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
-// Enable raw TCP Redis regardless of whether REST variables are detected (as REST might be invalid/old)
+let redisUrl = process.env.KV_REDIS_URL || process.env.REDIS_URL || process.env.KV_URL;
+
+// Auto-upgrade non-TLS redis:// to TLS rediss:// for Upstash / Vercel KV endpoints which mandate TLS
+if (redisUrl && redisUrl.startsWith("redis://") && (redisUrl.includes(".upstash.io") || redisUrl.includes(".vercel-storage.com"))) {
+  redisUrl = redisUrl.replace("redis://", "rediss://");
+  console.log("[Redis Config] Upgraded redis:// to rediss:// for Upstash/Vercel host to enforce TLS");
+}
+
 let hasRedis = !!redisUrl;
 
 // Stateless, leak-proof connection manager for Redis TCP in serverless environments.
 // Opens connection, executes command, closes connection immediately to avoid stale sockets/crashes.
 async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promise<T | null> {
   if (!hasRedis || !redisUrl) return null;
+  
+  const isSecure = redisUrl.startsWith("rediss://");
+  
   const client = createRedisRawClient({
     url: redisUrl,
     socket: {
-      connectTimeout: 3000, // 3 seconds timeout
+      connectTimeout: 5000, // 5 seconds timeout
+      tls: isSecure, // Enforce TLS on rediss://
       reconnectStrategy: () => {
         // Disable reconnect loops in serverless to prevent thread leaks
         return false;
       }
-    }
+    } as any
   });
   
   client.on("error", (err: any) => {
@@ -93,7 +103,7 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
 
   try {
     // 1. Establish connection with absolute timeout
-    await withTimeout(client.connect(), 3000, "Redis connection timeout after 3 seconds");
+    await withTimeout(client.connect(), 5000, "Redis connection timeout after 5 seconds");
     
     // 2. Run the actual operation
     const result = await commandFn(client);

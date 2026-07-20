@@ -2938,10 +2938,10 @@ export default function AdminPanel({
                   </div>
                 ) : dbStatus ? (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div className="p-3 bg-white rounded-xl border space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600">Vercel KV REST URL:</span>
+                          <span className="text-xs font-bold text-slate-600">Vercel KV REST (Web API):</span>
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.vercelKvRest?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                             {dbStatus.vercelKvRest?.hasUrl ? 'Đã liên kết' : 'Chưa cấu hình'}
                           </span>
@@ -2949,6 +2949,19 @@ export default function AdminPanel({
                         {dbStatus.vercelKvRest?.hasUrl && (
                           <div className="text-[10px] text-slate-400 font-mono">
                             Test: <span className={dbStatus.vercelKvRest?.test?.includes('success') ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{dbStatus.vercelKvRest?.test || 'Chưa chạy'}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 bg-white rounded-xl border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-600">Vercel Redis (TCP Socket):</span>
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.redisTcp?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                            {dbStatus.redisTcp?.hasUrl ? 'Đã liên kết' : 'Chưa cấu hình'}
+                          </span>
+                        </div>
+                        {dbStatus.redisTcp?.hasUrl && (
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            Test: <span className={dbStatus.redisTcp?.test?.includes('success') ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{dbStatus.redisTcp?.test || 'Chưa chạy'}</span>
                           </div>
                         )}
                       </div>
