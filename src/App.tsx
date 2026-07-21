@@ -112,10 +112,15 @@ export default function App() {
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
     let isMounted = true;
+    let requestInFlight = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
 
     const fetchServerData = () => {
+      if (requestInFlight) return Promise.resolve();
+      requestInFlight = true;
+
       // 1. Fetch only the lightweight timestamp first!
-      fetch('/api/timestamp')
+      return fetch('/api/timestamp', { cache: 'no-store' })
         .then(res => {
           if (!res.ok) throw new Error("Timestamp endpoint not available");
           return res.json();
@@ -134,7 +139,7 @@ export default function App() {
           }
 
           // 2. Fetch the full heavy data only if there's a mismatch or it's the initial fetch
-          return fetch('/api/data')
+          return fetch('/api/data', { cache: 'no-store' })
             .then(res => {
               if (!res.ok) throw new Error("Full server response not OK");
               return res.json();
@@ -249,18 +254,37 @@ export default function App() {
           initialSyncCompletedRef.current = true;
           setHasLoadedServerData(true);
           hasLoadedServerDataRef.current = true;
+        })
+        .finally(() => {
+          requestInFlight = false;
         });
     };
 
     // Initial load
     fetchServerData();
 
-    // Poll every 4 seconds for real-time synchronization across devices
-    const intervalId = setInterval(fetchServerData, 4000);
+    // Poll quickly while visible, but slow down background tabs to avoid wasting
+    // Firebase/Vercel requests. setTimeout prevents overlapping slow requests.
+    const scheduleNextPoll = () => {
+      pollTimer = setTimeout(async () => {
+        await fetchServerData();
+        if (isMounted) scheduleNextPoll();
+      }, document.hidden ? 5000 : 1000);
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchServerData();
+    };
+
+    scheduleNextPoll();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', fetchServerData);
 
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
+      if (pollTimer) clearTimeout(pollTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', fetchServerData);
     };
   }, []); // Run exactly once on mount to establish a single stable polling interval
 

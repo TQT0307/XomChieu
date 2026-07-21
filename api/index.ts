@@ -33,6 +33,12 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // Vercel Serverless routing normalization middleware
 app.use((req, res, next) => {
   console.log(`[Request] Method: ${req.method} | Original URL: ${req.url}`);
+
+  // API responses represent live admin data and must never be served stale by a
+  // browser, proxy, or Vercel CDN.
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
   
   // Nếu request được định tuyến tới Serverless Function này bởi Vercel,
   // req.url có thể bị strip tiền tố /api (ví dụ thành /db-status).
