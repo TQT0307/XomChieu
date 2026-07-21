@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import UserView from './components/UserView';
 import AdminPanel from './components/AdminPanel';
@@ -91,32 +91,94 @@ export default function App() {
   const [activeNavSection, setActiveNavSection] = useState('section-about');
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
 
-  // Load state from central server API on mount
+  // Keep track of the last fetched server data to prevent infinite syncing loops
+  const lastServerDataRef = useRef<{
+    categories?: any;
+    articles?: any;
+    members?: any;
+    coaches?: any;
+    achievements?: any;
+    tournaments?: any;
+    clubs?: any;
+    highlights?: any;
+    webConfig?: any;
+  }>({});
+
+  // Load and poll state from central server API for real-time updates
   useEffect(() => {
-    fetch('/api/data')
-      .then(res => {
-        if (!res.ok) throw new Error("Server response not OK");
-        return res.json();
-      })
-      .then(data => {
-        if (data) {
-          if (data.categories) setCategories(data.categories);
-          if (data.articles) setArticles(data.articles);
-          if (data.members) setMembers(data.members);
-          if (data.coaches) setCoaches(data.coaches);
-          if (data.achievements) setAchievements(data.achievements);
-          if (data.tournaments) setTournaments(data.tournaments);
-          if (data.clubs) setClubs(data.clubs);
-          if (data.highlights) setHighlights(data.highlights);
-          if (data.webConfig) setWebConfig(data.webConfig);
-        }
-        setHasLoadedServerData(true);
-      })
-      .catch(err => {
-        console.warn("Failed to fetch shared database from server API, using local storage:", err);
-        setHasLoadedServerData(true); // Fallback complete, allow saving local changes
-      });
-  }, []);
+    let isMounted = true;
+
+    const fetchServerData = () => {
+      fetch('/api/data')
+        .then(res => {
+          if (!res.ok) throw new Error("Server response not OK");
+          return res.json();
+        })
+        .then(data => {
+          if (!isMounted) return;
+          if (data) {
+            // Update the reference before setting React state to block write loops
+            lastServerDataRef.current = {
+              categories: data.categories,
+              articles: data.articles,
+              members: data.members,
+              coaches: data.coaches,
+              achievements: data.achievements,
+              tournaments: data.tournaments,
+              clubs: data.clubs,
+              highlights: data.highlights,
+              webConfig: data.webConfig,
+            };
+
+            // Only update states if server values are actually different
+            if (data.categories && JSON.stringify(data.categories) !== JSON.stringify(categories)) {
+              setCategories(data.categories);
+            }
+            if (data.articles && JSON.stringify(data.articles) !== JSON.stringify(articles)) {
+              setArticles(data.articles);
+            }
+            if (data.members && JSON.stringify(data.members) !== JSON.stringify(members)) {
+              setMembers(data.members);
+            }
+            if (data.coaches && JSON.stringify(data.coaches) !== JSON.stringify(coaches)) {
+              setCoaches(data.coaches);
+            }
+            if (data.achievements && JSON.stringify(data.achievements) !== JSON.stringify(achievements)) {
+              setAchievements(data.achievements);
+            }
+            if (data.tournaments && JSON.stringify(data.tournaments) !== JSON.stringify(tournaments)) {
+              setTournaments(data.tournaments);
+            }
+            if (data.clubs && JSON.stringify(data.clubs) !== JSON.stringify(clubs)) {
+              setClubs(data.clubs);
+            }
+            if (data.highlights && JSON.stringify(data.highlights) !== JSON.stringify(highlights)) {
+              setHighlights(data.highlights);
+            }
+            if (data.webConfig && JSON.stringify(data.webConfig) !== JSON.stringify(webConfig)) {
+              setWebConfig(data.webConfig);
+            }
+          }
+          setHasLoadedServerData(true);
+        })
+        .catch(err => {
+          if (!isMounted) return;
+          console.warn("Failed to fetch shared database from server API, using local fallback:", err);
+          setHasLoadedServerData(true);
+        });
+    };
+
+    // Initial load
+    fetchServerData();
+
+    // Poll every 4 seconds for real-time synchronization across devices
+    const intervalId = setInterval(fetchServerData, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig]);
 
   // Detail Modal selection states
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
@@ -152,59 +214,96 @@ export default function App() {
     });
   };
 
-  // Synchronize with server and localStorage on change
+  // Synchronize with server and localStorage on change (only if changed locally)
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_categories', categories);
-    syncKeyWithServer('categories', categories);
+    
+    // Only write back to server if this change did NOT come from a server sync
+    const isDifferent = JSON.stringify(categories) !== JSON.stringify(lastServerDataRef.current.categories);
+    if (isDifferent) {
+      syncKeyWithServer('categories', categories);
+    }
   }, [categories, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_articles', articles);
-    syncKeyWithServer('articles', articles);
+    
+    const isDifferent = JSON.stringify(articles) !== JSON.stringify(lastServerDataRef.current.articles);
+    if (isDifferent) {
+      syncKeyWithServer('articles', articles);
+    }
   }, [articles, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_members', members);
-    syncKeyWithServer('members', members);
+    
+    const isDifferent = JSON.stringify(members) !== JSON.stringify(lastServerDataRef.current.members);
+    if (isDifferent) {
+      syncKeyWithServer('members', members);
+    }
   }, [members, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_coaches', coaches);
-    syncKeyWithServer('coaches', coaches);
+    
+    const isDifferent = JSON.stringify(coaches) !== JSON.stringify(lastServerDataRef.current.coaches);
+    if (isDifferent) {
+      syncKeyWithServer('coaches', coaches);
+    }
   }, [coaches, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_achievements', achievements);
-    syncKeyWithServer('achievements', achievements);
+    
+    const isDifferent = JSON.stringify(achievements) !== JSON.stringify(lastServerDataRef.current.achievements);
+    if (isDifferent) {
+      syncKeyWithServer('achievements', achievements);
+    }
   }, [achievements, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_tournaments', tournaments);
-    syncKeyWithServer('tournaments', tournaments);
+    
+    const isDifferent = JSON.stringify(tournaments) !== JSON.stringify(lastServerDataRef.current.tournaments);
+    if (isDifferent) {
+      syncKeyWithServer('tournaments', tournaments);
+    }
   }, [tournaments, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_clubs', clubs);
-    syncKeyWithServer('clubs', clubs);
+    
+    const isDifferent = JSON.stringify(clubs) !== JSON.stringify(lastServerDataRef.current.clubs);
+    if (isDifferent) {
+      syncKeyWithServer('clubs', clubs);
+    }
   }, [clubs, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_highlights', highlights);
-    syncKeyWithServer('highlights', highlights);
+    
+    const isDifferent = JSON.stringify(highlights) !== JSON.stringify(lastServerDataRef.current.highlights);
+    if (isDifferent) {
+      syncKeyWithServer('highlights', highlights);
+    }
   }, [highlights, hasLoadedServerData]);
 
   useEffect(() => {
     if (!hasLoadedServerData) return;
     safeSetItem('vovinam_webConfig', webConfig);
-    syncKeyWithServer('webConfig', webConfig);
+    
+    const isDifferent = JSON.stringify(webConfig) !== JSON.stringify(lastServerDataRef.current.webConfig);
+    if (isDifferent) {
+      syncKeyWithServer('webConfig', webConfig);
+    }
   }, [webConfig, hasLoadedServerData]);
 
   // Export full project to ASP.NET MVC + SQL server script Zip file

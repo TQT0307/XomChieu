@@ -4,6 +4,8 @@ import fs from "fs";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 // Seed data
 import {
@@ -185,10 +187,6 @@ async function getFirebaseFirestore() {
   if (!hasFirebase) return null;
 
   try {
-    // Dynamically import to avoid any load-time or bundle compilation crashes
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-
     if (getApps().length === 0) {
       let credential;
       if (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) {
@@ -238,10 +236,10 @@ async function getFirebaseFirestore() {
       }
     }
     firestore = getFirestore();
-    console.log("[Firebase] Admin SDK initialized successfully via dynamic imports.");
+    console.log("[Firebase] Admin SDK initialized successfully.");
     return firestore;
   } catch (err: any) {
-    console.error("[Firebase] Dynamic initialization error:", err);
+    console.error("[Firebase] Lazy initialization error:", err);
     firebaseInitError = err.message || String(err);
     return null;
   }
