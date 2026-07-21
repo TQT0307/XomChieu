@@ -109,46 +109,6 @@ export default function App() {
   const pendingSyncsRef = useRef<Record<string, number>>({});
   const initialSyncCompletedRef = useRef(false);
 
-  // Helper to save all local state up to the Cloud Server when local has newer changes
-  const saveAllLocalToCloud = (localTimestamp: number) => {
-    const payload = {
-      categories,
-      articles,
-      members,
-      coaches,
-      achievements,
-      tournaments,
-      clubs,
-      highlights,
-      webConfig,
-      lastUpdated: localTimestamp
-    };
-
-    fetch('/api/save-all', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload)
-    })
-    .then(res => {
-      if (res.ok) {
-        return res.json();
-      } else {
-        throw new Error("Failed to write to save-all");
-      }
-    })
-    .then(result => {
-      if (result && result.lastUpdated) {
-        localStorage.setItem('vovinam_last_updated', result.lastUpdated.toString());
-        console.log("[P2P Sync] Successfully backed up newer local state to Cloud:", result.lastUpdated);
-      }
-    })
-    .catch(err => {
-      console.error("[P2P Sync] Failed to back up state to Cloud:", err);
-    });
-  };
-
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
     let isMounted = true;
@@ -182,15 +142,8 @@ export default function App() {
             .then(data => {
               if (!isMounted || !data) return;
 
-              // P2P Check: If local state is newer, upload it to the cloud instead of overwriting!
-              if (!initialSyncCompletedRef.current && localUpdated > serverUpdated) {
-                console.log(`[P2P Sync] Local state is newer (${localUpdated}) than server (${serverUpdated}). Syncing up to cloud...`);
-                saveAllLocalToCloud(localUpdated);
-                initialSyncCompletedRef.current = true;
-                setHasLoadedServerData(true);
-                hasLoadedServerDataRef.current = true;
-                return;
-              }
+              // The shared cloud database is authoritative. Stale localStorage in a
+              // visitor's browser must never overwrite data created by an admin.
 
               // Update the reference before setting React state to block write loops
               lastServerDataRef.current = {
