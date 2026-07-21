@@ -4,8 +4,6 @@ import fs from "fs";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 
 // Seed data
 import {
@@ -187,6 +185,9 @@ async function getFirebaseFirestore() {
   if (!hasFirebase) return null;
 
   try {
+    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
+    const { getFirestore } = await import("firebase-admin/firestore");
+
     if (getApps().length === 0) {
       let credential;
       if (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) {
