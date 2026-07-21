@@ -21,7 +21,7 @@ import {
   initialClubs,
   initialHighlights,
   initialWebConfig
-} from "./initialData";
+} from "./initialData.js";
 
 const app = express();
 const PORT = 3000;
@@ -196,9 +196,13 @@ let firebaseInitError: string | null = null;
 let firebaseFailed = false;
 let vercelKvFailed = false;
 const hasFirebase = !!(
-  (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) ||
-  (isValidEnvVar(process.env.FIREBASE_PROJECT_ID))
+  isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT) ||
+  (isValidEnvVar(process.env.FIREBASE_PROJECT_ID) &&
+    isValidEnvVar(process.env.FIREBASE_CLIENT_EMAIL) &&
+    isValidEnvVar(process.env.FIREBASE_PRIVATE_KEY))
 );
+
+const hasPersistentStorage = hasFirebase || hasVercelKv || hasRedis || !!MONGODB_URI;
 
 async function getFirebaseFirestore() {
   if (firestore) return firestore;
@@ -229,6 +233,11 @@ async function getFirebaseFirestore() {
           val = val.substring(1, val.length - 1).trim();
         } else if (val.startsWith("'") && val.endsWith("'")) {
           val = val.substring(1, val.length - 1).trim();
+        }
+
+        // Vercel may preserve escaped quotes/newlines when JSON is pasted.
+        if (val.startsWith("{\\\"") || val.includes("\\n")) {
+          val = val.replace(/\\n/g, "\n").replace(/\\\"/g, '"');
         }
 
         if (val.startsWith("{")) {
@@ -331,7 +340,7 @@ async function getDbTimestamp() {
         const docRef = dbInstance.collection("vovinam").doc("metadata");
         const doc: any = await withTimeout(
           docRef.get(),
-          1500,
+          8000,
           "Firebase Firestore GET timestamp timed out"
         );
         if (doc.exists) {
@@ -419,7 +428,7 @@ async function getDbData() {
       try {
         const snapshot: any = await withTimeout(
           dbInstance.collection("vovinam").get(),
-          3000,
+          10000,
           "Firebase Firestore GET collection timed out"
         );
         
@@ -483,15 +492,14 @@ async function getDbData() {
         
         await withTimeout(
           batch.commit(),
-          3000,
+          10000,
           "Firebase Firestore initialization batch commit timed out"
         );
         
         memoryDb = initialDb;
         return initialDb;
       } catch (err) {
-        console.error("[Firebase] Read/Init error, disabling Firebase fallback:", err);
-        firebaseFailed = true;
+        console.error("[Firebase] Read/Init error:", err);
       }
     } else {
       firebaseFailed = true;
@@ -715,13 +723,13 @@ async function saveDbData(data: any) {
         
         await withTimeout(
           batch.commit(),
-          3000,
+          10000,
           "Firebase Firestore SET batch commit timed out"
         );
         return true;
       } catch (err) {
-        console.error("[Firebase] Write batch error, disabling Firebase fallback:", err);
-        firebaseFailed = true;
+        console.error("[Firebase] Write batch error:", err);
+        if (process.env.VERCEL) return false;
       }
     } else {
       firebaseFailed = true;
@@ -792,7 +800,13 @@ async function saveDbData(data: any) {
     }
   }
 
-  // 3. Local file fallback
+  // 3. Local file fallback. Serverless memory/files are ephemeral, so a failed
+  // cloud write must never be reported as successfully persisted on Vercel.
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") {
+    console.error("[Persistence] No cloud database accepted the write.");
+    return false;
+  }
+
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(dataToSave, null, 2), "utf-8");
     return true;
@@ -827,6 +841,7 @@ app.get("/api/db-status", async (req, res) => {
 
     const status: any = {
       storageType,
+      persistentStorageReady: hasPersistentStorage && (!hasFirebase || !!dbInstance),
       firebase: {
         hasConfig: hasFirebase,
         isInitialized: !!dbInstance,
@@ -1058,8 +1073,8 @@ app.get("/api/webConfig", async (req, res) => {
 app.post("/api/save-key", async (req, res) => {
   try {
     const { key, data } = req.body;
-    if (!key) {
-      return res.status(400).json({ error: "Missing state key" });
+    if (!key || !EXPECTED_KEYS.includes(key)) {
+      return res.status(400).json({ error: "Invalid state key" });
     }
     
     const db = await getDbData();
@@ -1072,8 +1087,9 @@ app.post("/api/save-key", async (req, res) => {
     } else {
       res.status(500).json({ error: "Failed to write database changes" });
     }
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error during save" });
+  } catch (err: any) {
+    console.error("[save-key]", err);
+    res.status(500).json({ error: "Internal server error during save", message: err?.message || String(err) });
   }
 });
 
@@ -1101,8 +1117,9 @@ app.post("/api/save-all", async (req, res) => {
     } else {
       res.status(500).json({ error: "Failed to save entire database" });
     }
-  } catch (err) {
-    res.status(500).json({ error: "Internal server error during save-all" });
+  } catch (err: any) {
+    console.error("[save-all]", err);
+    res.status(500).json({ error: "Internal server error during save-all", message: err?.message || String(err) });
   }
 });
 

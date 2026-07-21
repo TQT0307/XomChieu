@@ -1,4 +1,4 @@
-import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types';
+import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types.js';
 
 export const initialCategories: Category[] = [
   {

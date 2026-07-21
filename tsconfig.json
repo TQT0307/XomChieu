@@ -14,13 +14,13 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
         "./*"
       ]
     },
-    "allowImportingTsExtensions": true,
     "noEmit": true
   }
 }
