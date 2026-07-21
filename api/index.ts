@@ -4,6 +4,8 @@ import fs from "fs";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 // Seed data
 import {
@@ -16,7 +18,7 @@ import {
   initialClubs,
   initialHighlights,
   initialWebConfig
-} from "../src/initialData";
+} from "./initialData";
 
 const app = express();
 const PORT = 3000;
@@ -172,6 +174,39 @@ async function getMongoClient(): Promise<MongoClient | null> {
   }
 }
 
+// Firebase Setup
+let firestore: any = null;
+const hasFirebase = !!(
+  (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) ||
+  (isValidEnvVar(process.env.FIREBASE_PROJECT_ID))
+);
+
+if (hasFirebase) {
+  try {
+    if (getApps().length === 0) {
+      let credential;
+      if (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!);
+        credential = cert(serviceAccount);
+      } else {
+        const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+        credential = cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: privateKey,
+        });
+      }
+      initializeApp({
+        credential,
+      });
+    }
+    firestore = getFirestore();
+    console.log("[Firebase] Admin SDK initialized successfully.");
+  } catch (err) {
+    console.error("[Firebase] Initialization error:", err);
+  }
+}
+
 // Global in-memory fallback to avoid crashes on read-only environments like Vercel Serverless
 let memoryDb: any = null;
 
@@ -191,7 +226,39 @@ function getInitialDbState() {
 
 // Helper to get DB data (async)
 async function getDbData() {
-  // 1. Try Vercel KV (REST) first in serverless/any environment if available (extremely fast, stateless, HTTP-based)
+  // 1. Try Firebase Firestore if enabled (Highest priority)
+  if (hasFirebase && firestore) {
+    try {
+      const docRef = firestore.collection("vovinam").doc("main_state");
+      const doc: any = await withTimeout(
+        docRef.get(),
+        2500,
+        "Firebase Firestore GET timed out"
+      );
+      if (doc.exists) {
+        const data = doc.data();
+        memoryDb = data; // Sync memoryDb
+        return data;
+      } else {
+        const initialDb = getInitialDbState();
+        try {
+          await withTimeout(
+            docRef.set(initialDb),
+            2500,
+            "Firebase Firestore SET timed out"
+          );
+        } catch (setErr) {
+          console.error("[Firebase] Initial set error:", setErr);
+        }
+        memoryDb = initialDb;
+        return initialDb;
+      }
+    } catch (err) {
+      console.error("[Firebase] Read error, trying other fallbacks:", err);
+    }
+  }
+
+  // 1.5 Try Vercel KV (REST) first in serverless/any environment if available (extremely fast, stateless, HTTP-based)
   if (hasVercelKv) {
     try {
       const data = await withTimeout(
@@ -320,7 +387,22 @@ async function saveDbData(data: any) {
   // Always update in-memory representation so current process stays up to date
   memoryDb = dataToSave;
 
-  // 1. Try Vercel KV (REST) first as specified by the user for fast serverless performance
+  // 1. Try Firebase Firestore if enabled (Highest priority)
+  if (hasFirebase && firestore) {
+    try {
+      const docRef = firestore.collection("vovinam").doc("main_state");
+      await withTimeout(
+        docRef.set(dataToSave),
+        2500,
+        "Firebase Firestore SET timed out"
+      );
+      return true;
+    } catch (err) {
+      console.error("[Firebase] Write error:", err);
+    }
+  }
+
+  // 1.5 Try Vercel KV (REST) first as specified by the user for fast serverless performance
   if (hasVercelKv) {
     try {
       await withTimeout(
@@ -383,7 +465,9 @@ async function saveDbData(data: any) {
 // API Routes
 app.get("/api/db-status", async (req, res) => {
   let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
-  if (hasVercelKv) {
+  if (hasFirebase && firestore) {
+    storageType = "Firebase Firestore Cloud - Bền vững lâu dài";
+  } else if (hasVercelKv) {
     storageType = "Vercel KV (REST Database) - Bền vững lâu dài";
   } else if (hasRedis) {
     storageType = "Vercel Redis (TCP Socket) - Bền vững lâu dài";
@@ -393,6 +477,15 @@ app.get("/api/db-status", async (req, res) => {
 
   const status: any = {
     storageType,
+    firebase: {
+      hasConfig: hasFirebase,
+      projectId: process.env.FIREBASE_PROJECT_ID || null,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL || null,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+      test: "not_run",
+      error: null
+    },
     vercelKvRest: {
       hasUrl: !!kvUrl,
       hasToken: !!kvToken,
@@ -417,6 +510,25 @@ app.get("/api/db-status", async (req, res) => {
 
   // Test all connections in parallel with short timeouts to prevent Vercel Gateway/Execution limits
   const tests: Promise<any>[] = [];
+
+  // Test Firebase
+  if (hasFirebase && firestore) {
+    tests.push((async () => {
+      try {
+        const start = Date.now();
+        const docRef = firestore.collection("vovinam").doc("main_state_ping_test");
+        await withTimeout(
+          docRef.set({ ping: true, timestamp: new Date().toISOString() }),
+          2000,
+          "Firebase Firestore ping write timed out"
+        );
+        status.firebase.test = `success (took ${Date.now() - start}ms)`;
+      } catch (err: any) {
+        status.firebase.test = "failed";
+        status.firebase.error = err.message || err;
+      }
+    })());
+  }
 
   // Test Vercel KV REST
   if (hasVercelKv) {
