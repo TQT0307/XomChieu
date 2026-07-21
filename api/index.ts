@@ -176,6 +176,7 @@ async function getMongoClient(): Promise<MongoClient | null> {
 
 // Firebase Setup
 let firestore: any = null;
+let firebaseInitError: string | null = null;
 const hasFirebase = !!(
   (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) ||
   (isValidEnvVar(process.env.FIREBASE_PROJECT_ID))
@@ -186,8 +187,15 @@ if (hasFirebase) {
     if (getApps().length === 0) {
       let credential;
       if (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT!);
-        credential = cert(serviceAccount);
+        const val = process.env.FIREBASE_SERVICE_ACCOUNT!.trim();
+        if (val.startsWith("{")) {
+          const serviceAccount = JSON.parse(val);
+          credential = cert(serviceAccount);
+        } else {
+          const warnMsg = "[Firebase] FIREBASE_SERVICE_ACCOUNT is set but does not look like a JSON object. It should be a complete JSON string starting with '{'. Please verify your environment variable value.";
+          console.warn(warnMsg);
+          firebaseInitError = warnMsg;
+        }
       } else {
         const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
         credential = cert({
@@ -196,14 +204,19 @@ if (hasFirebase) {
           privateKey: privateKey,
         });
       }
-      initializeApp({
-        credential,
-      });
+      if (credential) {
+        initializeApp({
+          credential,
+        });
+      } else {
+        throw new Error("No valid credential could be initialized. FIREBASE_SERVICE_ACCOUNT must be a valid JSON string starting with '{'.");
+      }
     }
     firestore = getFirestore();
     console.log("[Firebase] Admin SDK initialized successfully.");
-  } catch (err) {
+  } catch (err: any) {
     console.error("[Firebase] Initialization error:", err);
+    firebaseInitError = err.message || String(err);
   }
 }
 
@@ -464,133 +477,145 @@ async function saveDbData(data: any) {
 
 // API Routes
 app.get("/api/db-status", async (req, res) => {
-  let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
-  if (hasFirebase && firestore) {
-    storageType = "Firebase Firestore Cloud - Bền vững lâu dài";
-  } else if (hasVercelKv) {
-    storageType = "Vercel KV (REST Database) - Bền vững lâu dài";
-  } else if (hasRedis) {
-    storageType = "Vercel Redis (TCP Socket) - Bền vững lâu dài";
-  } else if (MONGODB_URI) {
-    storageType = "MongoDB Atlas Cloud - Bền vững lâu dài";
-  }
-
-  const status: any = {
-    storageType,
-    firebase: {
-      hasConfig: hasFirebase,
-      projectId: process.env.FIREBASE_PROJECT_ID || null,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL || null,
-      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
-      hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
-      test: "not_run",
-      error: null
-    },
-    vercelKvRest: {
-      hasUrl: !!kvUrl,
-      hasToken: !!kvToken,
-      url: kvUrl ? `${kvUrl.substring(0, 30)}...` : null,
-      isCustomStoragePrefix: !process.env.KV_REST_API_URL && !!process.env.STORAGE_REST_API_URL,
-      test: "not_run",
-      error: null
-    },
-    redisTcp: {
-      hasUrl: !!redisUrl,
-      url: redisUrl ? `${redisUrl.substring(0, 30)}...` : null,
-      test: "not_run",
-      error: null
-    },
-    mongoDb: {
-      hasUri: !!MONGODB_URI,
-      uri: MONGODB_URI ? `${MONGODB_URI.substring(0, 30)}...` : null,
-      test: "not_run",
-      error: null
+  try {
+    let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
+    if (hasFirebase && firestore) {
+      storageType = "Firebase Firestore Cloud - Bền vững lâu dài";
+    } else if (hasVercelKv) {
+      storageType = "Vercel KV (REST Database) - Bền vững lâu dài";
+    } else if (hasRedis) {
+      storageType = "Vercel Redis (TCP Socket) - Bền vững lâu dài";
+    } else if (MONGODB_URI) {
+      storageType = "MongoDB Atlas Cloud - Bền vững lâu dài";
     }
-  };
 
-  // Test all connections in parallel with short timeouts to prevent Vercel Gateway/Execution limits
-  const tests: Promise<any>[] = [];
-
-  // Test Firebase
-  if (hasFirebase && firestore) {
-    tests.push((async () => {
-      try {
-        const start = Date.now();
-        const docRef = firestore.collection("vovinam").doc("main_state_ping_test");
-        await withTimeout(
-          docRef.set({ ping: true, timestamp: new Date().toISOString() }),
-          2000,
-          "Firebase Firestore ping write timed out"
-        );
-        status.firebase.test = `success (took ${Date.now() - start}ms)`;
-      } catch (err: any) {
-        status.firebase.test = "failed";
-        status.firebase.error = err.message || err;
+    const status: any = {
+      storageType,
+      firebase: {
+        hasConfig: hasFirebase,
+        isInitialized: !!firestore,
+        initError: firebaseInitError,
+        projectId: process.env.FIREBASE_PROJECT_ID || null,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL || null,
+        hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+        hasServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+        serviceAccountLength: process.env.FIREBASE_SERVICE_ACCOUNT ? process.env.FIREBASE_SERVICE_ACCOUNT.length : 0,
+        serviceAccountPreview: process.env.FIREBASE_SERVICE_ACCOUNT ? (process.env.FIREBASE_SERVICE_ACCOUNT.trim().substring(0, 15) + "...") : null,
+        test: "not_run",
+        error: null
+      },
+      vercelKvRest: {
+        hasUrl: !!kvUrl,
+        hasToken: !!kvToken,
+        url: kvUrl ? `${kvUrl.substring(0, 30)}...` : null,
+        isCustomStoragePrefix: !process.env.KV_REST_API_URL && !!process.env.STORAGE_REST_API_URL,
+        test: "not_run",
+        error: null
+      },
+      redisTcp: {
+        hasUrl: !!redisUrl,
+        url: redisUrl ? `${redisUrl.substring(0, 30)}...` : null,
+        test: "not_run",
+        error: null
+      },
+      mongoDb: {
+        hasUri: !!MONGODB_URI,
+        uri: MONGODB_URI ? `${MONGODB_URI.substring(0, 30)}...` : null,
+        test: "not_run",
+        error: null
       }
-    })());
-  }
+    };
 
-  // Test Vercel KV REST
-  if (hasVercelKv) {
-    tests.push((async () => {
-      try {
-        const start = Date.now();
-        const testVal = await withTimeout(
-          kv.get("vovinam_db_state_test_ping"),
-          2000,
-          "Vercel KV GET timed out"
-        );
-        status.vercelKvRest.test = `success (took ${Date.now() - start}ms)`;
-        status.vercelKvRest.pingResult = testVal;
-      } catch (err: any) {
-        status.vercelKvRest.test = "failed";
-        status.vercelKvRest.error = err.message || err;
-      }
-    })());
-  }
+    // Test all connections in parallel with short timeouts to prevent Vercel Gateway/Execution limits
+    const tests: Promise<any>[] = [];
 
-  // Test TCP Redis
-  if (hasRedis) {
-    tests.push((async () => {
-      try {
-        const start = Date.now();
-        await runRedisCommand(async (client) => {
-          await client.ping();
-        });
-        status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
-      } catch (err: any) {
-        status.redisTcp.test = "failed";
-        status.redisTcp.error = err.message || err;
-      }
-    })());
-  }
-
-  // Test MongoDB
-  if (MONGODB_URI) {
-    tests.push((async () => {
-      try {
-        const start = Date.now();
-        const client = await getMongoClient();
-        if (client) {
+    // Test Firebase
+    if (hasFirebase && firestore) {
+      tests.push((async () => {
+        try {
+          const start = Date.now();
+          const docRef = firestore.collection("vovinam").doc("main_state_ping_test");
           await withTimeout(
-            client.db("admin").command({ ping: 1 }),
+            docRef.set({ ping: true, timestamp: new Date().toISOString() }),
             2000,
-            "MongoDB ping timed out"
+            "Firebase Firestore ping write timed out"
           );
-          status.mongoDb.test = `success (took ${Date.now() - start}ms)`;
-        } else {
-          status.mongoDb.test = "failed_to_initialize_client";
+          status.firebase.test = `success (took ${Date.now() - start}ms)`;
+        } catch (err: any) {
+          status.firebase.test = "failed";
+          status.firebase.error = err.message || err;
         }
-      } catch (err: any) {
-        status.mongoDb.test = "failed";
-        status.mongoDb.error = err.message || err;
-      }
-    })());
+      })());
+    }
+
+    // Test Vercel KV REST
+    if (hasVercelKv) {
+      tests.push((async () => {
+        try {
+          const start = Date.now();
+          const testVal = await withTimeout(
+            kv.get("vovinam_db_state_test_ping"),
+            2000,
+            "Vercel KV GET timed out"
+          );
+          status.vercelKvRest.test = `success (took ${Date.now() - start}ms)`;
+          status.vercelKvRest.pingResult = testVal;
+        } catch (err: any) {
+          status.vercelKvRest.test = "failed";
+          status.vercelKvRest.error = err.message || err;
+        }
+      })());
+    }
+
+    // Test TCP Redis
+    if (hasRedis) {
+      tests.push((async () => {
+        try {
+          const start = Date.now();
+          await runRedisCommand(async (client) => {
+            await client.ping();
+          });
+          status.redisTcp.test = `success (took ${Date.now() - start}ms)`;
+        } catch (err: any) {
+          status.redisTcp.test = "failed";
+          status.redisTcp.error = err.message || err;
+        }
+      })());
+    }
+
+    // Test MongoDB
+    if (MONGODB_URI) {
+      tests.push((async () => {
+        try {
+          const start = Date.now();
+          const client = await getMongoClient();
+          if (client) {
+            await withTimeout(
+              client.db("admin").command({ ping: 1 }),
+              2000,
+              "MongoDB ping timed out"
+            );
+            status.mongoDb.test = `success (took ${Date.now() - start}ms)`;
+          } else {
+            status.mongoDb.test = "failed_to_initialize_client";
+          }
+        } catch (err: any) {
+          status.mongoDb.test = "failed";
+          status.mongoDb.error = err.message || err;
+        }
+      })());
+    }
+
+    await Promise.all(tests);
+    res.json(status);
+  } catch (err: any) {
+    console.error("[db-status] Route handling crashed:", err);
+    res.status(500).json({
+      error: "Unhandled serverless function exception in /api/db-status",
+      message: err.message || String(err),
+      stack: err.stack || null
+    });
   }
-
-  await Promise.all(tests);
-
-  res.json(status);
 });
 
 app.get("/api/data", async (req, res) => {
