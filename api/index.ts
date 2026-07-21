@@ -4,6 +4,8 @@ import fs from "fs";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
+import { initializeApp, getApps, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 // Seed data
 import {
@@ -185,9 +187,6 @@ async function getFirebaseFirestore() {
   if (!hasFirebase) return null;
 
   try {
-    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
-    const { getFirestore } = await import("firebase-admin/firestore");
-
     if (getApps().length === 0) {
       let credential;
       if (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) {
@@ -208,7 +207,7 @@ async function getFirebaseFirestore() {
 
         // Robust handling: Unwrap outer double quotes if the env variable was saved with surrounding quotes
         if (val.startsWith('"') && val.endsWith('"')) {
-          val = val.substring(1, val.length - 1);
+          val = val.substring(1, val.length - 1).trim();
         }
 
         if (val.startsWith("{")) {
@@ -220,12 +219,31 @@ async function getFirebaseFirestore() {
           firebaseInitError = warnMsg;
         }
       } else {
-        const privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
-        credential = cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: privateKey,
-        });
+        let projectId = (process.env.FIREBASE_PROJECT_ID || "").trim();
+        if (projectId.startsWith('"') && projectId.endsWith('"')) {
+          projectId = projectId.substring(1, projectId.length - 1).trim();
+        }
+
+        let clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || "").trim();
+        if (clientEmail.startsWith('"') && clientEmail.endsWith('"')) {
+          clientEmail = clientEmail.substring(1, clientEmail.length - 1).trim();
+        }
+
+        let privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").trim();
+        if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+          privateKey = privateKey.substring(1, privateKey.length - 1).trim();
+        }
+        privateKey = privateKey.replace(/\\n/g, "\n");
+
+        if (projectId && clientEmail && privateKey) {
+          credential = cert({
+            projectId,
+            clientEmail,
+            privateKey,
+          });
+        } else {
+          throw new Error("Missing discrete Firebase credentials (projectId, clientEmail, or privateKey)");
+        }
       }
 
       if (credential) {
@@ -233,7 +251,7 @@ async function getFirebaseFirestore() {
           credential,
         });
       } else {
-        throw new Error("No valid credential could be initialized. FIREBASE_SERVICE_ACCOUNT must be a valid JSON string starting with '{'.");
+        throw new Error("No valid credential could be initialized. Check service account or individual variables.");
       }
     }
     firestore = getFirestore();

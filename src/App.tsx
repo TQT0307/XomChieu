@@ -104,6 +104,9 @@ export default function App() {
     webConfig?: any;
   }>({});
 
+  // Track timestamps of the last local write of each key to prevent overwriting with older server polling replies
+  const pendingSyncsRef = useRef<Record<string, number>>({});
+
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
     let isMounted = true;
@@ -130,33 +133,83 @@ export default function App() {
               webConfig: data.webConfig,
             };
 
-            // Only update states if server values are actually different
-            if (data.categories && JSON.stringify(data.categories) !== JSON.stringify(categories)) {
-              setCategories(data.categories);
+            const isKeyPending = (key: string) => {
+              const lastWrite = pendingSyncsRef.current[key] || 0;
+              return Date.now() - lastWrite < 5000; // Ignore server updates for 5 seconds after a local write
+            };
+
+            // Use functional state updates to compare against the absolute latest state
+            if (data.categories && !isKeyPending('categories')) {
+              setCategories(prev => {
+                if (JSON.stringify(data.categories) !== JSON.stringify(prev)) {
+                  return data.categories;
+                }
+                return prev;
+              });
             }
-            if (data.articles && JSON.stringify(data.articles) !== JSON.stringify(articles)) {
-              setArticles(data.articles);
+            if (data.articles && !isKeyPending('articles')) {
+              setArticles(prev => {
+                if (JSON.stringify(data.articles) !== JSON.stringify(prev)) {
+                  return data.articles;
+                }
+                return prev;
+              });
             }
-            if (data.members && JSON.stringify(data.members) !== JSON.stringify(members)) {
-              setMembers(data.members);
+            if (data.members && !isKeyPending('members')) {
+              setMembers(prev => {
+                if (JSON.stringify(data.members) !== JSON.stringify(prev)) {
+                  return data.members;
+                }
+                return prev;
+              });
             }
-            if (data.coaches && JSON.stringify(data.coaches) !== JSON.stringify(coaches)) {
-              setCoaches(data.coaches);
+            if (data.coaches && !isKeyPending('coaches')) {
+              setCoaches(prev => {
+                if (JSON.stringify(data.coaches) !== JSON.stringify(prev)) {
+                  return data.coaches;
+                }
+                return prev;
+              });
             }
-            if (data.achievements && JSON.stringify(data.achievements) !== JSON.stringify(achievements)) {
-              setAchievements(data.achievements);
+            if (data.achievements && !isKeyPending('achievements')) {
+              setAchievements(prev => {
+                if (JSON.stringify(data.achievements) !== JSON.stringify(prev)) {
+                  return data.achievements;
+                }
+                return prev;
+              });
             }
-            if (data.tournaments && JSON.stringify(data.tournaments) !== JSON.stringify(tournaments)) {
-              setTournaments(data.tournaments);
+            if (data.tournaments && !isKeyPending('tournaments')) {
+              setTournaments(prev => {
+                if (JSON.stringify(data.tournaments) !== JSON.stringify(prev)) {
+                  return data.tournaments;
+                }
+                return prev;
+              });
             }
-            if (data.clubs && JSON.stringify(data.clubs) !== JSON.stringify(clubs)) {
-              setClubs(data.clubs);
+            if (data.clubs && !isKeyPending('clubs')) {
+              setClubs(prev => {
+                if (JSON.stringify(data.clubs) !== JSON.stringify(prev)) {
+                  return data.clubs;
+                }
+                return prev;
+              });
             }
-            if (data.highlights && JSON.stringify(data.highlights) !== JSON.stringify(highlights)) {
-              setHighlights(data.highlights);
+            if (data.highlights && !isKeyPending('highlights')) {
+              setHighlights(prev => {
+                if (JSON.stringify(data.highlights) !== JSON.stringify(prev)) {
+                  return data.highlights;
+                }
+                return prev;
+              });
             }
-            if (data.webConfig && JSON.stringify(data.webConfig) !== JSON.stringify(webConfig)) {
-              setWebConfig(data.webConfig);
+            if (data.webConfig && !isKeyPending('webConfig')) {
+              setWebConfig(prev => {
+                if (JSON.stringify(data.webConfig) !== JSON.stringify(prev)) {
+                  return data.webConfig;
+                }
+                return prev;
+              });
             }
           }
           setHasLoadedServerData(true);
@@ -178,7 +231,7 @@ export default function App() {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, [categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig]);
+  }, []); // Run exactly once on mount to establish a single stable polling interval
 
   // Detail Modal selection states
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
@@ -199,6 +252,9 @@ export default function App() {
   // Helper to sync state changes to production API
   const syncKeyWithServer = (key: string, data: any) => {
     if (!hasLoadedServerData) return;
+    pendingSyncsRef.current[key] = Date.now();
+    lastServerDataRef.current[key] = data;
+
     fetch('/api/save-key', {
       method: 'POST',
       headers: {
