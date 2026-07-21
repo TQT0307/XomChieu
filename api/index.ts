@@ -337,6 +337,19 @@ const EXPECTED_KEYS = [
   "webConfig"
 ];
 
+// Firestore documents are limited to 1 MiB. Banner images are stored as base64,
+// so keeping every banner inside webConfig makes the third/fourth image exceed
+// that limit. Store each banner in its own document instead.
+const BANNER_DOC_PREFIX = "webConfig_banner_";
+const MAX_BANNERS = 50;
+
+function splitWebConfigForFirestore(webConfig: any) {
+  const source = webConfig || {};
+  const banners = Array.isArray(source.banners) ? source.banners : [];
+  const { banners: _banners, bannerCount: _bannerCount, ...config } = source;
+  return { config: { ...config, bannerCount: banners.length }, banners };
+}
+
 // Helper to get database timestamp only (optimized)
 async function getDbTimestamp() {
   if (hasFirebase && !firebaseFailed) {
@@ -442,6 +455,7 @@ async function getDbData() {
           const db: any = {};
           let hasLegacy = false;
           let legacyData: any = null;
+          const splitBanners: Array<{ index: number; value: any }> = [];
           
           snapshot.forEach((doc: any) => {
             const id = doc.id;
@@ -452,11 +466,23 @@ async function getDbData() {
             } else if (id === "metadata") {
               db.lastUpdated = docData.lastUpdated || 0;
             } else if (id === "webConfig") {
-              db.webConfig = docData;
+              const { bannerCount: _bannerCount, ...webConfig } = docData;
+              db.webConfig = webConfig;
+            } else if (id.startsWith(BANNER_DOC_PREFIX)) {
+              const index = Number(id.substring(BANNER_DOC_PREFIX.length));
+              if (Number.isInteger(index) && docData.banner) {
+                splitBanners.push({ index, value: docData.banner });
+              }
             } else if (EXPECTED_KEYS.includes(id)) {
               db[id] = docData.list || [];
             }
           });
+
+          if (splitBanners.length > 0 && db.webConfig) {
+            db.webConfig.banners = splitBanners
+              .sort((a, b) => a.index - b.index)
+              .map(item => item.value);
+          }
           
           if (hasLegacy && legacyData) {
             // Merge legacy data, prioritize split documents if they exist
@@ -487,7 +513,14 @@ async function getDbData() {
         EXPECTED_KEYS.forEach(k => {
           const docRef = dbInstance.collection("vovinam").doc(k);
           if (k === "webConfig") {
-            batch.set(docRef, initialDb.webConfig);
+            const split = splitWebConfigForFirestore(initialDb.webConfig);
+            batch.set(docRef, split.config);
+            split.banners.forEach((banner: any, index: number) => {
+              batch.set(
+                dbInstance.collection("vovinam").doc(`${BANNER_DOC_PREFIX}${index}`),
+                { banner }
+              );
+            });
           } else {
             batch.set(docRef, { list: (initialDb as any)[k] });
           }
@@ -710,15 +743,33 @@ async function saveDbData(data: any) {
     if (dbInstance) {
       try {
         const batch = dbInstance.batch();
+        const splitWebConfig = splitWebConfigForFirestore(dataToSave.webConfig);
+
+        if (splitWebConfig.banners.length > MAX_BANNERS) {
+          throw new Error(`A maximum of ${MAX_BANNERS} banners is supported`);
+        }
         
         EXPECTED_KEYS.forEach(k => {
           const docRef = dbInstance.collection("vovinam").doc(k);
           if (k === "webConfig") {
-            batch.set(docRef, dataToSave.webConfig || {});
+            batch.set(docRef, splitWebConfig.config);
           } else {
             batch.set(docRef, { list: dataToSave[k] || [] });
           }
         });
+
+        // Set current banner documents and delete obsolete ones in the same
+        // atomic batch, so visitors never receive a partially updated carousel.
+        for (let index = 0; index < MAX_BANNERS; index += 1) {
+          const bannerRef = dbInstance
+            .collection("vovinam")
+            .doc(`${BANNER_DOC_PREFIX}${index}`);
+          if (index < splitWebConfig.banners.length) {
+            batch.set(bannerRef, { banner: splitWebConfig.banners[index] });
+          } else {
+            batch.delete(bannerRef);
+          }
+        }
         
         const metaRef = dbInstance.collection("vovinam").doc("metadata");
         batch.set(metaRef, { lastUpdated: dataToSave.lastUpdated || Date.now() });
