@@ -4,8 +4,6 @@ import fs from "fs";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
 
 // Seed data
 import {
@@ -182,17 +180,43 @@ const hasFirebase = !!(
   (isValidEnvVar(process.env.FIREBASE_PROJECT_ID))
 );
 
-if (hasFirebase) {
+async function getFirebaseFirestore() {
+  if (firestore) return firestore;
+  if (!hasFirebase) return null;
+
   try {
+    // Dynamically import to avoid any load-time or bundle compilation crashes
+    const { initializeApp, getApps, cert } = await import("firebase-admin/app");
+    const { getFirestore } = await import("firebase-admin/firestore");
+
     if (getApps().length === 0) {
       let credential;
       if (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) {
-        const val = process.env.FIREBASE_SERVICE_ACCOUNT!.trim();
+        let val = process.env.FIREBASE_SERVICE_ACCOUNT!.trim();
+        
+        // Robust handling: Auto-detect and decode Base64 strings if the user encoded it
+        if (!val.startsWith("{") && /^[A-Za-z0-9+/=]+$/.test(val)) {
+          try {
+            const decoded = Buffer.from(val, "base64").toString("utf-8");
+            if (decoded.trim().startsWith("{")) {
+              val = decoded.trim();
+              console.log("[Firebase] Successfully decoded service account JSON from Base64");
+            }
+          } catch (e) {
+            // Not actually base64, proceed
+          }
+        }
+
+        // Robust handling: Unwrap outer double quotes if the env variable was saved with surrounding quotes
+        if (val.startsWith('"') && val.endsWith('"')) {
+          val = val.substring(1, val.length - 1);
+        }
+
         if (val.startsWith("{")) {
           const serviceAccount = JSON.parse(val);
           credential = cert(serviceAccount);
         } else {
-          const warnMsg = "[Firebase] FIREBASE_SERVICE_ACCOUNT is set but does not look like a JSON object. It should be a complete JSON string starting with '{'. Please verify your environment variable value.";
+          const warnMsg = "[Firebase] FIREBASE_SERVICE_ACCOUNT is set but does not look like a JSON object. It should be a complete JSON string starting with '{'.";
           console.warn(warnMsg);
           firebaseInitError = warnMsg;
         }
@@ -204,6 +228,7 @@ if (hasFirebase) {
           privateKey: privateKey,
         });
       }
+
       if (credential) {
         initializeApp({
           credential,
@@ -213,10 +238,12 @@ if (hasFirebase) {
       }
     }
     firestore = getFirestore();
-    console.log("[Firebase] Admin SDK initialized successfully.");
+    console.log("[Firebase] Admin SDK initialized successfully via dynamic imports.");
+    return firestore;
   } catch (err: any) {
-    console.error("[Firebase] Initialization error:", err);
+    console.error("[Firebase] Dynamic initialization error:", err);
     firebaseInitError = err.message || String(err);
+    return null;
   }
 }
 
@@ -240,34 +267,37 @@ function getInitialDbState() {
 // Helper to get DB data (async)
 async function getDbData() {
   // 1. Try Firebase Firestore if enabled (Highest priority)
-  if (hasFirebase && firestore) {
-    try {
-      const docRef = firestore.collection("vovinam").doc("main_state");
-      const doc: any = await withTimeout(
-        docRef.get(),
-        2500,
-        "Firebase Firestore GET timed out"
-      );
-      if (doc.exists) {
-        const data = doc.data();
-        memoryDb = data; // Sync memoryDb
-        return data;
-      } else {
-        const initialDb = getInitialDbState();
-        try {
-          await withTimeout(
-            docRef.set(initialDb),
-            2500,
-            "Firebase Firestore SET timed out"
-          );
-        } catch (setErr) {
-          console.error("[Firebase] Initial set error:", setErr);
+  if (hasFirebase) {
+    const dbInstance = await getFirebaseFirestore();
+    if (dbInstance) {
+      try {
+        const docRef = dbInstance.collection("vovinam").doc("main_state");
+        const doc: any = await withTimeout(
+          docRef.get(),
+          2500,
+          "Firebase Firestore GET timed out"
+        );
+        if (doc.exists) {
+          const data = doc.data();
+          memoryDb = data; // Sync memoryDb
+          return data;
+        } else {
+          const initialDb = getInitialDbState();
+          try {
+            await withTimeout(
+              docRef.set(initialDb),
+              2500,
+              "Firebase Firestore SET timed out"
+            );
+          } catch (setErr) {
+            console.error("[Firebase] Initial set error:", setErr);
+          }
+          memoryDb = initialDb;
+          return initialDb;
         }
-        memoryDb = initialDb;
-        return initialDb;
+      } catch (err) {
+        console.error("[Firebase] Read error, trying other fallbacks:", err);
       }
-    } catch (err) {
-      console.error("[Firebase] Read error, trying other fallbacks:", err);
     }
   }
 
@@ -401,17 +431,20 @@ async function saveDbData(data: any) {
   memoryDb = dataToSave;
 
   // 1. Try Firebase Firestore if enabled (Highest priority)
-  if (hasFirebase && firestore) {
-    try {
-      const docRef = firestore.collection("vovinam").doc("main_state");
-      await withTimeout(
-        docRef.set(dataToSave),
-        2500,
-        "Firebase Firestore SET timed out"
-      );
-      return true;
-    } catch (err) {
-      console.error("[Firebase] Write error:", err);
+  if (hasFirebase) {
+    const dbInstance = await getFirebaseFirestore();
+    if (dbInstance) {
+      try {
+        const docRef = dbInstance.collection("vovinam").doc("main_state");
+        await withTimeout(
+          docRef.set(dataToSave),
+          2500,
+          "Firebase Firestore SET timed out"
+        );
+        return true;
+      } catch (err) {
+        console.error("[Firebase] Write error:", err);
+      }
     }
   }
 
@@ -478,8 +511,10 @@ async function saveDbData(data: any) {
 // API Routes
 app.get("/api/db-status", async (req, res) => {
   try {
+    const dbInstance = await getFirebaseFirestore();
+
     let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
-    if (hasFirebase && firestore) {
+    if (hasFirebase && dbInstance) {
       storageType = "Firebase Firestore Cloud - Bền vững lâu dài";
     } else if (hasVercelKv) {
       storageType = "Vercel KV (REST Database) - Bền vững lâu dài";
@@ -493,7 +528,7 @@ app.get("/api/db-status", async (req, res) => {
       storageType,
       firebase: {
         hasConfig: hasFirebase,
-        isInitialized: !!firestore,
+        isInitialized: !!dbInstance,
         initError: firebaseInitError,
         projectId: process.env.FIREBASE_PROJECT_ID || null,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL || null,
@@ -530,11 +565,11 @@ app.get("/api/db-status", async (req, res) => {
     const tests: Promise<any>[] = [];
 
     // Test Firebase
-    if (hasFirebase && firestore) {
+    if (hasFirebase && dbInstance) {
       tests.push((async () => {
         try {
           const start = Date.now();
-          const docRef = firestore.collection("vovinam").doc("main_state_ping_test");
+          const docRef = dbInstance.collection("vovinam").doc("main_state_ping_test");
           await withTimeout(
             docRef.set({ ping: true, timestamp: new Date().toISOString() }),
             2000,
