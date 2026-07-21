@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
   Play, Award, User, CheckCircle, MapPin, Mail 
@@ -27,20 +27,37 @@ export default function Header({
 
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
+  const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleLogoClick = () => {
     const now = Date.now();
+    if (logoReloadTimerRef.current) {
+      clearTimeout(logoReloadTimerRef.current);
+      logoReloadTimerRef.current = null;
+    }
+
     if (now - lastClickTime < 3000) {
       const newCount = clickCount + 1;
       setClickCount(newCount);
       if (newCount >= 5) {
         setIsAdmin(!isAdmin);
         setClickCount(0);
+        setLastClickTime(now);
+        return;
       }
     } else {
       setClickCount(1);
     }
     setLastClickTime(now);
+
+    // On the public site, a normal logo click returns to the homepage and forces
+    // a fresh data load. The short delay preserves the existing five-click admin
+    // shortcut when the logo is clicked repeatedly.
+    if (!isAdmin) {
+      logoReloadTimerRef.current = setTimeout(() => {
+        window.location.assign('/');
+      }, 650);
+    }
   };
 
   const navSections = [
