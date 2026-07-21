@@ -106,6 +106,47 @@ export default function App() {
 
   // Track timestamps of the last local write of each key to prevent overwriting with older server polling replies
   const pendingSyncsRef = useRef<Record<string, number>>({});
+  const initialSyncCompletedRef = useRef(false);
+
+  // Helper to save all local state up to the Cloud Server when local has newer changes
+  const saveAllLocalToCloud = (localTimestamp: number) => {
+    const payload = {
+      categories,
+      articles,
+      members,
+      coaches,
+      achievements,
+      tournaments,
+      clubs,
+      highlights,
+      webConfig,
+      lastUpdated: localTimestamp
+    };
+
+    fetch('/api/save-all', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(res => {
+      if (res.ok) {
+        return res.json();
+      } else {
+        throw new Error("Failed to write to save-all");
+      }
+    })
+    .then(result => {
+      if (result && result.lastUpdated) {
+        localStorage.setItem('vovinam_last_updated', result.lastUpdated.toString());
+        console.log("[P2P Sync] Successfully backed up newer local state to Cloud:", result.lastUpdated);
+      }
+    })
+    .catch(err => {
+      console.error("[P2P Sync] Failed to back up state to Cloud:", err);
+    });
+  };
 
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
@@ -120,6 +161,19 @@ export default function App() {
         .then(data => {
           if (!isMounted) return;
           if (data) {
+            const serverUpdated = data.lastUpdated || 0;
+            const savedTimestampStr = localStorage.getItem('vovinam_last_updated');
+            const localUpdated = savedTimestampStr ? parseInt(savedTimestampStr, 10) : 0;
+
+            // P2P Check: If local state is newer, upload it to the cloud instead of overwriting!
+            if (!initialSyncCompletedRef.current && localUpdated > serverUpdated) {
+              console.log(`[P2P Sync] Local state is newer (${localUpdated}) than server (${serverUpdated}). Syncing up to cloud...`);
+              saveAllLocalToCloud(localUpdated);
+              initialSyncCompletedRef.current = true;
+              setHasLoadedServerData(true);
+              return;
+            }
+
             // Update the reference before setting React state to block write loops
             lastServerDataRef.current = {
               categories: data.categories,
@@ -211,12 +265,16 @@ export default function App() {
                 return prev;
               });
             }
+
+            localStorage.setItem('vovinam_last_updated', serverUpdated.toString());
+            initialSyncCompletedRef.current = true;
           }
           setHasLoadedServerData(true);
         })
         .catch(err => {
           if (!isMounted) return;
           console.warn("Failed to fetch shared database from server API, using local fallback:", err);
+          initialSyncCompletedRef.current = true;
           setHasLoadedServerData(true);
         });
     };
@@ -251,9 +309,12 @@ export default function App() {
 
   // Helper to sync state changes to production API
   const syncKeyWithServer = (key: string, data: any) => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     pendingSyncsRef.current[key] = Date.now();
     lastServerDataRef.current[key] = data;
+
+    const now = Date.now();
+    localStorage.setItem('vovinam_last_updated', now.toString());
 
     fetch('/api/save-key', {
       method: 'POST',
@@ -263,7 +324,16 @@ export default function App() {
       body: JSON.stringify({ key, data })
     })
     .then(res => {
-      if (!res.ok) console.error(`Failed to sync ${key} with server API`);
+      if (!res.ok) {
+        console.error(`Failed to sync ${key} with server API`);
+      } else {
+        return res.json();
+      }
+    })
+    .then(payload => {
+      if (payload && payload.lastUpdated) {
+        localStorage.setItem('vovinam_last_updated', payload.lastUpdated.toString());
+      }
     })
     .catch(err => {
       console.error(`Network error syncing ${key} to server API:`, err);
@@ -272,7 +342,7 @@ export default function App() {
 
   // Synchronize with server and localStorage on change (only if changed locally)
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_categories', categories);
     
     // Only write back to server if this change did NOT come from a server sync
@@ -283,7 +353,7 @@ export default function App() {
   }, [categories, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_articles', articles);
     
     const isDifferent = JSON.stringify(articles) !== JSON.stringify(lastServerDataRef.current.articles);
@@ -293,7 +363,7 @@ export default function App() {
   }, [articles, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_members', members);
     
     const isDifferent = JSON.stringify(members) !== JSON.stringify(lastServerDataRef.current.members);
@@ -303,7 +373,7 @@ export default function App() {
   }, [members, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_coaches', coaches);
     
     const isDifferent = JSON.stringify(coaches) !== JSON.stringify(lastServerDataRef.current.coaches);
@@ -313,7 +383,7 @@ export default function App() {
   }, [coaches, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_achievements', achievements);
     
     const isDifferent = JSON.stringify(achievements) !== JSON.stringify(lastServerDataRef.current.achievements);
@@ -323,7 +393,7 @@ export default function App() {
   }, [achievements, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_tournaments', tournaments);
     
     const isDifferent = JSON.stringify(tournaments) !== JSON.stringify(lastServerDataRef.current.tournaments);
@@ -333,7 +403,7 @@ export default function App() {
   }, [tournaments, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_clubs', clubs);
     
     const isDifferent = JSON.stringify(clubs) !== JSON.stringify(lastServerDataRef.current.clubs);
@@ -343,7 +413,7 @@ export default function App() {
   }, [clubs, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_highlights', highlights);
     
     const isDifferent = JSON.stringify(highlights) !== JSON.stringify(lastServerDataRef.current.highlights);
@@ -353,7 +423,7 @@ export default function App() {
   }, [highlights, hasLoadedServerData]);
 
   useEffect(() => {
-    if (!hasLoadedServerData) return;
+    if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_webConfig', webConfig);
     
     const isDifferent = JSON.stringify(webConfig) !== JSON.stringify(lastServerDataRef.current.webConfig);

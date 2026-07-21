@@ -2946,11 +2946,32 @@ export default function AdminPanel({
                   </div>
                 ) : dbStatus && !dbStatus.error ? (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                       <div className="p-3 bg-white rounded-xl border space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600">Vercel KV REST (Web API):</span>
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.vercelKvRest?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                          <span className="text-[11px] font-bold text-slate-600">Firebase Firestore Cloud:</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${dbStatus.firebase?.hasConfig ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                            {dbStatus.firebase?.hasConfig ? 'Đã liên kết' : 'Chưa cấu hình'}
+                          </span>
+                        </div>
+                        {dbStatus.firebase?.hasConfig ? (
+                          <div className="text-[10px] text-slate-400 font-mono space-y-0.5">
+                            <div>Project: <strong className="text-slate-600 font-semibold">{dbStatus.firebase?.projectId || 'N/A'}</strong></div>
+                            <div>Test: <span className={dbStatus.firebase?.test?.includes('success') ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>{dbStatus.firebase?.test || 'Chưa chạy'}</span></div>
+                            {dbStatus.firebase?.initError && (
+                              <div className="text-rose-500 text-[9px] leading-tight break-all mt-1">Lỗi: {dbStatus.firebase?.initError}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-slate-400 leading-normal">
+                            Sử dụng Firebase Firestore để lưu trữ đồng bộ dữ liệu thời gian thực.
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 bg-white rounded-xl border space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-slate-600">Vercel KV REST (Web API):</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${dbStatus.vercelKvRest?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                             {dbStatus.vercelKvRest?.hasUrl ? 'Đã liên kết' : 'Chưa cấu hình'}
                           </span>
                         </div>
@@ -2962,8 +2983,8 @@ export default function AdminPanel({
                       </div>
                       <div className="p-3 bg-white rounded-xl border space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600">Vercel Redis (TCP Socket):</span>
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.redisTcp?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                          <span className="text-[11px] font-bold text-slate-600">Vercel Redis (TCP Socket):</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${dbStatus.redisTcp?.hasUrl ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                             {dbStatus.redisTcp?.hasUrl ? 'Đã liên kết' : 'Chưa cấu hình'}
                           </span>
                         </div>
@@ -2975,8 +2996,8 @@ export default function AdminPanel({
                       </div>
                       <div className="p-3 bg-white rounded-xl border space-y-1.5">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-600">MongoDB Atlas Connection:</span>
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${dbStatus.mongoDb?.hasUri ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                          <span className="text-[11px] font-bold text-slate-600">MongoDB Atlas Connection:</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${dbStatus.mongoDb?.hasUri ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                             {dbStatus.mongoDb?.hasUri ? 'Đã liên kết' : 'Chưa cấu hình'}
                           </span>
                         </div>
@@ -3070,38 +3091,57 @@ export default function AdminPanel({
                 </div>
               </div>
 
-              {/* Vercel KV Setup Guide */}
+              {/* Firebase Firestore Setup Guide */}
               <div className="mt-8 border-t border-slate-200 pt-6">
                 <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <span className="flex items-center justify-center w-5 h-5 rounded-full bg-[#0054A6]/10 text-[#0054A6] text-[10px] font-bold">★</span>
+                  <span>Hướng dẫn liên kết Firebase Firestore của bạn (Lưu trữ đồng bộ lâu dài)</span>
+                </h3>
+                <p className="text-[11.5px] text-slate-600 leading-relaxed mb-4">
+                  Do tài khoản hệ thống của AI Studio không có quyền tự động tạo Database trong Firebase của bạn (Lỗi <code>permission_denied</code> từ Google Cloud), bạn cần cấu hình tay 3 biến môi trường sau trên <strong>Vercel Dashboard &rarr; Project Settings &rarr; Environment Variables</strong> của bạn. Điều này sẽ giúp lưu logo và mọi thay đổi trực tiếp vào Firebase của bạn:
+                </p>
+                <div className="bg-slate-900 text-slate-100 p-4 rounded-xl font-mono text-[11px] space-y-1.5 mb-4 leading-normal select-all">
+                  <div>FIREBASE_PROJECT_ID= <span className="text-amber-300">"ID dự án Firebase của bạn"</span></div>
+                  <div>FIREBASE_CLIENT_EMAIL= <span className="text-amber-300">"Email tài khoản dịch vụ (Service Account Email)"</span></div>
+                  <div>FIREBASE_PRIVATE_KEY= <span className="text-amber-300">"Khóa bảo mật riêng tư (Private Key bắt đầu bằng -----BEGIN PRIVATE KEY-----)"</span></div>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  * Sau khi thêm xong 3 biến này, bạn chỉ cần bấm <strong>Redeploy</strong> lại dự án trên Vercel để cập nhật. Khi đó, Firebase sẽ lập tức nhận và hiển thị dữ liệu thật tức thời!
+                </p>
+              </div>
+
+              {/* Vercel KV Setup Guide */}
+              <div className="mt-6 border-t border-slate-200 pt-5">
+                <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
                   <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-50 text-[#0054A6] text-[10px] font-bold">i</span>
-                  <span>Hướng dẫn kích hoạt Cloud Database trên Vercel (Lưu trữ vĩnh viễn)</span>
+                  <span>Cách kích hoạt nhanh Cloud Database miễn phí thay thế qua Vercel KV</span>
                 </h3>
                 <p className="text-[11px] text-slate-500 leading-relaxed mb-4">
-                  Hiện tại dự án chưa được cấu hình lưu trữ Cloud bền vững nên máy chủ Vercel đang dùng <strong>Bộ nhớ tạm (Memory Fallback)</strong>. Bản lưu tạm này sẽ tự động biến mất và trở về mặc định sau một khoảng thời gian ngắn máy chủ không hoạt động (Vercel Cold Start) hoặc khi truy cập bằng thiết bị khác. Để kích hoạt cơ sở dữ liệu lưu vĩnh viễn và đồng bộ thời gian thực cho tất cả tài khoản, bạn chỉ cần làm theo 3 bước cực kỳ đơn giản sau:
+                  Nếu bạn không muốn cấu hình Firebase thủ công, bạn có thể tạo nhanh một Vercel KV Redis database trực tiếp trên tài khoản Vercel của mình chỉ với 3 click chuột (Hoàn toàn miễn phí và không cần cấu hình khóa bảo mật phức tạp):
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-[#0054A6]/5 rounded-2xl border border-[#0054A6]/10 space-y-1.5">
-                    <span className="text-[10px] uppercase font-black text-[#0054A6] tracking-wider block font-sans">BƯỚC 1: Vào trang quản lý</span>
+                    <span className="text-[10px] uppercase font-black text-[#0054A6] tracking-wider block font-sans">BƯỚC 1: Vào Vercel</span>
                     <p className="text-[10.5px] text-slate-600 leading-relaxed font-sans">
                       Mở trang quản lý <strong>Vercel Dashboard</strong> của bạn và bấm chọn dự án website Vovinam này.
                     </p>
                   </div>
                   <div className="p-4 bg-teal-50/20 rounded-2xl border border-teal-100 space-y-1.5">
-                    <span className="text-[10px] uppercase font-black text-teal-700 tracking-wider block font-sans">BƯỚC 2: Tạo KV (Redis)</span>
+                    <span className="text-[10px] uppercase font-black text-teal-700 tracking-wider block font-sans">BƯỚC 2: Kết nối KV (Redis)</span>
                     <p className="text-[10.5px] text-slate-600 leading-relaxed font-sans">
-                      Chọn tab <strong>Storage</strong> ở thanh menu trên &rarr; bấm <strong>Connect Database</strong> &rarr; chọn <strong>KV (Redis)</strong> và làm theo hướng dẫn để tạo mới (Hoàn toàn miễn phí).
+                      Chọn tab <strong>Storage</strong> ở thanh menu trên &rarr; bấm <strong>Connect Database</strong> &rarr; chọn <strong>KV (Redis)</strong> và bấm tạo mới.
                     </p>
                   </div>
                   <div className="p-4 bg-amber-50/30 rounded-2xl border border-amber-100 space-y-1.5">
                     <span className="text-[10px] uppercase font-black text-amber-700 tracking-wider block font-sans">BƯỚC 3: Redeploy dự án</span>
                     <p className="text-[10.5px] text-slate-600 leading-relaxed font-sans">
-                      Vercel sẽ tự động cấu hình các biến môi trường kết nối. Bạn chỉ cần chọn tab <strong>Deployments</strong> &rarr; bấm vào dấu 3 chấm của bản deploy mới nhất &rarr; chọn <strong>Redeploy</strong> để cập nhật biến môi trường, sau đó quay lại đây bấm <strong>Tải lại trạng thái kết nối</strong> là xong!
+                      Vercel sẽ tự động điền các biến môi trường kết nối. Bạn chỉ cần chọn tab <strong>Deployments</strong> &rarr; bấm vào dấu 3 chấm của bản deploy mới nhất &rarr; chọn <strong>Redeploy</strong> là xong!
                     </p>
                   </div>
                 </div>
                 <div className="mt-4 p-3 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-xl text-[11px] font-semibold flex items-center gap-2">
                   <span className="text-emerald-500 font-bold">✔</span>
-                  <span>Sau khi liên kết thành công, website sẽ đồng bộ dữ liệu Cloud thật cho toàn bộ thiết bị, môn sinh và huấn luyện viên!</span>
+                  <span>Sau khi liên kết một trong các Cloud Database trên thành công, website sẽ tự động đồng bộ và lưu dữ liệu thật vĩnh viễn theo thời gian thực!</span>
                 </div>
               </div>
             </div>

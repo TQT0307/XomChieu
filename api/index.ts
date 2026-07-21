@@ -1,3 +1,6 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import path from "path";
 import fs from "fs";
@@ -77,6 +80,11 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string)
     }, ms);
   });
   
+  // Attach a silent catch to the original promise to absorb any eventual unhandled rejection after the race is over
+  promise.catch((err) => {
+    console.warn(`[Timeout Recovery] Background promise rejected after timeout/completion:`, err?.message || String(err));
+  });
+
   try {
     const result = await Promise.race([promise, timeoutPromise]);
     if (timeoutId) clearTimeout(timeoutId);
@@ -102,9 +110,12 @@ if (rawRedisUrl) {
 // Only use raw TCP Redis if Vercel KV REST is not available to avoid socket crashes/thread-leaks on Vercel Serverless
 const hasRedis = !!redisUrl && !hasVercelKv;
 
+let redisFailed = false;
+
 // Stateless, leak-proof connection manager for Redis TCP in serverless environments.
 async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promise<T> {
   if (!redisUrl) throw new Error("Redis connection URL is not configured");
+  if (redisFailed) throw new Error("Redis connection previously failed and is disabled");
   
   const isSecure = redisUrl.startsWith("rediss://");
   const client = createRedisRawClient({
@@ -141,6 +152,8 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
     
     return result;
   } catch (err) {
+    console.error("[Redis TCP] Failed, disabling Redis fallback:", err);
+    redisFailed = true;
     // Forcefully disconnect on failure to release the socket
     try {
       await client.disconnect();
@@ -151,11 +164,13 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
 
 // MongoDB Setup
 let mongoClient: MongoClient | null = null;
+let mongoFailed = false;
 const MONGODB_URI = isValidEnvVar(process.env.MONGODB_URI) ? process.env.MONGODB_URI : null;
 
 async function getMongoClient(): Promise<MongoClient | null> {
   if (!MONGODB_URI) return null;
   if (mongoClient) return mongoClient;
+  if (mongoFailed) return null;
   try {
     const client = new MongoClient(MONGODB_URI, {
       connectTimeoutMS: 2000,
@@ -170,6 +185,7 @@ async function getMongoClient(): Promise<MongoClient | null> {
   } catch (err) {
     console.error("[MongoDB] Connection failure:", err);
     mongoClient = null;
+    mongoFailed = true;
     return null;
   }
 }
@@ -177,6 +193,7 @@ async function getMongoClient(): Promise<MongoClient | null> {
 // Firebase Setup
 let firestore: any = null;
 let firebaseInitError: string | null = null;
+let firebaseFailed = false;
 const hasFirebase = !!(
   (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) ||
   (isValidEnvVar(process.env.FIREBASE_PROJECT_ID))
@@ -185,6 +202,7 @@ const hasFirebase = !!(
 async function getFirebaseFirestore() {
   if (firestore) return firestore;
   if (!hasFirebase) return null;
+  if (firebaseFailed) return null;
 
   try {
     if (getApps().length === 0) {
@@ -205,8 +223,10 @@ async function getFirebaseFirestore() {
           }
         }
 
-        // Robust handling: Unwrap outer double quotes if the env variable was saved with surrounding quotes
+        // Robust handling: Unwrap outer double/single quotes if the env variable was saved with surrounding quotes
         if (val.startsWith('"') && val.endsWith('"')) {
+          val = val.substring(1, val.length - 1).trim();
+        } else if (val.startsWith("'") && val.endsWith("'")) {
           val = val.substring(1, val.length - 1).trim();
         }
 
@@ -222,15 +242,21 @@ async function getFirebaseFirestore() {
         let projectId = (process.env.FIREBASE_PROJECT_ID || "").trim();
         if (projectId.startsWith('"') && projectId.endsWith('"')) {
           projectId = projectId.substring(1, projectId.length - 1).trim();
+        } else if (projectId.startsWith("'") && projectId.endsWith("'")) {
+          projectId = projectId.substring(1, projectId.length - 1).trim();
         }
 
         let clientEmail = (process.env.FIREBASE_CLIENT_EMAIL || "").trim();
         if (clientEmail.startsWith('"') && clientEmail.endsWith('"')) {
           clientEmail = clientEmail.substring(1, clientEmail.length - 1).trim();
+        } else if (clientEmail.startsWith("'") && clientEmail.endsWith("'")) {
+          clientEmail = clientEmail.substring(1, clientEmail.length - 1).trim();
         }
 
         let privateKey = (process.env.FIREBASE_PRIVATE_KEY || "").trim();
         if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+          privateKey = privateKey.substring(1, privateKey.length - 1).trim();
+        } else if (privateKey.startsWith("'") && privateKey.endsWith("'")) {
           privateKey = privateKey.substring(1, privateKey.length - 1).trim();
         }
         privateKey = privateKey.replace(/\\n/g, "\n");
@@ -260,6 +286,7 @@ async function getFirebaseFirestore() {
   } catch (err: any) {
     console.error("[Firebase] Lazy initialization error:", err);
     firebaseInitError = err.message || String(err);
+    firebaseFailed = true;
     return null;
   }
 }
@@ -277,7 +304,8 @@ function getInitialDbState() {
     tournaments: initialTournaments,
     clubs: initialClubs,
     highlights: initialHighlights,
-    webConfig: initialWebConfig
+    webConfig: initialWebConfig,
+    lastUpdated: 0
   };
 }
 
@@ -689,9 +717,11 @@ app.post("/api/save-key", async (req, res) => {
     
     const db = await getDbData();
     db[key] = data;
+    const now = Date.now();
+    db.lastUpdated = now;
     
     if (await saveDbData(db)) {
-      res.json({ success: true });
+      res.json({ success: true, lastUpdated: now });
     } else {
       res.status(500).json({ error: "Failed to write database changes" });
     }
@@ -703,8 +733,9 @@ app.post("/api/save-key", async (req, res) => {
 // Sync entire database at once
 app.post("/api/save-all", async (req, res) => {
   try {
-    const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig } = req.body;
+    const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig, lastUpdated } = req.body;
     
+    const now = lastUpdated || Date.now();
     const db = {
       categories: categories || [],
       articles: articles || [],
@@ -714,11 +745,12 @@ app.post("/api/save-all", async (req, res) => {
       tournaments: tournaments || [],
       clubs: clubs || [],
       highlights: highlights || [],
-      webConfig: webConfig || {}
+      webConfig: webConfig || {},
+      lastUpdated: now
     };
     
     if (await saveDbData(db)) {
-      res.json({ success: true });
+      res.json({ success: true, lastUpdated: now });
     } else {
       res.status(500).json({ error: "Failed to save entire database" });
     }
