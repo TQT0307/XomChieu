@@ -194,6 +194,7 @@ async function getMongoClient(): Promise<MongoClient | null> {
 let firestore: any = null;
 let firebaseInitError: string | null = null;
 let firebaseFailed = false;
+let vercelKvFailed = false;
 const hasFirebase = !!(
   (isValidEnvVar(process.env.FIREBASE_SERVICE_ACCOUNT)) ||
   (isValidEnvVar(process.env.FIREBASE_PROJECT_ID))
@@ -309,99 +310,224 @@ function getInitialDbState() {
   };
 }
 
+const EXPECTED_KEYS = [
+  "categories",
+  "articles",
+  "members",
+  "coaches",
+  "achievements",
+  "tournaments",
+  "clubs",
+  "highlights",
+  "webConfig"
+];
+
 // Helper to get DB data (async)
 async function getDbData() {
   // 1. Try Firebase Firestore if enabled (Highest priority)
-  if (hasFirebase) {
+  if (hasFirebase && !firebaseFailed) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
       try {
-        const docRef = dbInstance.collection("vovinam").doc("main_state");
-        const doc: any = await withTimeout(
-          docRef.get(),
-          2500,
-          "Firebase Firestore GET timed out"
+        const snapshot: any = await withTimeout(
+          dbInstance.collection("vovinam").get(),
+          3000,
+          "Firebase Firestore GET collection timed out"
         );
-        if (doc.exists) {
-          const data = doc.data();
-          memoryDb = data; // Sync memoryDb
-          return data;
-        } else {
-          const initialDb = getInitialDbState();
-          try {
-            await withTimeout(
-              docRef.set(initialDb),
-              2500,
-              "Firebase Firestore SET timed out"
-            );
-          } catch (setErr) {
-            console.error("[Firebase] Initial set error:", setErr);
+        
+        if (!snapshot.empty) {
+          const db: any = {};
+          let hasLegacy = false;
+          let legacyData: any = null;
+          
+          snapshot.forEach((doc: any) => {
+            const id = doc.id;
+            const docData = doc.data();
+            if (id === "main_state") {
+              hasLegacy = true;
+              legacyData = docData;
+            } else if (id === "metadata") {
+              db.lastUpdated = docData.lastUpdated || 0;
+            } else if (id === "webConfig") {
+              db.webConfig = docData;
+            } else if (EXPECTED_KEYS.includes(id)) {
+              db[id] = docData.list || [];
+            }
+          });
+          
+          if (hasLegacy && legacyData) {
+            // Merge legacy data, prioritize split documents if they exist
+            const merged = { ...legacyData, ...db };
+            memoryDb = merged;
+            return merged;
           }
-          memoryDb = initialDb;
-          return initialDb;
+          
+          const hasData = EXPECTED_KEYS.some(k => db[k] !== undefined);
+          if (hasData) {
+            EXPECTED_KEYS.forEach(k => {
+              if (db[k] === undefined) {
+                db[k] = k === "webConfig" ? getInitialDbState().webConfig : [];
+              }
+            });
+            if (db.lastUpdated === undefined) {
+              db.lastUpdated = 0;
+            }
+            memoryDb = db;
+            return db;
+          }
         }
+        
+        // Collection is empty, initialize it in split format
+        const initialDb = getInitialDbState();
+        const batch = dbInstance.batch();
+        
+        EXPECTED_KEYS.forEach(k => {
+          const docRef = dbInstance.collection("vovinam").doc(k);
+          if (k === "webConfig") {
+            batch.set(docRef, initialDb.webConfig);
+          } else {
+            batch.set(docRef, { list: (initialDb as any)[k] });
+          }
+        });
+        
+        const metaRef = dbInstance.collection("vovinam").doc("metadata");
+        batch.set(metaRef, { lastUpdated: initialDb.lastUpdated });
+        
+        await withTimeout(
+          batch.commit(),
+          3000,
+          "Firebase Firestore initialization batch commit timed out"
+        );
+        
+        memoryDb = initialDb;
+        return initialDb;
       } catch (err) {
-        console.error("[Firebase] Read error, trying other fallbacks:", err);
+        console.error("[Firebase] Read/Init error, disabling Firebase fallback:", err);
+        firebaseFailed = true;
       }
+    } else {
+      firebaseFailed = true;
     }
   }
 
   // 1.5 Try Vercel KV (REST) first in serverless/any environment if available (extremely fast, stateless, HTTP-based)
-  if (hasVercelKv) {
+  if (hasVercelKv && !vercelKvFailed) {
     try {
-      const data = await withTimeout(
-        kv.get("vovinam_db_state"),
-        2000,
-        "Vercel KV GET timed out"
+      const keys = [...EXPECTED_KEYS, "metadata"];
+      const results = await Promise.all(
+        keys.map(k => withTimeout(kv.get(`vovinam_${k}`), 1500, `Vercel KV GET ${k} timed out`))
       );
-      if (data) {
-        memoryDb = data; // Sync memoryDb
-        return data;
-      } else {
-        const initialDb = getInitialDbState();
-        try {
-          await withTimeout(
-            kv.set("vovinam_db_state", initialDb),
-            2000,
-            "Vercel KV SET timed out"
-          );
-        } catch (setErr) {
-          console.error("[Vercel KV REST] Initial set error:", setErr);
+      
+      const db: any = {};
+      let hasData = false;
+      keys.forEach((k, idx) => {
+        const val = results[idx];
+        if (val !== null && val !== undefined) {
+          hasData = true;
+          if (k === "metadata") {
+            db.lastUpdated = (val as any).lastUpdated || 0;
+          } else {
+            db[k] = val;
+          }
         }
+      });
+      
+      if (hasData) {
+        EXPECTED_KEYS.forEach(k => {
+          if (db[k] === undefined) {
+            db[k] = k === "webConfig" ? getInitialDbState().webConfig : [];
+          }
+        });
+        if (db.lastUpdated === undefined) db.lastUpdated = 0;
+        memoryDb = db;
+        return db;
+      } else {
+        // Try to read legacy key "vovinam_db_state" for backward compatibility
+        const legacyData = await withTimeout(
+          kv.get("vovinam_db_state"),
+          1500,
+          "Vercel KV GET legacy timed out"
+        );
+        if (legacyData) {
+          memoryDb = legacyData;
+          return legacyData;
+        }
+        
+        const initialDb = getInitialDbState();
+        await Promise.all([
+          ...EXPECTED_KEYS.map(k => kv.set(`vovinam_${k}`, (initialDb as any)[k])),
+          kv.set("vovinam_metadata", { lastUpdated: initialDb.lastUpdated })
+        ]);
         memoryDb = initialDb;
         return initialDb;
       }
     } catch (err) {
-      console.error("[Vercel KV REST] Read error, trying other fallbacks:", err);
+      console.error("[Vercel KV REST] Read error, disabling Vercel KV REST fallback:", err);
+      vercelKvFailed = true;
     }
   }
 
   // 1.5 Try TCP Redis (using redis package) as fallback or if REST is not configured
-  if (hasRedis) {
+  if (hasRedis && !redisFailed) {
     try {
-      const dataStr = await runRedisCommand(async (client) => {
-        return await client.get("vovinam_db_state");
+      const db: any = {};
+      let hasData = false;
+      
+      await runRedisCommand(async (client) => {
+        const keys = [...EXPECTED_KEYS, "metadata"];
+        const results = await Promise.all(keys.map(k => client.get(`vovinam_${k}`)));
+        
+        keys.forEach((k, idx) => {
+          const valStr = results[idx];
+          if (valStr) {
+            hasData = true;
+            const parsed = JSON.parse(valStr);
+            if (k === "metadata") {
+              db.lastUpdated = parsed.lastUpdated || 0;
+            } else {
+              db[k] = parsed;
+            }
+          }
+        });
+        
+        if (!hasData) {
+          // Check legacy
+          const legacyStr = await client.get("vovinam_db_state");
+          if (legacyStr) {
+            Object.assign(db, JSON.parse(legacyStr));
+            hasData = true;
+          }
+        }
       });
-
-      if (dataStr) {
-        const parsed = JSON.parse(dataStr as string);
-        memoryDb = parsed; // Sync memoryDb
-        return parsed;
+      
+      if (hasData) {
+        EXPECTED_KEYS.forEach(k => {
+          if (db[k] === undefined) {
+            db[k] = k === "webConfig" ? getInitialDbState().webConfig : [];
+          }
+        });
+        if (db.lastUpdated === undefined) db.lastUpdated = 0;
+        memoryDb = db;
+        return db;
       } else {
         const initialDb = getInitialDbState();
         await runRedisCommand(async (client) => {
-          await client.set("vovinam_db_state", JSON.stringify(initialDb));
+          await Promise.all([
+            ...EXPECTED_KEYS.map(k => client.set(`vovinam_${k}`, JSON.stringify((initialDb as any)[k]))),
+            client.set("vovinam_metadata", JSON.stringify({ lastUpdated: initialDb.lastUpdated }))
+          ]);
         });
         memoryDb = initialDb;
         return initialDb;
       }
     } catch (err) {
-      console.error("[Redis via TCP] Read error, trying other fallbacks:", err);
+      console.error("[Redis via TCP] Read error, disabling TCP Redis fallback:", err);
+      redisFailed = true;
     }
   }
 
   // 2. Try MongoDB Atlas if MONGODB_URI is provided
-  if (MONGODB_URI) {
+  if (MONGODB_URI && !mongoFailed) {
     const client = await getMongoClient();
     if (client) {
       try {
@@ -432,7 +558,8 @@ async function getDbData() {
           return initialDb;
         }
       } catch (e) {
-        console.error("[MongoDB] Read error, falling back to local file/memory:", e);
+        console.error("[MongoDB] Read error, disabling MongoDB fallback:", e);
+        mongoFailed = true;
       }
     }
   }
@@ -476,51 +603,85 @@ async function saveDbData(data: any) {
   memoryDb = dataToSave;
 
   // 1. Try Firebase Firestore if enabled (Highest priority)
-  if (hasFirebase) {
+  if (hasFirebase && !firebaseFailed) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
       try {
-        const docRef = dbInstance.collection("vovinam").doc("main_state");
+        const batch = dbInstance.batch();
+        
+        EXPECTED_KEYS.forEach(k => {
+          const docRef = dbInstance.collection("vovinam").doc(k);
+          if (k === "webConfig") {
+            batch.set(docRef, dataToSave.webConfig || {});
+          } else {
+            batch.set(docRef, { list: dataToSave[k] || [] });
+          }
+        });
+        
+        const metaRef = dbInstance.collection("vovinam").doc("metadata");
+        batch.set(metaRef, { lastUpdated: dataToSave.lastUpdated || Date.now() });
+        
+        // Delete legacy main_state document to clean up Firestore
+        const legacyRef = dbInstance.collection("vovinam").doc("main_state");
+        batch.delete(legacyRef);
+        
         await withTimeout(
-          docRef.set(dataToSave),
-          2500,
-          "Firebase Firestore SET timed out"
+          batch.commit(),
+          3000,
+          "Firebase Firestore SET batch commit timed out"
         );
         return true;
       } catch (err) {
-        console.error("[Firebase] Write error:", err);
+        console.error("[Firebase] Write batch error, disabling Firebase fallback:", err);
+        firebaseFailed = true;
       }
+    } else {
+      firebaseFailed = true;
     }
   }
 
   // 1.5 Try Vercel KV (REST) first as specified by the user for fast serverless performance
-  if (hasVercelKv) {
+  if (hasVercelKv && !vercelKvFailed) {
     try {
-      await withTimeout(
-        kv.set("vovinam_db_state", dataToSave),
-        2000,
-        "Vercel KV SET timed out"
-      );
+      await Promise.all([
+        ...EXPECTED_KEYS.map(k => withTimeout(
+          kv.set(`vovinam_${k}`, dataToSave[k] || (k === "webConfig" ? {} : [])),
+          1500,
+          `Vercel KV SET ${k} timed out`
+        )),
+        withTimeout(
+          kv.set("vovinam_metadata", { lastUpdated: dataToSave.lastUpdated || Date.now() }),
+          1500,
+          "Vercel KV SET metadata timed out"
+        ),
+        kv.del("vovinam_db_state")
+      ]);
       return true;
     } catch (err) {
-      console.error("[Vercel KV REST] Write error, trying fallbacks:", err);
+      console.error("[Vercel KV REST] Write error, disabling Vercel KV REST fallback:", err);
+      vercelKvFailed = true;
     }
   }
 
   // 1.5 Try TCP Redis (using redis package)
-  if (hasRedis) {
+  if (hasRedis && !redisFailed) {
     try {
       await runRedisCommand(async (client) => {
-        await client.set("vovinam_db_state", JSON.stringify(dataToSave));
+        await Promise.all([
+          ...EXPECTED_KEYS.map(k => client.set(`vovinam_${k}`, JSON.stringify(dataToSave[k] || (k === "webConfig" ? {} : [])))),
+          client.set("vovinam_metadata", JSON.stringify({ lastUpdated: dataToSave.lastUpdated || Date.now() })),
+          client.del("vovinam_db_state")
+        ]);
       });
       return true;
     } catch (err) {
-      console.error("[Redis via TCP] Write error, trying other fallbacks:", err);
+      console.error("[Redis via TCP] Write error, disabling TCP Redis fallback:", err);
+      redisFailed = true;
     }
   }
 
   // 2. Try MongoDB Atlas if MONGODB_URI is provided
-  if (MONGODB_URI) {
+  if (MONGODB_URI && !mongoFailed) {
     const client = await getMongoClient();
     if (client) {
       try {
@@ -537,7 +698,8 @@ async function saveDbData(data: any) {
         );
         return true;
       } catch (e) {
-        console.error("[MongoDB] Write error:", e);
+        console.error("[MongoDB] Write error, disabling MongoDB fallback:", e);
+        mongoFailed = true;
       }
     }
   }
@@ -556,6 +718,12 @@ async function saveDbData(data: any) {
 // API Routes
 app.get("/api/db-status", async (req, res) => {
   try {
+    // Reset connection failure flags to allow active troubleshooting retries
+    firebaseFailed = false;
+    vercelKvFailed = false;
+    redisFailed = false;
+    mongoFailed = false;
+
     const dbInstance = await getFirebaseFirestore();
 
     let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
