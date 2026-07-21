@@ -134,7 +134,7 @@ export default function UserView({
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentBanner((prev) => (prev + 1) % banners.length);
-    }, 5000);
+    }, 3500);
     return () => clearInterval(timer);
   }, [banners.length]);
 
