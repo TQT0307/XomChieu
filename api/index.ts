@@ -322,6 +322,94 @@ const EXPECTED_KEYS = [
   "webConfig"
 ];
 
+// Helper to get database timestamp only (optimized)
+async function getDbTimestamp() {
+  if (hasFirebase && !firebaseFailed) {
+    const dbInstance = await getFirebaseFirestore();
+    if (dbInstance) {
+      try {
+        const docRef = dbInstance.collection("vovinam").doc("metadata");
+        const doc: any = await withTimeout(
+          docRef.get(),
+          1500,
+          "Firebase Firestore GET timestamp timed out"
+        );
+        if (doc.exists) {
+          return doc.data().lastUpdated || 0;
+        }
+      } catch (err) {
+        console.error("[Firebase] Timestamp GET error:", err);
+      }
+    }
+  }
+
+  if (hasVercelKv && !vercelKvFailed) {
+    try {
+      const val = await withTimeout(
+        kv.get("vovinam_metadata"),
+        1000,
+        "Vercel KV GET timestamp timed out"
+      );
+      if (val) {
+        return (val as any).lastUpdated || 0;
+      }
+    } catch (err) {
+      console.error("[Vercel KV REST] Timestamp GET error:", err);
+    }
+  }
+
+  if (hasRedis && !redisFailed) {
+    try {
+      let lastUpdated = 0;
+      await runRedisCommand(async (client) => {
+        const valStr = await client.get("vovinam_metadata");
+        if (valStr) {
+          lastUpdated = JSON.parse(valStr).lastUpdated || 0;
+        }
+      });
+      return lastUpdated;
+    } catch (err) {
+      console.error("[Redis via TCP] Timestamp GET error:", err);
+    }
+  }
+
+  if (MONGODB_URI && !mongoFailed) {
+    const client = await getMongoClient();
+    if (client) {
+      try {
+        const db = client.db("vovinam");
+        const collection = db.collection("data");
+        const doc = await withTimeout(
+          collection.findOne({ _id: "main_state" as any }, { projection: { lastUpdated: 1 } }),
+          1500,
+          "MongoDB GET timestamp timed out"
+        );
+        if (doc) {
+          return doc.lastUpdated || 0;
+        }
+      } catch (err) {
+        console.error("[MongoDB] Timestamp GET error:", err);
+      }
+    }
+  }
+
+  if (memoryDb) {
+    return memoryDb.lastUpdated || 0;
+  }
+
+  try {
+    if (fs.existsSync(DB_PATH)) {
+      const content = fs.readFileSync(DB_PATH, "utf-8");
+      const parsed = JSON.parse(content);
+      return parsed.lastUpdated || 0;
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  return 0;
+}
+
 // Helper to get DB data (async)
 async function getDbData() {
   // 1. Try Firebase Firestore if enabled (Highest priority)
@@ -866,12 +954,103 @@ app.get("/api/db-status", async (req, res) => {
   }
 });
 
+app.get("/api/timestamp", async (req, res) => {
+  try {
+    const ts = await getDbTimestamp();
+    res.json({ lastUpdated: ts });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch timestamp" });
+  }
+});
+
 app.get("/api/data", async (req, res) => {
   try {
     const db = await getDbData();
     res.json(db);
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch database data" });
+  }
+});
+
+// Granular resource endpoints
+app.get("/api/categories", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.categories || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch categories" });
+  }
+});
+
+app.get("/api/articles", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.articles || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch articles" });
+  }
+});
+
+app.get("/api/members", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.members || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch members" });
+  }
+});
+
+app.get("/api/coaches", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.coaches || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch coaches" });
+  }
+});
+
+app.get("/api/achievements", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.achievements || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch achievements" });
+  }
+});
+
+app.get("/api/tournaments", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.tournaments || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch tournaments" });
+  }
+});
+
+app.get("/api/clubs", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.clubs || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch clubs" });
+  }
+});
+
+app.get("/api/highlights", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.highlights || []);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch highlights" });
+  }
+});
+
+app.get("/api/webConfig", async (req, res) => {
+  try {
+    const db = await getDbData();
+    res.json(db.webConfig || {});
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch webConfig" });
   }
 });
 

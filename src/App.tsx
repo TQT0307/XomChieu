@@ -90,6 +90,7 @@ export default function App() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
+  const hasLoadedServerDataRef = useRef(false);
 
   // Keep track of the last fetched server data to prevent infinite syncing loops
   const lastServerDataRef = useRef<{
@@ -153,129 +154,148 @@ export default function App() {
     let isMounted = true;
 
     const fetchServerData = () => {
-      fetch('/api/data')
+      // 1. Fetch only the lightweight timestamp first!
+      fetch('/api/timestamp')
         .then(res => {
-          if (!res.ok) throw new Error("Server response not OK");
+          if (!res.ok) throw new Error("Timestamp endpoint not available");
           return res.json();
         })
-        .then(data => {
-          if (!isMounted) return;
-          if (data) {
-            const serverUpdated = data.lastUpdated || 0;
-            const savedTimestampStr = localStorage.getItem('vovinam_last_updated');
-            const localUpdated = savedTimestampStr ? parseInt(savedTimestampStr, 10) : 0;
+        .then(timestampData => {
+          if (!isMounted || !timestampData) return;
+          
+          const serverUpdated = timestampData.lastUpdated || 0;
+          const savedTimestampStr = localStorage.getItem('vovinam_last_updated');
+          const localUpdated = savedTimestampStr ? parseInt(savedTimestampStr, 10) : 0;
 
-            // P2P Check: If local state is newer, upload it to the cloud instead of overwriting!
-            if (!initialSyncCompletedRef.current && localUpdated > serverUpdated) {
-              console.log(`[P2P Sync] Local state is newer (${localUpdated}) than server (${serverUpdated}). Syncing up to cloud...`);
-              saveAllLocalToCloud(localUpdated);
+          // If the server data hasn't changed since our last update, and we have already
+          // loaded server data at least once in this session, skip the heavy fetch!
+          if (hasLoadedServerDataRef.current && localUpdated === serverUpdated && serverUpdated > 0) {
+            return;
+          }
+
+          // 2. Fetch the full heavy data only if there's a mismatch or it's the initial fetch
+          return fetch('/api/data')
+            .then(res => {
+              if (!res.ok) throw new Error("Full server response not OK");
+              return res.json();
+            })
+            .then(data => {
+              if (!isMounted || !data) return;
+
+              // P2P Check: If local state is newer, upload it to the cloud instead of overwriting!
+              if (!initialSyncCompletedRef.current && localUpdated > serverUpdated) {
+                console.log(`[P2P Sync] Local state is newer (${localUpdated}) than server (${serverUpdated}). Syncing up to cloud...`);
+                saveAllLocalToCloud(localUpdated);
+                initialSyncCompletedRef.current = true;
+                setHasLoadedServerData(true);
+                hasLoadedServerDataRef.current = true;
+                return;
+              }
+
+              // Update the reference before setting React state to block write loops
+              lastServerDataRef.current = {
+                categories: data.categories,
+                articles: data.articles,
+                members: data.members,
+                coaches: data.coaches,
+                achievements: data.achievements,
+                tournaments: data.tournaments,
+                clubs: data.clubs,
+                highlights: data.highlights,
+                webConfig: data.webConfig,
+              };
+
+              const isKeyPending = (key: string) => {
+                const lastWrite = pendingSyncsRef.current[key] || 0;
+                return Date.now() - lastWrite < 5000; // Ignore server updates for 5 seconds after a local write
+              };
+
+              // Use functional state updates to compare against the absolute latest state
+              if (data.categories && !isKeyPending('categories')) {
+                setCategories(prev => {
+                  if (JSON.stringify(data.categories) !== JSON.stringify(prev)) {
+                    return data.categories;
+                  }
+                  return prev;
+                });
+              }
+              if (data.articles && !isKeyPending('articles')) {
+                setArticles(prev => {
+                  if (JSON.stringify(data.articles) !== JSON.stringify(prev)) {
+                    return data.articles;
+                  }
+                  return prev;
+                });
+              }
+              if (data.members && !isKeyPending('members')) {
+                setMembers(prev => {
+                  if (JSON.stringify(data.members) !== JSON.stringify(prev)) {
+                    return data.members;
+                  }
+                  return prev;
+                });
+              }
+              if (data.coaches && !isKeyPending('coaches')) {
+                setCoaches(prev => {
+                  if (JSON.stringify(data.coaches) !== JSON.stringify(prev)) {
+                    return data.coaches;
+                  }
+                  return prev;
+                });
+              }
+              if (data.achievements && !isKeyPending('achievements')) {
+                setAchievements(prev => {
+                  if (JSON.stringify(data.achievements) !== JSON.stringify(prev)) {
+                    return data.achievements;
+                  }
+                  return prev;
+                });
+              }
+              if (data.tournaments && !isKeyPending('tournaments')) {
+                setTournaments(prev => {
+                  if (JSON.stringify(data.tournaments) !== JSON.stringify(prev)) {
+                    return data.tournaments;
+                  }
+                  return prev;
+                });
+              }
+              if (data.clubs && !isKeyPending('clubs')) {
+                setClubs(prev => {
+                  if (JSON.stringify(data.clubs) !== JSON.stringify(prev)) {
+                    return data.clubs;
+                  }
+                  return prev;
+                });
+              }
+              if (data.highlights && !isKeyPending('highlights')) {
+                setHighlights(prev => {
+                  if (JSON.stringify(data.highlights) !== JSON.stringify(prev)) {
+                    return data.highlights;
+                  }
+                  return prev;
+                });
+              }
+              if (data.webConfig && !isKeyPending('webConfig')) {
+                setWebConfig(prev => {
+                  if (JSON.stringify(data.webConfig) !== JSON.stringify(prev)) {
+                    return data.webConfig;
+                  }
+                  return prev;
+                });
+              }
+
+              localStorage.setItem('vovinam_last_updated', serverUpdated.toString());
               initialSyncCompletedRef.current = true;
               setHasLoadedServerData(true);
-              return;
-            }
-
-            // Update the reference before setting React state to block write loops
-            lastServerDataRef.current = {
-              categories: data.categories,
-              articles: data.articles,
-              members: data.members,
-              coaches: data.coaches,
-              achievements: data.achievements,
-              tournaments: data.tournaments,
-              clubs: data.clubs,
-              highlights: data.highlights,
-              webConfig: data.webConfig,
-            };
-
-            const isKeyPending = (key: string) => {
-              const lastWrite = pendingSyncsRef.current[key] || 0;
-              return Date.now() - lastWrite < 5000; // Ignore server updates for 5 seconds after a local write
-            };
-
-            // Use functional state updates to compare against the absolute latest state
-            if (data.categories && !isKeyPending('categories')) {
-              setCategories(prev => {
-                if (JSON.stringify(data.categories) !== JSON.stringify(prev)) {
-                  return data.categories;
-                }
-                return prev;
-              });
-            }
-            if (data.articles && !isKeyPending('articles')) {
-              setArticles(prev => {
-                if (JSON.stringify(data.articles) !== JSON.stringify(prev)) {
-                  return data.articles;
-                }
-                return prev;
-              });
-            }
-            if (data.members && !isKeyPending('members')) {
-              setMembers(prev => {
-                if (JSON.stringify(data.members) !== JSON.stringify(prev)) {
-                  return data.members;
-                }
-                return prev;
-              });
-            }
-            if (data.coaches && !isKeyPending('coaches')) {
-              setCoaches(prev => {
-                if (JSON.stringify(data.coaches) !== JSON.stringify(prev)) {
-                  return data.coaches;
-                }
-                return prev;
-              });
-            }
-            if (data.achievements && !isKeyPending('achievements')) {
-              setAchievements(prev => {
-                if (JSON.stringify(data.achievements) !== JSON.stringify(prev)) {
-                  return data.achievements;
-                }
-                return prev;
-              });
-            }
-            if (data.tournaments && !isKeyPending('tournaments')) {
-              setTournaments(prev => {
-                if (JSON.stringify(data.tournaments) !== JSON.stringify(prev)) {
-                  return data.tournaments;
-                }
-                return prev;
-              });
-            }
-            if (data.clubs && !isKeyPending('clubs')) {
-              setClubs(prev => {
-                if (JSON.stringify(data.clubs) !== JSON.stringify(prev)) {
-                  return data.clubs;
-                }
-                return prev;
-              });
-            }
-            if (data.highlights && !isKeyPending('highlights')) {
-              setHighlights(prev => {
-                if (JSON.stringify(data.highlights) !== JSON.stringify(prev)) {
-                  return data.highlights;
-                }
-                return prev;
-              });
-            }
-            if (data.webConfig && !isKeyPending('webConfig')) {
-              setWebConfig(prev => {
-                if (JSON.stringify(data.webConfig) !== JSON.stringify(prev)) {
-                  return data.webConfig;
-                }
-                return prev;
-              });
-            }
-
-            localStorage.setItem('vovinam_last_updated', serverUpdated.toString());
-            initialSyncCompletedRef.current = true;
-          }
-          setHasLoadedServerData(true);
+              hasLoadedServerDataRef.current = true;
+            });
         })
         .catch(err => {
           if (!isMounted) return;
           console.warn("Failed to fetch shared database from server API, using local fallback:", err);
           initialSyncCompletedRef.current = true;
           setHasLoadedServerData(true);
+          hasLoadedServerDataRef.current = true;
         });
     };
 
