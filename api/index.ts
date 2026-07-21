@@ -228,26 +228,26 @@ async function getFirebaseFirestore() {
           }
         }
 
-        // Robust handling: Unwrap outer double/single quotes if the env variable was saved with surrounding quotes
-        if (val.startsWith('"') && val.endsWith('"')) {
-          val = val.substring(1, val.length - 1).trim();
-        } else if (val.startsWith("'") && val.endsWith("'")) {
-          val = val.substring(1, val.length - 1).trim();
+        let serviceAccount: any;
+        try {
+          // Parse the downloaded Firebase JSON exactly as provided. In particular,
+          // keep `\\n` escaped until JSON.parse converts it inside private_key.
+          serviceAccount = JSON.parse(val);
+          // Also accept a JSON value that was accidentally encoded as a string.
+          if (typeof serviceAccount === "string") {
+            serviceAccount = JSON.parse(serviceAccount);
+          }
+        } catch (firstError) {
+          // Some dashboards escape only the quotation marks. Repair those marks,
+          // but never turn `\\n` into raw control characters before JSON.parse.
+          const repaired = val.replace(/\\\"/g, '"');
+          serviceAccount = JSON.parse(repaired);
         }
 
-        // Vercel may preserve escaped quotes/newlines when JSON is pasted.
-        if (val.startsWith("{\\\"") || val.includes("\\n")) {
-          val = val.replace(/\\n/g, "\n").replace(/\\\"/g, '"');
+        if (!serviceAccount || typeof serviceAccount !== "object") {
+          throw new Error("FIREBASE_SERVICE_ACCOUNT must contain a JSON object");
         }
-
-        if (val.startsWith("{")) {
-          const serviceAccount = JSON.parse(val);
-          credential = cert(serviceAccount);
-        } else {
-          const warnMsg = "[Firebase] FIREBASE_SERVICE_ACCOUNT is set but does not look like a JSON object. It should be a complete JSON string starting with '{'.";
-          console.warn(warnMsg);
-          firebaseInitError = warnMsg;
-        }
+        credential = cert(serviceAccount);
       } else {
         let projectId = (process.env.FIREBASE_PROJECT_ID || "").trim();
         if (projectId.startsWith('"') && projectId.endsWith('"')) {
