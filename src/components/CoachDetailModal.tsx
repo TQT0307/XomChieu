@@ -80,11 +80,11 @@ export default function CoachDetailModal({
     });
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200" id={`modal-coach-${coach.id}`}>
-      <div className="bg-slate-900 text-white rounded-[2rem] max-w-2xl w-full overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200" id={`modal-coach-${coach.id}`}>
+      <div className="bg-slate-900 text-white rounded-[1.5rem] sm:rounded-[2rem] max-w-2xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
         
         {/* Header Section */}
-        <div className="relative bg-gradient-to-r from-[#0054A6]/90 to-blue-950 p-6 sm:p-8 border-b border-white/5">
+        <div className="relative shrink-0 bg-gradient-to-r from-[#0054A6]/90 to-blue-950 p-6 sm:p-8 border-b border-white/5">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full transition-all cursor-pointer z-10 border border-white/10"
@@ -187,7 +187,7 @@ export default function CoachDetailModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 space-y-6">
+        <div className="p-5 sm:p-8 space-y-6 overflow-y-auto overscroll-contain">
           
           {/* Quick Specifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -248,7 +248,7 @@ export default function CoachDetailModal({
                 Chưa có dữ liệu thành tích được liên kết với huấn luyện viên này.
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-3 max-h-72 sm:max-h-80 overflow-y-auto overscroll-contain pr-1 sm:pr-2">
                 {coachAchievements.map(achievement => {
                   const medalTheme = getMedalTheme(achievement.medalType);
                   return (
