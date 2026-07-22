@@ -81,12 +81,12 @@ export default function Header({
           className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none active:scale-95 transition-transform"
           title="CLB Vovinam Xóm Chiếu"
         >
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full flex items-center justify-center p-1 border-2 border-[#FFF200] shadow-md transform hover:rotate-12 transition-transform duration-300">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-[#0054A6] rounded-full flex items-center justify-center overflow-hidden border-2 border-[#FFF200] shadow-md transform hover:rotate-12 transition-transform duration-300">
             {webConfig.logo ? (
               <img 
                 src={webConfig.logo || "/logo_1784192552510.jpg"}
                 alt="Vovinam Logo" 
-                className="w-full h-full object-contain"
+                className="w-full h-full object-cover rounded-full scale-[1.14] [clip-path:circle(49%_at_50%_50%)]"
                 referrerPolicy="no-referrer"
               />
             ) : (

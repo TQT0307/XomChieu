@@ -390,7 +390,7 @@ export default function UserView({
         <img 
           src={webConfig.logo || "/logo.jpg"} 
           alt="Vovinam Watermark Logo" 
-          className="w-[85vw] max-w-[550px] aspect-square object-contain animate-[spin_120s_linear_infinite] filter blur-[1px]"
+          className="w-[85vw] max-w-[550px] aspect-square object-cover rounded-full scale-[1.08] [clip-path:circle(49%_at_50%_50%)] animate-[spin_120s_linear_infinite] filter blur-[1px]"
           referrerPolicy="no-referrer"
         />
       </div>

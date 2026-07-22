@@ -2284,7 +2284,7 @@ export default function AdminPanel({
                         </label>
                         {webConfigForm.logo && (
                           <div className="w-8 h-8 border rounded-lg overflow-hidden flex-shrink-0 bg-white p-0.5">
-                            <img src={webConfigForm.logo} alt="Logo preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                            <img src={webConfigForm.logo} alt="Logo preview" className="w-full h-full object-cover rounded-full scale-[1.14] [clip-path:circle(49%_at_50%_50%)]" referrerPolicy="no-referrer" />
                           </div>
                         )}
                       </div>
