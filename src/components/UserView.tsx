@@ -343,15 +343,11 @@ export default function UserView({
     )
   ).sort((a, b) => a.localeCompare(b));
 
-  // Helper to find athlete photo
+  // Use the achievement image consistently in both the card and detail modal.
+  // Mixing profile photos here with achievement photos in the modal made one
+  // record appear to have two different images.
   const getMemberPhotoForAchievement = (ach: Achievement) => {
-    if (!ach.athleteName) return ach.image || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80";
-    const normName = ach.athleteName.toLowerCase().trim();
-    const matchedMember = members.find(m => {
-      const normM = m.fullName.toLowerCase().trim();
-      return normM.includes(normName) || normName.includes(normM);
-    });
-    return (matchedMember && matchedMember.photo) ? matchedMember.photo : (ach.image || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80");
+    return ach.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
   };
 
   const visibleAchievements = achievements.filter(a => {
