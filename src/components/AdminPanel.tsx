@@ -571,6 +571,30 @@ export default function AdminPanel({
     }
   }, [toast]);
 
+  // Repair gaps already present in older cloud data as soon as admin opens.
+  // This runs once per actual mismatch and then stops after 1, 2, 3... is reached.
+  useEffect(() => {
+    if (members.length === 0) return;
+
+    const normalizedMembers = [...members]
+      .sort((a, b) =>
+        (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+        (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+      )
+      .map((member, index) => ({
+        ...member,
+        displayOrder: index + 1
+      }));
+
+    const needsNormalization = normalizedMembers.some((member, index) =>
+      members[index]?.id !== member.id || members[index]?.displayOrder !== index + 1
+    );
+
+    if (needsNormalization) {
+      setMembers(normalizedMembers);
+    }
+  }, [members, setMembers]);
+
   // Initialize Admin Accounts state from localStorage
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(() => {
     const saved = localStorage.getItem('vovinam_admin_accounts');

@@ -386,11 +386,11 @@ export default function UserView({
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0"></div>
 
       {/* Vovinam Watermark Background Logo */}
-      <div className="fixed inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none z-0 select-none overflow-hidden">
+      <div className="fixed inset-0 flex items-center justify-center opacity-[0.09] pointer-events-none z-0 select-none overflow-hidden">
         <img 
           src={webConfig.logo || "/logo.jpg"} 
           alt="Vovinam Watermark Logo" 
-          className="w-[85vw] max-w-[550px] aspect-square object-cover rounded-full scale-[1.08] [clip-path:circle(49%_at_50%_50%)] animate-[spin_120s_linear_infinite] filter blur-[1px]"
+          className="w-[85vw] max-w-[550px] aspect-square object-cover rounded-full scale-[1.08] [clip-path:circle(49%_at_50%_50%)] animate-[spin_120s_linear_infinite] saturate-125 contrast-110"
           referrerPolicy="no-referrer"
         />
       </div>
