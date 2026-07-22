@@ -350,6 +350,51 @@ function splitWebConfigForFirestore(webConfig: any) {
   return { config: { ...config, bannerCount: banners.length }, banners };
 }
 
+function mergeWebConfigPreservingMedia(existing: any, incoming: any) {
+  const current = existing && typeof existing === "object" ? existing : {};
+  const update = incoming && typeof incoming === "object" ? incoming : {};
+  const merged = { ...current, ...update };
+
+  // Older frontend builds may omit newly introduced fields. Omission must not
+  // erase cloud media after a deployment or page reload.
+  if (typeof update.logo !== "string" || update.logo.trim() === "") {
+    merged.logo = current.logo;
+  }
+  if (!Array.isArray(update.banners)) {
+    merged.banners = current.banners;
+  } else {
+    merged.banners = mergeCollectionPreservingMedia(current.banners, update.banners);
+  }
+
+  return merged;
+}
+
+const MEDIA_FIELDS = ["photo", "image", "thumbnail", "mediaUrls"];
+
+function mergeCollectionPreservingMedia(existing: any, incoming: any) {
+  if (!Array.isArray(incoming)) return Array.isArray(existing) ? existing : [];
+  const currentById = new Map(
+    (Array.isArray(existing) ? existing : []).map((item: any) => [String(item?.id), item])
+  );
+
+  return incoming.map((item: any) => {
+    const current = currentById.get(String(item?.id));
+    if (!current || !item || typeof item !== "object") return item;
+    const merged = { ...current, ...item };
+
+    MEDIA_FIELDS.forEach(field => {
+      const value = item[field];
+      const isMissing = value === undefined || value === null || value === "";
+      const isEmptyArray = Array.isArray(value) && value.length === 0;
+      if ((isMissing || isEmptyArray) && current[field]) {
+        merged[field] = current[field];
+      }
+    });
+
+    return merged;
+  });
+}
+
 // Helper to get database timestamp only (optimized)
 async function getDbTimestamp() {
   if (hasFirebase && !firebaseFailed) {
@@ -1133,9 +1178,16 @@ app.post("/api/save-key", async (req, res) => {
     if (!key || !EXPECTED_KEYS.includes(key)) {
       return res.status(400).json({ error: "Invalid state key" });
     }
+    if (data === undefined || data === null) {
+      return res.status(400).json({ error: "Missing data; existing cloud data was not changed" });
+    }
     
     const db = await getDbData();
-    db[key] = data;
+    db[key] = key === "webConfig"
+      ? mergeWebConfigPreservingMedia(db.webConfig, data)
+      : Array.isArray(data)
+        ? mergeCollectionPreservingMedia(db[key], data)
+        : data;
     const now = Date.now();
     db.lastUpdated = now;
     
@@ -1154,18 +1206,19 @@ app.post("/api/save-key", async (req, res) => {
 app.post("/api/save-all", async (req, res) => {
   try {
     const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig, lastUpdated } = req.body;
-    
+    const existing = await getDbData();
+
     const now = lastUpdated || Date.now();
     const db = {
-      categories: categories || [],
-      articles: articles || [],
-      members: members || [],
-      coaches: coaches || [],
-      achievements: achievements || [],
-      tournaments: tournaments || [],
-      clubs: clubs || [],
-      highlights: highlights || [],
-      webConfig: webConfig || {},
+      categories: Array.isArray(categories) ? categories : (existing.categories || []),
+      articles: mergeCollectionPreservingMedia(existing.articles, articles),
+      members: mergeCollectionPreservingMedia(existing.members, members),
+      coaches: mergeCollectionPreservingMedia(existing.coaches, coaches),
+      achievements: mergeCollectionPreservingMedia(existing.achievements, achievements),
+      tournaments: mergeCollectionPreservingMedia(existing.tournaments, tournaments),
+      clubs: mergeCollectionPreservingMedia(existing.clubs, clubs),
+      highlights: mergeCollectionPreservingMedia(existing.highlights, highlights),
+      webConfig: mergeWebConfigPreservingMedia(existing.webConfig, webConfig),
       lastUpdated: now
     };
     

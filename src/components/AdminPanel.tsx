@@ -4549,9 +4549,11 @@ export default function AdminPanel({
                                 <h4 className="font-bold text-slate-800 line-clamp-1">
                                   {item.title || item.fullName || item.name}
                                 </h4>
-                                <span className="text-[10px] text-slate-400 block line-clamp-1">
-                                  {item.description || item.address || item.athleteName || 'Không có mô tả phụ'}
-                                </span>
+                                {(item.description || item.address || item.athleteName) && (
+                                  <span className="text-[10px] text-slate-400 block line-clamp-1">
+                                    {item.description || item.address || item.athleteName}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
