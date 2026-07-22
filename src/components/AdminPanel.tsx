@@ -49,6 +49,13 @@ type AdminTab =
   | 'dbSync'
   | 'changePassword';
 
+// Match the public desktop carousel proportions (reference viewport: 1440px).
+// This makes object-position adjustments in admin line up with the live page.
+const getBannerPreviewAspectClass = (height?: 'short' | 'medium' | 'large') =>
+  height === 'short' ? 'aspect-[18/5]' :
+  height === 'large' ? 'aspect-[72/31]' :
+  'aspect-[72/25]';
+
 function ImageInput({ 
   label, 
   value, 
@@ -2434,10 +2441,7 @@ export default function AdminPanel({
 
                         // Determine height depending on bannerHeight selection
                         const configHeight = webConfigForm.bannerHeight || 'medium';
-                        const heightClasses = 
-                          configHeight === 'short' ? 'h-[160px] sm:h-[190px]' :
-                          configHeight === 'large' ? 'h-[230px] sm:h-[280px]' :
-                          'h-[190px] sm:h-[230px]'; // medium (default)
+                        const previewAspectClass = getBannerPreviewAspectClass(configHeight);
 
                         const handleDragStart = (clientY: number) => {
                           setIsDraggingY(true);
@@ -2477,7 +2481,7 @@ export default function AdminPanel({
                             </div>
 
                             <div 
-                              className={`w-full ${heightClasses} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
+                              className={`w-full ${previewAspectClass} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
                               onMouseDown={(e) => handleDragStart(e.clientY)}
                               onMouseMove={(e) => handleDragMove(e.clientY, e.currentTarget.clientHeight)}
                               onMouseUp={() => setIsDraggingY(false)}
@@ -2509,7 +2513,6 @@ export default function AdminPanel({
 
                               {/* Overlays */}
                               <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/35 to-black/80 pointer-events-none"></div>
-                              <div className="absolute inset-0 opacity-15 bg-[linear-gradient(45deg,#0054A6_25%,transparent_25%,transparent_50%,#0054A6_50%,#0054A6_75%,transparent_75%,transparent)] bg-[length:14px_14px] pointer-events-none"></div>
 
                               {/* Content Overlay */}
                               <div className="relative z-10 w-full h-full flex flex-col justify-start pt-5 px-4 text-center text-white pointer-events-none">
@@ -2706,7 +2709,7 @@ export default function AdminPanel({
                             <span>XEM TRƯỚC SƠ BỘ SLIDE</span>
                           </label>
                           
-                          <div className="flex-grow border border-slate-300 rounded-xl overflow-hidden relative bg-slate-900 flex flex-col justify-between h-[180px] sm:h-[220px] shadow-inner select-none">
+                          <div className={`w-full ${getBannerPreviewAspectClass(webConfigForm.bannerHeight || 'medium')} border border-slate-300 rounded-xl overflow-hidden relative bg-slate-900 flex flex-col justify-between shadow-inner select-none`}>
                             {bannerForm.image ? (
                               <img
                                 src={bannerForm.image}

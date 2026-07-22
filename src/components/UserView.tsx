@@ -9,6 +9,22 @@ import {
 } from '../types';
 import MemberDetailModal from './MemberDetailModal';
 import CoachDetailModal from './CoachDetailModal';
+import defaultBanner1 from '../assets/images/banner1.jpg';
+import defaultBanner2 from '../assets/images/banner2.jpg';
+import defaultBanner3 from '../assets/images/banner3.jpg';
+import defaultBanner4 from '../assets/images/banner4.jpg';
+import defaultBanner5 from '../assets/images/banner5.jpg';
+
+const bundledBannerImages: Record<string, string> = {
+  '/src/assets/images/banner1.jpg': defaultBanner1,
+  '/src/assets/images/banner2.jpg': defaultBanner2,
+  '/src/assets/images/banner3.jpg': defaultBanner3,
+  '/src/assets/images/banner4.jpg': defaultBanner4,
+  '/src/assets/images/banner5.jpg': defaultBanner5,
+};
+
+const resolveBannerImage = (image?: string) =>
+  (image && bundledBannerImages[image]) || image || defaultBanner1;
 
 interface UserViewProps {
   categories: Category[];
@@ -54,35 +70,35 @@ export default function UserView({
     : [
         {
           id: '1',
-          image: '/src/assets/images/banner1.jpg',
+          image: defaultBanner1,
           title: 'Đồng Hành Cùng Vovinam Xóm Chiếu',
           subtitle: 'Quy tụ tinh hoa võ thuật cổ truyền, rèn luyện thân thể vững vàng và ý chí tự cường kiên định.',
           position: 'object-[center_15%]'
         },
         {
           id: '2',
-          image: '/src/assets/images/banner2.jpg',
+          image: defaultBanner2,
           title: 'Vinh Quang Việt Võ Đạo',
           subtitle: 'Nhiều huy chương vàng và danh hiệu xuất sắc đạt được tại các giải trẻ toàn quốc.',
           position: 'object-[center_25%]'
         },
         {
           id: '3',
-          image: '/src/assets/images/banner3.jpg',
+          image: defaultBanner3,
           title: 'Hội Tụ Ban Huấn Luyện Tâm Huyết',
           subtitle: 'Võ sư và HLV dày dặn kinh nghiệm, đồng hành sát cánh hướng dẫn từng động tác cho môn sinh.',
           position: 'object-[center_20%]'
         },
         {
           id: '4',
-          image: '/src/assets/images/banner4.jpg',
+          image: defaultBanner4,
           title: 'Năng Động Trẻ Trung & Đam Mê',
           subtitle: 'Tinh thần đồng đội gắn kết keo sơn, đoàn kết học hỏi vì màu cờ sắc áo võ đường.',
           position: 'object-[center_70%]'
         },
         {
           id: '5',
-          image: '/src/assets/images/banner5.jpg',
+          image: defaultBanner5,
           title: 'Học Đường Thể Thao Học Sinh',
           subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.',
           position: 'object-[center_50%]'
@@ -94,6 +110,15 @@ export default function UserView({
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
+
+  // Decode the next slide before it becomes visible so transitions do not wait
+  // for image loading on slower connections.
+  useEffect(() => {
+    if (banners.length < 2) return;
+    const nextIndex = (safeCurrentBanner + 1) % banners.length;
+    const preloadImage = new Image();
+    preloadImage.src = resolveBannerImage(banners[nextIndex]?.image);
+  }, [safeCurrentBanner, banners]);
 
   const navSections = [
     { id: 'section-about', name: 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
@@ -370,14 +395,12 @@ export default function UserView({
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
           <img 
-            src={banners[safeCurrentBanner]?.image} 
+            src={resolveBannerImage(banners[safeCurrentBanner]?.image)} 
             alt="Vovinam Slide" 
             className={`w-full h-full object-cover opacity-100 scale-105 transition-all duration-1000 ${banners[safeCurrentBanner]?.position || 'object-center'}`}
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
-          {/* Sports style subtle diagonal overlay pattern */}
-          <div className="absolute inset-0 opacity-15 bg-[linear-gradient(45deg,#0054A6_25%,transparent_25%,transparent_50%,#0054A6_50%,#0054A6_75%,transparent_75%,transparent)] bg-[length:24px_24px]"></div>
         </div>
 
         {/* Content Box - Centered horizontally and positioned closer to the top */}

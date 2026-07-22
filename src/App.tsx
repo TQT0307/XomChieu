@@ -119,16 +119,20 @@ export default function App() {
       if (requestInFlight) return Promise.resolve();
       requestInFlight = true;
 
-      // 1. Fetch only the lightweight timestamp first!
-      return fetch('/api/timestamp', { cache: 'no-store' })
+      // On the first visit, fetch the complete state immediately instead of
+      // waiting for a timestamp request and then making a second round trip.
+      const isInitialLoad = !hasLoadedServerDataRef.current;
+      return fetch(isInitialLoad ? '/api/data' : '/api/timestamp', { cache: 'no-store' })
         .then(res => {
           if (!res.ok) throw new Error("Timestamp endpoint not available");
           return res.json();
         })
-        .then(timestampData => {
-          if (!isMounted || !timestampData) return;
+        .then(statusOrData => {
+          if (!isMounted || !statusOrData) return;
+
+          const prefetchedData = isInitialLoad ? statusOrData : null;
           
-          const serverUpdated = timestampData.lastUpdated || 0;
+          const serverUpdated = statusOrData.lastUpdated || 0;
           const savedTimestampStr = localStorage.getItem('vovinam_last_updated');
           const localUpdated = savedTimestampStr ? parseInt(savedTimestampStr, 10) : 0;
 
@@ -139,11 +143,12 @@ export default function App() {
           }
 
           // 2. Fetch the full heavy data only if there's a mismatch or it's the initial fetch
-          return fetch('/api/data', { cache: 'no-store' })
-            .then(res => {
-              if (!res.ok) throw new Error("Full server response not OK");
-              return res.json();
-            })
+          return (prefetchedData
+            ? Promise.resolve(prefetchedData)
+            : fetch('/api/data', { cache: 'no-store' }).then(res => {
+                if (!res.ok) throw new Error("Full server response not OK");
+                return res.json();
+              }))
             .then(data => {
               if (!isMounted || !data) return;
 

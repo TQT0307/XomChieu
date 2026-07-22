@@ -25,9 +25,20 @@ export default function MemberDetailModal({
   const clubName = clubs.find(c => c.id === member.clubId)?.name || 'Chưa xác định';
 
   // Get achievements associated with this member
-  const memberAchievements = achievements.filter(
-    ach => ach.memberIds && ach.memberIds.includes(member.id)
-  );
+  const getAchievementYear = (achievement: Achievement) => {
+    const explicitYear = Number.parseInt(String(achievement.year || ''), 10);
+    if (Number.isFinite(explicitYear)) return explicitYear;
+    const yearFromDate = String(achievement.date || '').match(/(?:19|20)\d{2}/);
+    return yearFromDate ? Number.parseInt(yearFromDate[0], 10) : Number.MAX_SAFE_INTEGER;
+  };
+
+  const memberAchievements = achievements
+    .filter(ach => ach.memberIds && ach.memberIds.includes(member.id))
+    .sort((a, b) => {
+      const yearDifference = getAchievementYear(a) - getAchievementYear(b);
+      if (yearDifference !== 0) return yearDifference;
+      return String(a.date || '').localeCompare(String(b.date || ''));
+    });
 
   const getMedalEmoji = (medalType: string) => {
     switch (medalType) {
