@@ -26,6 +26,28 @@ const bundledBannerImages: Record<string, string> = {
 const resolveBannerImage = (image?: string) =>
   (image && bundledBannerImages[image]) || image || defaultBanner1;
 
+type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'tiktok';
+
+const normalizeSocialUrl = (platform: SocialPlatform, value?: string) => {
+  const rawValue = String(value || '').trim();
+  if (!rawValue) return '';
+  if (/^https?:\/\//i.test(rawValue)) return rawValue;
+  if (rawValue.startsWith('//')) return `https:${rawValue}`;
+
+  const cleanValue = rawValue.replace(/^@/, '').replace(/^\/+/, '');
+  if (/^[\w.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(cleanValue)) {
+    return `https://${cleanValue}`;
+  }
+
+  const platformBases: Record<SocialPlatform, string> = {
+    facebook: 'https://www.facebook.com/',
+    instagram: 'https://www.instagram.com/',
+    threads: 'https://www.threads.net/@',
+    tiktok: 'https://www.tiktok.com/@',
+  };
+  return `${platformBases[platform]}${cleanValue}`;
+};
+
 interface UserViewProps {
   categories: Category[];
   articles: Article[];
@@ -374,6 +396,12 @@ export default function UserView({
   });
 
   const configHeight = webConfig.bannerHeight || 'medium';
+  const zaloPhoneMatch = String(webConfig.phone || '').match(/(?:\+?84|0)(?:[\s.-]?\d){8,9}(?![\s.-]?\d)/);
+  const zaloPhone = zaloPhoneMatch ? zaloPhoneMatch[0].replace(/\D/g, '') : '';
+  const facebookUrl = normalizeSocialUrl('facebook', webConfig.facebook);
+  const instagramUrl = normalizeSocialUrl('instagram', webConfig.instagram);
+  const threadsUrl = normalizeSocialUrl('threads', webConfig.threads);
+  const tiktokUrl = normalizeSocialUrl('tiktok', webConfig.tiktok);
   const carouselHeightClass = 
     configHeight === 'short' ? 'h-[280px] sm:h-[400px]' :
     configHeight === 'large' ? 'h-[440px] sm:h-[620px]' :
@@ -1859,9 +1887,9 @@ export default function UserView({
           <div className="pt-8 border-t border-white/10 flex flex-col items-center space-y-4">
             <p className="text-[10px] font-black text-[#FFF200] uppercase tracking-wider">Kết nối qua mạng xã hội truyền thông:</p>
             <div className="flex gap-4">
-              {webConfig.facebook && (
+              {facebookUrl && (
                 <a 
-                  href={webConfig.facebook} 
+                  href={facebookUrl} 
                   target="_blank" 
                   rel="noreferrer"
                   className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
@@ -1870,9 +1898,9 @@ export default function UserView({
                   <Facebook className="w-5 h-5" />
                 </a>
               )}
-              {webConfig.instagram && (
+              {instagramUrl && (
                 <a 
-                  href={webConfig.instagram} 
+                  href={instagramUrl} 
                   target="_blank" 
                   rel="noreferrer"
                   className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
@@ -1881,9 +1909,23 @@ export default function UserView({
                   <Instagram className="w-5 h-5" />
                 </a>
               )}
-              {webConfig.threads && (
+              {zaloPhone && (
+                <a
+                  href={`https://zalo.me/${zaloPhone}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#0068ff] hover:border-[#0068ff] transition-all duration-300 font-black"
+                  title={`Zalo ${zaloPhone}`}
+                  aria-label={`Mở trang Zalo của số ${zaloPhone}`}
+                >
+                  <span className="w-7 h-6 rounded-lg bg-white text-[#0068ff] flex items-center justify-center text-[8px] font-black tracking-tight shadow-sm">
+                    Zalo
+                  </span>
+                </a>
+              )}
+              {threadsUrl && (
                 <a 
-                  href={webConfig.threads} 
+                  href={threadsUrl} 
                   target="_blank" 
                   rel="noreferrer"
                   className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
@@ -1892,9 +1934,9 @@ export default function UserView({
                   <AtSign className="w-5 h-5" />
                 </a>
               )}
-              {webConfig.tiktok && (
+              {tiktokUrl && (
                 <a 
-                  href={webConfig.tiktok} 
+                  href={tiktokUrl} 
                   target="_blank" 
                   rel="noreferrer"
                   className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"

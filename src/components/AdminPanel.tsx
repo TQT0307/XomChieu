@@ -2365,6 +2365,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.facebook}
                       onChange={e => setWebConfigForm({ ...webConfigForm, facebook: e.target.value })}
+                      placeholder="https://facebook.com/ten-trang-clb"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2374,6 +2375,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.instagram}
                       onChange={e => setWebConfigForm({ ...webConfigForm, instagram: e.target.value })}
+                      placeholder="https://instagram.com/ten_tai_khoan"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2383,6 +2385,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.threads}
                       onChange={e => setWebConfigForm({ ...webConfigForm, threads: e.target.value })}
+                      placeholder="https://threads.net/@ten_tai_khoan"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2392,6 +2395,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.tiktok}
                       onChange={e => setWebConfigForm({ ...webConfigForm, tiktok: e.target.value })}
+                      placeholder="https://tiktok.com/@ten_tai_khoan"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
