@@ -1494,7 +1494,7 @@ export default function UserView({
                   </div>
 
                   <p className="text-[11px] text-[#0054A6] font-black uppercase mt-3 font-mono tracking-wider">
-                    Sinh năm: {coach.birthYear} • ID: {coach.id}
+                    Sinh năm: {coach.birthYear}
                   </p>
 
                   <p className="text-xs text-slate-900 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-150/80 italic relative font-semibold">
@@ -1575,7 +1575,7 @@ export default function UserView({
                     </div>
 
                     <p className="text-[10px] text-[#0054A6] font-black uppercase mt-2 font-mono tracking-wider">
-                      Sinh năm: {coach.birthYear} • ID: {coach.id}
+                      Sinh năm: {coach.birthYear}
                     </p>
 
                     <p className="text-xs text-slate-900 font-sans leading-relaxed mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-150/80 italic line-clamp-3 relative font-semibold">
@@ -1718,7 +1718,7 @@ export default function UserView({
                     </div>
                     
                     <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
-                      Sinh năm {m.birthYear} • ID: {m.id}
+                      Sinh năm {m.birthYear}
                     </div>
                   </div>
 
@@ -1803,7 +1803,7 @@ export default function UserView({
                       </div>
                       
                       <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
-                        Sinh năm {m.birthYear} • ID: {m.id}
+                        Sinh năm {m.birthYear}
                       </div>
                     </div>
 

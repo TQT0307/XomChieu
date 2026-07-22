@@ -139,7 +139,7 @@ export default function MemberDetailModal({
                         {member.fullName}
                       </h3>
                       <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest mt-1">
-                        ID: {member.id} • Sinh năm: {member.birthYear}
+                        Sinh năm: {member.birthYear}
                       </p>
                     </div>
 

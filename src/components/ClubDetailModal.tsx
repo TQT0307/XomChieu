@@ -189,7 +189,6 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
                     {coach.experience && (
                       <p className="text-[10px] text-slate-500 mt-0.5 truncate italic">KN: {coach.experience}</p>
                     )}
-                    <p className="text-[10px] text-slate-400 mt-0.5">Mã: #{coach.id}</p>
                   </div>
                   <span className="ml-auto shrink-0 text-[10px] font-bold text-[#0054A6]">Xem chi tiết</span>
                 </button>

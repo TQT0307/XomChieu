@@ -153,7 +153,7 @@ export default function CoachDetailModal({
                         {coach.fullName}
                       </h3>
                       <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest mt-1">
-                        ID: {coach.id} • Sinh năm: {coach.birthYear || 'Chưa cập nhật'}
+                        Sinh năm: {coach.birthYear || 'Chưa cập nhật'}
                       </p>
                     </div>
 
