@@ -6,9 +6,10 @@ interface ClubDetailModalProps {
   club: Club | null;
   coaches: Coach[];
   onClose: () => void;
+  onSelectCoach: (coach: Coach) => void;
 }
 
-export default function ClubDetailModal({ club, coaches, onClose }: ClubDetailModalProps) {
+export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach }: ClubDetailModalProps) {
   if (!club) return null;
 
   // Elegant embed maps search query
@@ -156,7 +157,13 @@ export default function ClubDetailModal({ club, coaches, onClose }: ClubDetailMo
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {associatedCoaches.map(coach => (
-                <div key={coach.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/80 hover:border-[#0054A6]/20 transition-all shadow-sm">
+                <button
+                  key={coach.id}
+                  type="button"
+                  onClick={() => onSelectCoach(coach)}
+                  className="w-full flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/80 hover:border-[#0054A6]/40 hover:bg-blue-50/60 transition-all shadow-sm text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0054A6]"
+                  aria-label={`Xem chi tiết huấn luyện viên ${coach.fullName}`}
+                >
                   {coach.photo ? (
                     <img 
                       src={coach.photo} 
@@ -184,7 +191,8 @@ export default function ClubDetailModal({ club, coaches, onClose }: ClubDetailMo
                     )}
                     <p className="text-[10px] text-slate-400 mt-0.5">Mã: #{coach.id}</p>
                   </div>
-                </div>
+                  <span className="ml-auto shrink-0 text-[10px] font-bold text-[#0054A6]">Xem chi tiết</span>
+                </button>
               ))}
             </div>
           </div>

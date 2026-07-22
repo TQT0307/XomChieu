@@ -7,6 +7,7 @@ const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModa
 const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const TournamentDetailModal = lazy(() => import('./components/TournamentDetailModal'));
 const AchievementDetailModal = lazy(() => import('./components/AchievementDetailModal'));
+const CoachDetailModal = lazy(() => import('./components/CoachDetailModal'));
 
 // Initial Mock data
 import {
@@ -347,6 +348,7 @@ export default function App() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
+  const [selectedClubCoach, setSelectedClubCoach] = useState<Coach | null>(null);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
 
@@ -612,6 +614,21 @@ export default function App() {
         club={selectedClub}
         coaches={coaches}
         onClose={() => setSelectedClub(null)}
+        onSelectCoach={(coach) => {
+          setSelectedClub(null);
+          setSelectedClubCoach(coach);
+        }}
+      />
+
+      <CoachDetailModal
+        coach={selectedClubCoach}
+        clubs={clubs}
+        achievements={achievements}
+        onClose={() => setSelectedClubCoach(null)}
+        onSelectAchievement={(achievement) => {
+          setSelectedClubCoach(null);
+          setSelectedAchievement(achievement);
+        }}
       />
 
       {/* Tournament Details Modal */}
