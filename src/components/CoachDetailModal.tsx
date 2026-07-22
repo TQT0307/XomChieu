@@ -248,7 +248,7 @@ export default function CoachDetailModal({
                 Chưa có dữ liệu thành tích được liên kết với huấn luyện viên này.
               </div>
             ) : (
-              <div className="space-y-3 max-h-72 sm:max-h-80 overflow-y-auto overscroll-contain pr-1 sm:pr-2">
+              <div className="space-y-3">
                 {coachAchievements.map(achievement => {
                   const medalTheme = getMedalTheme(achievement.medalType);
                   return (
