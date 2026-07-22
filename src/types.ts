@@ -20,6 +20,7 @@ export interface Article {
 
 export interface Member {
   id: string; // ID tự chọn
+  displayOrder?: number;
   photo: string;
   fullName: string;
   birthYear: number;

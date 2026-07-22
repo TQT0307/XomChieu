@@ -920,7 +920,16 @@ export default function AdminPanel({
     setArticleForm({ title: '', content: '', categoryId: categories[0]?.id || '', image: '', status: true, date: new Date().toISOString().split('T')[0], views: 0, showInNews: false });
     setCategoryForm({ id: '', name: '', order: categories.length + 1, status: true, description: '' });
     setCoachForm({ id: '', fullName: '', birthYear: 1990, rank: 'Hoàng Đai', clubId: clubs[0]?.id || '', experience: '', status: true, photo: '' });
-    setMemberForm({ id: '', fullName: '', birthYear: 2005, rank: 'Lam Đai', clubId: clubs[0]?.id || '', status: true, photo: '' });
+    setMemberForm({
+      id: '',
+      displayOrder: Math.max(0, ...members.map(member => member.displayOrder || 0)) + 1,
+      fullName: '',
+      birthYear: 2005,
+      rank: 'Lam Đai',
+      clubId: clubs[0]?.id || '',
+      status: true,
+      photo: ''
+    });
     setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString() });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '' });
     setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapUrl: '' });
@@ -994,7 +1003,15 @@ export default function AdminPanel({
         setCoachForm(item);
         break;
       case 'members':
-        setMemberForm(item);
+        if (item.displayOrder) {
+          setMemberForm(item);
+        } else {
+          let suggestedOrder = Math.max(1, members.findIndex(member => member.id === item.id) + 1);
+          while (members.some(member => member.id !== item.id && member.displayOrder === suggestedOrder)) {
+            suggestedOrder += 1;
+          }
+          setMemberForm({ ...item, displayOrder: suggestedOrder });
+        }
         break;
       case 'achievements':
         setAchievementForm({
@@ -1117,19 +1134,29 @@ export default function AdminPanel({
     } else if (activeTab === 'members') {
       const id = memberForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
+      const displayOrder = Number(memberForm.displayOrder);
+      if (!Number.isInteger(displayOrder) || displayOrder < 1) {
+        showToast('ID thứ tự hiển thị phải là số nguyên từ 1 trở lên', 'error');
+        return;
+      }
+      if (members.some(m => m.id !== editId && m.displayOrder === displayOrder)) {
+        showToast('ID thứ tự hiển thị này đã được sử dụng!', 'error');
+        return;
+      }
+      memberForm.displayOrder = displayOrder;
       if (editId === null) {
         if (members.some(m => m.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
         setMembers(prev => [...prev, memberForm as Member]);
-        addLog('Thêm', 'members', `Đã thêm môn sinh mới: "${memberForm.fullName}" (ID: ${id})`);
-        showToast('Thêm môn sinh mới thành công!', 'success');
+        addLog('Thêm', 'members', `Đã thêm thành viên CLB mới: "${memberForm.fullName}" (ID: ${id})`);
+        showToast('Thêm thành viên CLB mới thành công!', 'success');
       } else {
         if (id !== editId && members.some(m => m.id === id)) {
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
         setMembers(prev => prev.map(m => m.id === editId ? { ...m, ...memberForm, id } as Member : m));
-        addLog('Sửa', 'members', `Đã cập nhật thông tin môn sinh: "${memberForm.fullName}" (ID: ${id})`);
-        showToast('Cập nhật thông tin môn sinh thành công!', 'success');
+        addLog('Sửa', 'members', `Đã cập nhật thành viên CLB: "${memberForm.fullName}" (ID: ${id})`);
+        showToast('Cập nhật thành viên CLB thành công!', 'success');
       }
     } else if (activeTab === 'achievements') {
       const id = achievementForm.id?.trim() || '';
@@ -1369,11 +1396,18 @@ export default function AdminPanel({
           (c.birthYear && String(c.birthYear).includes(q))
         ));
       case 'members':
-        return members.filter(m => !q ? true : (
-          m.fullName.toLowerCase().includes(q) ||
-          (m.rank && m.rank.toLowerCase().includes(q)) ||
-          (m.birthYear && String(m.birthYear).includes(q))
-        ));
+        return members
+          .filter(m => !q ? true : (
+            m.id.toLowerCase().includes(q) ||
+            m.fullName.toLowerCase().includes(q) ||
+            (m.rank && m.rank.toLowerCase().includes(q)) ||
+            (m.birthYear && String(m.birthYear).includes(q)) ||
+            (m.displayOrder && String(m.displayOrder).includes(q))
+          ))
+          .sort((a, b) =>
+            (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+            (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+          );
       case 'achievements':
         return achievements.filter(a => !q ? true : (
           a.title.toLowerCase().includes(q) ||
@@ -1519,7 +1553,7 @@ export default function AdminPanel({
     { id: 'articles', label: 'Quản lý Bài viết', icon: FileText, color: 'text-[#0054A6]' },
     { id: 'categories', label: 'Quản lý Danh mục', icon: FolderOpen, color: 'text-sky-600' },
     { id: 'coaches', label: 'Huấn luyện viên', icon: Users, color: 'text-indigo-600' },
-    { id: 'members', label: 'Quản lý Môn sinh', icon: Users, color: 'text-emerald-600' },
+    { id: 'members', label: 'Thành viên CLB', icon: Users, color: 'text-emerald-600' },
     { id: 'achievements', label: 'Thành tích đạt được', icon: Award, color: 'text-amber-500' },
     { id: 'tournaments', label: 'Giải đấu tham gia', icon: Trophy, color: 'text-orange-500' },
     { id: 'clubs', label: 'Câu lạc bộ', icon: Map, color: 'text-teal-600' },
@@ -3161,7 +3195,7 @@ export default function AdminPanel({
                     activeTab === 'articles' ? 'Bài viết' :
                     activeTab === 'categories' ? 'Danh mục' :
                     activeTab === 'coaches' ? 'Huấn luyện viên' :
-                    activeTab === 'members' ? 'Thành viên' :
+                    activeTab === 'members' ? 'Thành viên CLB' :
                     activeTab === 'achievements' ? 'Thành tích' :
                     activeTab === 'tournaments' ? 'Giải đấu' :
                     activeTab === 'clubs' ? 'Câu lạc bộ' : 'Highlight'
@@ -3433,6 +3467,23 @@ export default function AdminPanel({
                         />
                       </div>
                       <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">ID thứ tự hiển thị</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={memberForm.displayOrder || ''}
+                          onChange={e => setMemberForm({
+                            ...memberForm,
+                            displayOrder: Number.parseInt(e.target.value, 10) || undefined
+                          })}
+                          className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none"
+                          placeholder="Ví dụ: 1"
+                          required
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Số nhỏ hiển thị trước; không được trùng.</p>
+                      </div>
+                      <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Họ và tên</label>
                         <input 
                           type="text" 
@@ -3443,7 +3494,7 @@ export default function AdminPanel({
                       </div>
                       <div>
                         <ImageInput 
-                          label="Ảnh đại diện (Môn sinh)"
+                          label="Ảnh đại diện (Thành viên CLB)"
                           value={memberForm.photo || ''}
                           onChange={val => setMemberForm({ ...memberForm, photo: val })}
                           id="member-photo-uploader"
@@ -4385,7 +4436,7 @@ export default function AdminPanel({
                       activeTab === 'articles' ? 'Danh sách Bài viết' :
                       activeTab === 'categories' ? 'Danh sách Danh mục' :
                       activeTab === 'coaches' ? 'Đội ngũ Huấn luyện viên' :
-                      activeTab === 'members' ? 'Hồ sơ Thành viên' :
+                      activeTab === 'members' ? 'Danh sách Thành viên CLB' :
                       activeTab === 'achievements' ? 'Bảng vàng Thành tích' :
                       activeTab === 'tournaments' ? 'Tổng hợp Giải đấu' :
                       activeTab === 'clubs' ? 'Hệ thống Câu lạc bộ' : 'Thư viện Highlights'
@@ -4458,6 +4509,7 @@ export default function AdminPanel({
                     <thead>
                       <tr className="bg-slate-50 border-b text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                         <th className="p-3">ID</th>
+                        {activeTab === 'members' && <th className="p-3">Thứ tự hiển thị</th>}
                         <th className="p-3">Thông tin chính</th>
                         {activeTab === 'articles' && <th className="p-3">Danh mục / Ngày đăng</th>}
                         {activeTab === 'articles' && <th className="p-3">Lượt xem</th>}
@@ -4477,6 +4529,11 @@ export default function AdminPanel({
                           <td className="p-3 font-bold text-slate-400">
                             #{item.id}
                           </td>
+                          {activeTab === 'members' && (
+                            <td className="p-3 font-black text-[#0054A6]">
+                              {item.displayOrder ?? '—'}
+                            </td>
+                          )}
                           <td className="p-3">
                             <div className="flex items-center gap-3">
                               {/* Thumbnail check */}

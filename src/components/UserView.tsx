@@ -233,17 +233,22 @@ export default function UserView({
     );
   });
 
-  const visibleMembers = members.filter(m => {
-    if (m.status === false) return false;
-    const q = searchMemberQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      m.id.toLowerCase().includes(q) ||
-      m.fullName.toLowerCase().includes(q) ||
-      (m.rank && m.rank.toLowerCase().includes(q)) ||
-      (m.birthYear && String(m.birthYear).includes(q))
+  const visibleMembers = members
+    .filter(m => {
+      if (m.status === false) return false;
+      const q = searchMemberQuery.toLowerCase().trim();
+      if (!q) return true;
+      return (
+        m.id.toLowerCase().includes(q) ||
+        m.fullName.toLowerCase().includes(q) ||
+        (m.rank && m.rank.toLowerCase().includes(q)) ||
+        (m.birthYear && String(m.birthYear).includes(q))
+      );
+    })
+    .sort((a, b) =>
+      (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+      (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
     );
-  });
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
   const visibleTournaments = tournaments.filter(t => {
