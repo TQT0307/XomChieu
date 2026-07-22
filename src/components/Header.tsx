@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
   Play, Award, User, CheckCircle, MapPin, Mail 
@@ -28,6 +28,11 @@ export default function Header({
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
   const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoLoadFailed(false);
+  }, [webConfig.logo]);
 
   const handleLogoClick = () => {
     const now = Date.now();
@@ -82,12 +87,13 @@ export default function Header({
           title="CLB Vovinam Xóm Chiếu"
         >
           <div className="w-10 h-10 md:w-12 md:h-12 bg-[#0054A6] rounded-full flex items-center justify-center overflow-hidden border-2 border-[#FFF200] shadow-md transform hover:rotate-12 transition-transform duration-300">
-            {webConfig.logo ? (
+            {webConfig.logo && !logoLoadFailed ? (
               <img 
-                src={webConfig.logo || "/logo_1784192552510.jpg"}
+                src={webConfig.logo}
                 alt="Vovinam Logo" 
-                className="w-full h-full object-cover rounded-full scale-[1.14] [clip-path:circle(49%_at_50%_50%)]"
+                className="w-full h-full object-contain rounded-full"
                 referrerPolicy="no-referrer"
+                onError={() => setLogoLoadFailed(true)}
               />
             ) : (
               <div className="bg-[#0054A6] w-full h-full rounded-full flex items-center justify-center font-black text-[9px] text-center leading-tight uppercase">

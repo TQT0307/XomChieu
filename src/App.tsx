@@ -241,8 +241,27 @@ export default function App() {
               }
               if (data.webConfig && !isKeyPending('webConfig')) {
                 setWebConfig(prev => {
-                  if (JSON.stringify(data.webConfig) !== JSON.stringify(prev)) {
-                    return data.webConfig;
+                  const defaultLogoPaths = new Set([
+                    '',
+                    '/logo.jpg',
+                    '/logo_1784192552510.jpg',
+                    '/src/assets/images/h.jpg',
+                    '/src/assets/images/logo.jpg'
+                  ]);
+                  const serverLogo = String(data.webConfig.logo || '').trim();
+                  const currentLogo = String(prev.logo || '').trim();
+                  const serverHasOnlyDefaultLogo = defaultLogoPaths.has(serverLogo);
+                  const currentHasCustomLogo = currentLogo.length > 0 && !defaultLogoPaths.has(currentLogo);
+
+                  // A deploy or an older frontend must not replace an uploaded logo
+                  // with the bundled placeholder. Keep the last real logo and the
+                  // normal sync effect will persist it back to the cloud.
+                  const nextWebConfig = serverHasOnlyDefaultLogo && currentHasCustomLogo
+                    ? { ...data.webConfig, logo: currentLogo }
+                    : data.webConfig;
+
+                  if (JSON.stringify(nextWebConfig) !== JSON.stringify(prev)) {
+                    return nextWebConfig;
                   }
                   return prev;
                 });
