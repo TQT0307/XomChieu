@@ -113,7 +113,6 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
               <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded border uppercase tracking-wider ${getMedalColorClass(achievement.medalType)}`}>
                 {getMedalEmoji(achievement.medalType)} Huy Chương {achievement.medalType}
               </span>
-              <span className="text-slate-300 text-xs">| Mã số: {achievement.id}</span>
             </div>
             
             <h3 className="text-lg sm:text-xl font-black text-[#FFF200] uppercase italic tracking-tight drop-shadow-md leading-tight">
