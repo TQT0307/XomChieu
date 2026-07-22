@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
@@ -88,7 +88,7 @@ export default function UserView({
 }: UserViewProps) {
 
   // Auto-sliding banners from webConfig or defaults
-  const banners = webConfig.banners && webConfig.banners.length > 0
+  const banners = useMemo(() => webConfig.banners && webConfig.banners.length > 0
     ? webConfig.banners
     : [
         {
@@ -126,7 +126,7 @@ export default function UserView({
           subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.',
           position: 'object-[center_50%]'
         }
-      ];
+      ], [webConfig.banners]);
 
   const [currentBanner, setCurrentBanner] = useState(0);
   const safeCurrentBanner = currentBanner >= banners.length ? 0 : currentBanner;
@@ -156,7 +156,11 @@ export default function UserView({
   ];
 
   useEffect(() => {
+    let frameId: number | null = null;
     const handleScroll = () => {
+      if (frameId !== null) return;
+      frameId = window.requestAnimationFrame(() => {
+        frameId = null;
       // If manual scrolling is occurring, bypass scrollspy updates to avoid jumping
       if ((window as any)._isManualScrolling) return;
 
@@ -173,10 +177,14 @@ export default function UserView({
           }
         }
       }
+      });
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+    };
   }, [setActiveNavSection]);
 
   useEffect(() => {
@@ -204,6 +212,16 @@ export default function UserView({
   const [activeNewsTab, setActiveNewsTab] = useState<string>('ALL');
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
   const rowScrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const achievementsScrollRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollAchievements = (direction: 'left' | 'right') => {
+    const container = achievementsScrollRef.current;
+    if (!container) return;
+    container.scrollBy({
+      left: direction === 'left' ? -container.clientWidth * 0.9 : container.clientWidth * 0.9,
+      behavior: 'smooth'
+    });
+  };
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (categoryScrollRef.current) {
@@ -1139,14 +1157,14 @@ export default function UserView({
 
 
       {/* 6. THÀNH TÍCH (Achievements) */}
-      <section className="py-24 bg-slate-950 text-white relative overflow-hidden scroll-mt-32" id="section-achievements">
+      <section className="py-16 sm:py-20 bg-slate-950 text-white relative overflow-hidden scroll-mt-32" id="section-achievements">
         {/* Dynamic sport background lines and glows */}
         <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#FFF200_1px,transparent_1px),linear-gradient(to_bottom,#FFF200_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
-          <div className="text-center max-w-2xl mx-auto mb-16">
+          <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800 shadow-xl inline-block">
               Vinh danh thành tích
             </span>
@@ -1255,12 +1273,41 @@ export default function UserView({
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="relative">
+              <div className="flex items-center justify-between mb-4 gap-3">
+                <p className="text-[10px] sm:text-xs text-slate-400 font-semibold">
+                  Hiển thị 2 hàng • Kéo ngang hoặc dùng mũi tên để xem thêm
+                </p>
+                {visibleAchievements.length > 2 && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => scrollAchievements('left')}
+                      aria-label="Xem các thành tích phía trước"
+                      className="w-10 h-10 rounded-full border border-slate-700 bg-slate-900/90 hover:bg-[#FFF200] hover:text-slate-950 hover:border-[#FFF200] flex items-center justify-center transition-all cursor-pointer shadow-lg"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollAchievements('right')}
+                      aria-label="Xem các thành tích phía sau"
+                      className="w-10 h-10 rounded-full border border-slate-700 bg-slate-900/90 hover:bg-[#FFF200] hover:text-slate-950 hover:border-[#FFF200] flex items-center justify-center transition-all cursor-pointer shadow-lg"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div
+                ref={achievementsScrollRef}
+                className="grid grid-rows-2 grid-flow-col auto-cols-[88%] sm:auto-cols-[calc((100%_-_1.5rem)/2)] lg:auto-cols-[calc((100%_-_3rem)/3)] gap-5 lg:gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth pb-3 no-scrollbar"
+              >
               {visibleAchievements.map((ach) => (
                 <div 
                   key={ach.id}
                   onClick={() => onSelectAchievement(ach)}
-                  className="bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-5 border border-slate-800/80 flex items-center gap-5 hover:border-[#FFF200] hover:shadow-2xl hover:shadow-yellow-500/10 hover:-translate-y-1.5 transform cursor-pointer transition-all duration-300 group"
+                  className="snap-start bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-5 border border-slate-800/80 flex items-center gap-5 hover:border-[#FFF200] hover:shadow-2xl hover:shadow-yellow-500/10 hover:-translate-y-1 transform cursor-pointer transition-all duration-300 group min-w-0"
                 >
                   {/* Athlete Photo with Medal Badge Overlay */}
                   <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-[#FFF200]/20 group-hover:border-[#FFF200] transition-colors bg-slate-800">
@@ -1308,6 +1355,7 @@ export default function UserView({
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
 
