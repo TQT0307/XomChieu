@@ -1074,6 +1074,54 @@ app.get("/api/db-status", async (req, res) => {
   }
 });
 
+// Admin accounts live in a private Firestore document and are deliberately kept
+// out of /api/data, so public website visitors never receive them with site data.
+app.get("/api/admin-accounts", async (_req, res) => {
+  try {
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) return res.status(503).json({ error: "Firebase is unavailable" });
+    const snapshot: any = await withTimeout(
+      dbInstance.collection("vovinam_private").doc("admin_accounts").get(),
+      5000,
+      "Firebase admin accounts GET timed out"
+    );
+    const accounts = snapshot.exists && Array.isArray(snapshot.data()?.accounts)
+      ? snapshot.data()!.accounts
+      : [];
+    res.json({ accounts, exists: snapshot.exists });
+  } catch (err: any) {
+    console.error("[admin-accounts GET]", err);
+    res.status(500).json({ error: "Cannot load admin accounts" });
+  }
+});
+
+app.put("/api/admin-accounts", async (req, res) => {
+  try {
+    const accounts = req.body?.accounts;
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      return res.status(400).json({ error: "A non-empty accounts array is required" });
+    }
+    const validAccounts = accounts.every((account: any) =>
+      account && typeof account.id === "string" && typeof account.username === "string" &&
+      typeof account.password === "string" && typeof account.name === "string" &&
+      (account.role === "super" || account.role === "assistant") && Array.isArray(account.permissions)
+    );
+    if (!validAccounts) return res.status(400).json({ error: "Invalid admin account data" });
+
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) return res.status(503).json({ error: "Firebase is unavailable" });
+    await withTimeout(
+      dbInstance.collection("vovinam_private").doc("admin_accounts").set({ accounts, updatedAt: Date.now() }),
+      5000,
+      "Firebase admin accounts SET timed out"
+    );
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("[admin-accounts PUT]", err);
+    res.status(500).json({ error: "Cannot save admin accounts" });
+  }
+});
+
 app.get("/api/timestamp", async (req, res) => {
   try {
     const ts = await getDbTimestamp();

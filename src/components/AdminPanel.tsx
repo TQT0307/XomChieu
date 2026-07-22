@@ -610,6 +610,7 @@ export default function AdminPanel({
     localStorage.setItem('vovinam_admin_accounts', JSON.stringify(defaultAccounts));
     return defaultAccounts;
   });
+  const [adminAccountsCloudReady, setAdminAccountsCloudReady] = useState(false);
 
   // Initialize System Action Logs state from localStorage
   const [editHistories, setEditHistories] = useState<EditHistory[]>(() => {
@@ -738,10 +739,42 @@ export default function AdminPanel({
     }
   }, [activeTab, currentAdmin]);
 
-  // Synchronize admin accounts to localStorage on change
+  // Load shared admin accounts from Firebase. On the first migration only, merge
+  // accounts already created in this browser so they are not lost.
+  useEffect(() => {
+    let active = true;
+    fetch('/api/admin-accounts', { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) throw new Error('Cannot load shared admin accounts');
+        return response.json();
+      })
+      .then(payload => {
+        if (!active) return;
+        const cloudAccounts = Array.isArray(payload.accounts) ? payload.accounts as AdminAccount[] : [];
+        if (payload.exists && cloudAccounts.length > 0) {
+          setAdminAccounts(cloudAccounts);
+        } else {
+          // Existing local assistant accounts become the initial cloud account list.
+          setAdminAccounts(current => current);
+        }
+        setAdminAccountsCloudReady(true);
+      })
+      .catch(error => {
+        console.warn('Không thể tải tài khoản Admin từ Firebase, tạm dùng dữ liệu máy này:', error);
+      });
+    return () => { active = false; };
+  }, []);
+
+  // Synchronize admin accounts to localStorage and the private Firebase document.
   useEffect(() => {
     localStorage.setItem('vovinam_admin_accounts', JSON.stringify(adminAccounts));
-  }, [adminAccounts]);
+    if (!adminAccountsCloudReady) return;
+    fetch('/api/admin-accounts', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accounts: adminAccounts })
+    }).catch(error => console.error('Không thể đồng bộ tài khoản Admin:', error));
+  }, [adminAccounts, adminAccountsCloudReady]);
 
   // Clear search query when changing tabs
   useEffect(() => {
