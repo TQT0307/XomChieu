@@ -617,7 +617,7 @@ export default function UserView({
                 <ul className="space-y-3 text-blue-50 font-medium leading-relaxed">
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <span>Việt Võ Đạo sinh nguyện đạt tới cao độ của Võ thuật để phục vụ dân tộc và nhân loại.</span>
+                    <span>Việt Võ Đạo Sinh: nguyện đạt tới cao độ của Võ thuật để phục vụ dân tộc và nhân loại.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
