@@ -351,8 +351,13 @@ export default function UserView({
   ).sort((a, b) => a.localeCompare(b));
 
   const highlightTournamentOptions = Array.from(
-    new Set(tournaments.map(t => t.name?.trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b));
+    new Set(
+      achievements
+        .map(achievement => achievement.tournamentName?.trim() ||
+          (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : ''))
+        .filter((name): name is string => Boolean(name))
+    )
+  ).sort((a, b) => a.localeCompare(b, 'vi'));
 
   // Use the achievement image consistently in both the card and detail modal.
   // Mixing profile photos here with achievement photos in the modal made one
@@ -398,7 +403,7 @@ export default function UserView({
     if (selectedHighlightTournament) {
       const linkedTournamentName = h.tournamentName ||
         (h.tournamentId ? tournaments.find(t => t.id === h.tournamentId)?.name : '');
-      if (linkedTournamentName !== selectedHighlightTournament) return false;
+      if (!linkedTournamentName?.toLowerCase().includes(selectedHighlightTournament.trim().toLowerCase())) return false;
     }
     if (searchHighlightQuery.trim()) {
       const q = searchHighlightQuery.toLowerCase();
@@ -1116,23 +1121,34 @@ export default function UserView({
               </span>
             </div>
           </div>
-          <div className="relative">
-            <select
+          <div className="relative group/tournament-search">
+            <input
+              type="text"
+              list="highlight-achievement-tournament-names"
               value={selectedHighlightTournament}
               onChange={(e) => setSelectedHighlightTournament(e.target.value)}
-              className="w-full h-full min-h-12 appearance-auto text-xs sm:text-sm px-4 py-3.5 bg-slate-900 text-slate-100 border border-slate-800 hover:border-slate-700 focus:border-[#FFF200] focus:ring-4 focus:ring-[#FFF200]/10 rounded-2xl outline-none transition-all shadow-xl shadow-slate-950/40 cursor-pointer"
+              placeholder={`Chọn hoặc nhập tên giải (${highlightTournamentOptions.length} gợi ý)`}
+              className="w-full h-full min-h-12 text-xs sm:text-sm pl-4 pr-10 py-3.5 bg-slate-900 text-slate-100 border border-slate-800 hover:border-slate-700 focus:border-[#FFF200] focus:ring-4 focus:ring-[#FFF200]/10 rounded-2xl outline-none transition-all shadow-xl shadow-slate-950/40"
               aria-label="Lọc Highlights theo giải đấu"
-            >
-              <option value="">Tất cả giải đấu ({highlightTournamentOptions.length})</option>
-              {highlightTournamentOptions.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
+            />
+            <datalist id="highlight-achievement-tournament-names">
+              {highlightTournamentOptions.map(name => <option key={name} value={name} />)}
+            </datalist>
+            {selectedHighlightTournament && (
+              <button
+                type="button"
+                onClick={() => setSelectedHighlightTournament('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+                title="Xóa lọc giải đấu"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           {(searchHighlightQuery || selectedHighlightTournament) && (
             <p className="sm:col-span-2 text-center text-[10px] text-slate-500 mt-1">
               Đang hiển thị {visibleHighlights.length} highlight
-              {selectedHighlightTournament ? ` thuộc giải “${selectedHighlightTournament}”` : ''}
+              {selectedHighlightTournament ? ` khớp tên giải “${selectedHighlightTournament}”` : ''}
             </p>
           )}
         </div>

@@ -693,6 +693,12 @@ export default function AdminPanel({
   const [clubForm, setClubForm] = useState<Partial<Club>>({});
   const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [] });
   const [webConfigForm, setWebConfigForm] = useState<WebConfig>(webConfig);
+  const savedAchievementTournamentNames = Array.from(new Set(
+    achievements
+      .map(achievement => achievement.tournamentName?.trim() ||
+        (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : ''))
+      .filter((name): name is string => Boolean(name))
+  )).sort((a, b) => a.localeCompare(b, 'vi'));
 
   // Sync webConfig from props
   useEffect(() => {
@@ -3876,7 +3882,7 @@ export default function AdminPanel({
                           placeholder="Ví dụ: Giải Vô địch Trẻ Vovinam 2026"
                         />
                         <datalist id="achievement-saved-tournaments">
-                          {tournaments.map(t => <option key={t.id} value={t.name} />)}
+                          {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
                         </datalist>
                       </div>
                       <div>
@@ -4033,7 +4039,7 @@ export default function AdminPanel({
                           className="w-full text-sm border p-2 rounded-lg" required
                         />
                         <datalist id="tournament-saved-names">
-                          {tournaments.map(t => <option key={t.id} value={t.name} />)}
+                          {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
                         </datalist>
                       </div>
                       <div>
@@ -4353,25 +4359,27 @@ export default function AdminPanel({
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Giải đấu liên kết</label>
-                          <select
-                            value={highlightForm.tournamentId || ''}
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (chọn hoặc chỉnh sửa)</label>
+                          <input
+                            type="text"
+                            list="highlight-saved-achievement-tournaments"
+                            value={highlightForm.tournamentName || ''}
                             onChange={e => {
-                              const tournamentId = e.target.value;
-                              const tournament = tournaments.find(t => t.id === tournamentId);
+                              const tournamentName = e.target.value;
+                              const tournament = tournaments.find(t => t.name === tournamentName);
                               setHighlightForm({
                                 ...highlightForm,
-                                tournamentId,
-                                tournamentName: tournament?.name || ''
+                                tournamentName,
+                                tournamentId: tournament?.id || ''
                               });
                             }}
+                            placeholder="Chọn tên giải từ Thành tích hoặc nhập tên khác"
                             className="w-full text-sm border p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
-                          >
-                            <option value="">-- Chọn giải đấu --</option>
-                            {tournaments.map(t => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                          </select>
+                          />
+                          <datalist id="highlight-saved-achievement-tournaments">
+                            {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
+                          </datalist>
+                          <p className="mt-1 text-[10px] text-slate-400">Có thể chọn tên cũ rồi sửa năm hoặc bất kỳ nội dung nào.</p>
                         </div>
                       </div>
 
