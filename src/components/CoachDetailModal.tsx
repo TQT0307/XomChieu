@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, MapPin, Award, Star, Quote, Trophy } from 'lucide-react';
+import { X, MapPin, Award, Medal, Star, Quote, Trophy } from 'lucide-react';
 import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
 
 interface CoachDetailModalProps {
@@ -21,6 +21,35 @@ export default function CoachDetailModal({
 
   // Resolve Club Name
   const clubName = clubs.find(c => c.id === coach.clubId)?.name || 'Chưa xác định';
+
+  const getMedalTheme = (medalType: Achievement['medalType']) => {
+    switch (medalType) {
+      case 'Vàng':
+        return {
+          icon: 'text-yellow-300',
+          box: 'bg-yellow-400/10 border-yellow-300/30',
+          label: 'text-yellow-300'
+        };
+      case 'Bạc':
+        return {
+          icon: 'text-slate-200',
+          box: 'bg-slate-200/10 border-slate-200/30',
+          label: 'text-slate-200'
+        };
+      case 'Đồng':
+        return {
+          icon: 'text-orange-400',
+          box: 'bg-orange-500/10 border-orange-400/30',
+          label: 'text-orange-400'
+        };
+      default:
+        return {
+          icon: 'text-sky-300',
+          box: 'bg-sky-400/10 border-sky-300/30',
+          label: 'text-sky-300'
+        };
+    }
+  };
 
   const getAchievementYear = (achievement: Achievement) => {
     const explicitYear = Number.parseInt(String(achievement.year || ''), 10);
@@ -210,7 +239,9 @@ export default function CoachDetailModal({
               </div>
             ) : (
               <div className="space-y-3">
-                {coachAchievements.map(achievement => (
+                {coachAchievements.map(achievement => {
+                  const medalTheme = getMedalTheme(achievement.medalType);
+                  return (
                   <button
                     type="button"
                     key={achievement.id}
@@ -226,12 +257,14 @@ export default function CoachDetailModal({
                         : 'cursor-default'
                     }`}
                   >
-                    <div className="w-11 h-11 rounded-xl bg-[#FFF200]/10 border border-[#FFF200]/20 text-[#FFF200] flex items-center justify-center flex-shrink-0">
-                      <Award className="w-5 h-5" />
+                    <div className={`w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0 ${medalTheme.box} ${medalTheme.icon}`}>
+                      {achievement.medalType === 'Khác'
+                        ? <Trophy className="w-5 h-5" />
+                        : <Medal className="w-5 h-5" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-[9px] font-black uppercase text-amber-400">
+                        <span className={`text-[9px] font-black uppercase ${medalTheme.label}`}>
                           Huy chương {achievement.medalType}
                         </span>
                         <span className="text-[9px] text-slate-500 font-mono">
@@ -248,7 +281,8 @@ export default function CoachDetailModal({
                       )}
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
