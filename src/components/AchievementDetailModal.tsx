@@ -85,6 +85,14 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
   };
 
   const details = getAchievementDetails(achievement.title, achievement.unit);
+  const displayedMeaning = achievement.meaning?.trim() || details.about;
+  const customJourney = achievement.journey
+    ?.split(/\r?\n/)
+    .map(item => item.trim())
+    .filter(Boolean);
+  const displayedJourney = customJourney && customJourney.length > 0
+    ? customJourney
+    : details.journey;
 
   return (
     <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" id={`modal-achievement-${achievement.id}`}>
@@ -181,7 +189,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
               Ý nghĩa thành tích
             </h4>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
-              {details.about}
+              {displayedMeaning}
             </p>
           </div>
 
@@ -192,7 +200,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
               Hành trình chinh phục vinh quang
             </h4>
             <div className="space-y-3 pt-1">
-              {details.journey.map((item, index) => (
+              {displayedJourney.map((item, index) => (
                 <div key={index} className="flex gap-3">
                   <div className="w-5 h-5 rounded-full bg-blue-100 text-[#0054A6] flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">
                     {index + 1}

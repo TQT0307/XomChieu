@@ -41,18 +41,21 @@ export interface Coach {
 }
 
 export interface Achievement {
-  id: string; // ID tự chọn
+  id: string;
   image: string;
   title: string;
-  unit: string; // Đơn vị
+  unit: string;
   medalType: 'Vàng' | 'Bạc' | 'Đồng' | 'Khác';
   date: string;
-  status: boolean; // Trạng thái hiển thị
-  athleteName?: string; // Họ và tên môn sinh đạt giải
-  memberIds?: string[]; // IDs of members achieving this (môn sinh đạt thành tích)
-  tournamentId?: string; // FK to Tournament (Giải đấu)
-  tournamentName?: string; // Tên giải đấu
-  year?: string; // Năm đạt thành tích
+  status: boolean;
+  athleteName?: string;
+  memberIds?: string[];
+  tournamentId?: string;
+  tournamentName?: string;
+  year?: string;
+
+  meaning?: string;
+  journey?: string;
 }
 
 export interface Tournament {

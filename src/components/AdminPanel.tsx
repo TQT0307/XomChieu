@@ -954,7 +954,7 @@ export default function AdminPanel({
       status: true,
       photo: ''
     });
-    setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString() });
+    setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '' });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '' });
     setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapUrl: '' });
     setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''] });
@@ -3795,6 +3795,34 @@ export default function AdminPanel({
                           }}
                           className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
                         />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 border-t pt-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          Ý nghĩa thành tích (Không bắt buộc)
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={achievementForm.meaning || ''}
+                          onChange={e => setAchievementForm({ ...achievementForm, meaning: e.target.value })}
+                          className="w-full text-sm border p-3 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none resize-y"
+                          placeholder="Để trống, website sẽ tự hiển thị nội dung mặc định phù hợp với thành tích."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          Hành trình chinh phục vinh quang (Không bắt buộc)
+                        </label>
+                        <textarea
+                          rows={5}
+                          value={achievementForm.journey || ''}
+                          onChange={e => setAchievementForm({ ...achievementForm, journey: e.target.value })}
+                          className="w-full text-sm border p-3 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none resize-y"
+                          placeholder={'Nhập mỗi giai đoạn trên một dòng.\nVí dụ: Giai đoạn chuẩn bị: ...\nQuá trình tập luyện: ...\nPhút tỏa sáng: ...'}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Mỗi dòng sẽ được hiển thị thành một bước được đánh số ngoài trang người dùng.</p>
                       </div>
                     </div>
 

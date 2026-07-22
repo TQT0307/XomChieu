@@ -276,9 +276,12 @@ export default function App() {
         .catch(err => {
           if (!isMounted) return;
           console.warn("Failed to fetch shared database from server API, using local fallback:", err);
-          initialSyncCompletedRef.current = true;
+          // Read failure is NOT a successful initial sync. Keeping this false is
+          // critical: otherwise bundled/default data can be written over the real
+          // Firebase database after a deploy or a temporary network timeout.
+          initialSyncCompletedRef.current = false;
           setHasLoadedServerData(true);
-          hasLoadedServerDataRef.current = true;
+          hasLoadedServerDataRef.current = false;
         })
         .finally(() => {
           requestInFlight = false;
