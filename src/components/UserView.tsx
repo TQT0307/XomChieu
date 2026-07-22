@@ -1273,32 +1273,29 @@ export default function UserView({
               </button>
             </div>
           ) : (
-            <div className="relative">
-              <div className="flex items-center justify-between mb-4 gap-3">
-                <p className="text-[10px] sm:text-xs text-slate-400 font-semibold">
-                  Hiển thị 2 hàng • Kéo ngang hoặc dùng mũi tên để xem thêm
-                </p>
-                {visibleAchievements.length > 2 && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => scrollAchievements('left')}
-                      aria-label="Xem các thành tích phía trước"
-                      className="w-10 h-10 rounded-full border border-slate-700 bg-slate-900/90 hover:bg-[#FFF200] hover:text-slate-950 hover:border-[#FFF200] flex items-center justify-center transition-all cursor-pointer shadow-lg"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => scrollAchievements('right')}
-                      aria-label="Xem các thành tích phía sau"
-                      className="w-10 h-10 rounded-full border border-slate-700 bg-slate-900/90 hover:bg-[#FFF200] hover:text-slate-950 hover:border-[#FFF200] flex items-center justify-center transition-all cursor-pointer shadow-lg"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                )}
-              </div>
+            <div className="relative group/slider">
+              {visibleAchievements.length > 2 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => scrollAchievements('left')}
+                    aria-label="Xem các thành tích phía trước"
+                    className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
+                    title="Trượt sang trái"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-slate-700" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollAchievements('right')}
+                    aria-label="Xem các thành tích phía sau"
+                    className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
+                    title="Trượt sang phải"
+                  >
+                    <ChevronRight className="w-5 h-5 text-slate-700" />
+                  </button>
+                </>
+              )}
               <div
                 ref={achievementsScrollRef}
                 className="grid grid-rows-2 grid-flow-col auto-cols-[88%] sm:auto-cols-[calc((100%_-_1.5rem)/2)] lg:auto-cols-[calc((100%_-_3rem)/3)] gap-5 lg:gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth pb-3 no-scrollbar"
