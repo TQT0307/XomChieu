@@ -1,22 +1,44 @@
 import React from 'react';
-import { X, Calendar, User, MapPin, Award, Star, Quote } from 'lucide-react';
-import { Coach, Club, getBeltStyle, parseBeltRank } from '../types';
+import { X, MapPin, Award, Star, Quote, Trophy } from 'lucide-react';
+import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
 
 interface CoachDetailModalProps {
   coach: Coach | null;
   clubs: Club[];
+  achievements: Achievement[];
   onClose: () => void;
+  onSelectAchievement?: (achievement: Achievement) => void;
 }
 
 export default function CoachDetailModal({
   coach,
   clubs,
-  onClose
+  achievements,
+  onClose,
+  onSelectAchievement
 }: CoachDetailModalProps) {
   if (!coach) return null;
 
   // Resolve Club Name
   const clubName = clubs.find(c => c.id === coach.clubId)?.name || 'Chưa xác định';
+
+  const getAchievementYear = (achievement: Achievement) => {
+    const explicitYear = Number.parseInt(String(achievement.year || ''), 10);
+    if (Number.isFinite(explicitYear)) return explicitYear;
+    const yearFromDate = String(achievement.date || '').match(/(?:19|20)\d{2}/);
+    return yearFromDate ? Number.parseInt(yearFromDate[0], 10) : Number.MAX_SAFE_INTEGER;
+  };
+
+  // Achievement.memberIds is also used by the existing admin form when a coach
+  // is selected as the award recipient.
+  const coachAchievements = achievements
+    .filter(achievement => achievement.memberIds?.includes(coach.id))
+    .sort((a, b) => {
+      const yearDifference = getAchievementYear(a) - getAchievementYear(b);
+      return yearDifference !== 0
+        ? yearDifference
+        : String(a.date || '').localeCompare(String(b.date || ''));
+    });
 
   return (
     <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200" id={`modal-coach-${coach.id}`}>
@@ -173,6 +195,62 @@ export default function CoachDetailModal({
                 "{coach.experience || 'Đang cập nhật tiểu sử chi tiết...'}"
               </p>
             </div>
+          </div>
+
+          {/* Coach Achievements - only visible inside the detail modal */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-[#FFF200] uppercase tracking-wider flex items-center gap-2">
+              <Trophy className="w-4 h-4 text-[#FFF200]" />
+              Thành tích của huấn luyện viên
+            </h4>
+
+            {coachAchievements.length === 0 ? (
+              <div className="bg-slate-950/40 border border-white/5 p-5 rounded-2xl text-xs text-slate-400 text-center">
+                Chưa có dữ liệu thành tích được liên kết với huấn luyện viên này.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {coachAchievements.map(achievement => (
+                  <button
+                    type="button"
+                    key={achievement.id}
+                    onClick={() => {
+                      if (onSelectAchievement) {
+                        onClose();
+                        onSelectAchievement(achievement);
+                      }
+                    }}
+                    className={`w-full p-4 rounded-2xl border border-white/5 bg-slate-950/40 flex items-center gap-4 text-left transition-all ${
+                      onSelectAchievement
+                        ? 'hover:border-[#FFF200]/40 hover:bg-slate-900/80 cursor-pointer'
+                        : 'cursor-default'
+                    }`}
+                  >
+                    <div className="w-11 h-11 rounded-xl bg-[#FFF200]/10 border border-[#FFF200]/20 text-[#FFF200] flex items-center justify-center flex-shrink-0">
+                      <Award className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[9px] font-black uppercase text-amber-400">
+                          Huy chương {achievement.medalType}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-mono">
+                          {achievement.year || achievement.date}
+                        </span>
+                      </div>
+                      <h5 className="mt-1 text-xs sm:text-sm font-bold text-slate-100 truncate">
+                        {achievement.title}
+                      </h5>
+                      {achievement.tournamentName && (
+                        <p className="mt-1 text-[10px] text-slate-400 truncate">
+                          Giải đấu: {achievement.tournamentName}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Action Footer */}

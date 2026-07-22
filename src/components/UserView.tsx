@@ -1937,7 +1937,9 @@ export default function UserView({
         <CoachDetailModal 
           coach={selectedCoach} 
           clubs={clubs} 
+          achievements={achievements}
           onClose={() => setSelectedCoach(null)} 
+          onSelectAchievement={onSelectAchievement}
         />
       )}
 
