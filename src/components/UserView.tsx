@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
-  Facebook, Instagram, AtSign, Music, Info, Newspaper, X, Search
+  Info, Newspaper, X, Search
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, getBeltStyle, getNormalizedTournamentStatus 
@@ -1892,10 +1892,12 @@ export default function UserView({
                   href={facebookUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-[#1877F2] hover:border-[#1877F2] transition-all duration-300 font-black"
                   title="Facebook"
                 >
-                  <Facebook className="w-5 h-5" />
+                  <span className="w-7 h-6 rounded-lg bg-white text-[#1877F2] flex items-center justify-center text-xl font-black leading-none shadow-sm font-sans">
+                    f
+                  </span>
                 </a>
               )}
               {instagramUrl && (
@@ -1903,10 +1905,12 @@ export default function UserView({
                   href={instagramUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-gradient-to-br hover:from-[#833AB4] hover:via-[#E1306C] hover:to-[#FCAF45] hover:border-[#E1306C] transition-all duration-300 font-black"
                   title="Instagram"
                 >
-                  <Instagram className="w-5 h-5" />
+                  <span className="w-7 h-6 rounded-lg bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#FCAF45] text-white flex items-center justify-center text-[9px] font-black tracking-tight shadow-sm">
+                    IG
+                  </span>
                 </a>
               )}
               {zaloPhone && (
@@ -1928,10 +1932,12 @@ export default function UserView({
                   href={threadsUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-black hover:border-white/30 transition-all duration-300 font-black"
                   title="Threads"
                 >
-                  <AtSign className="w-5 h-5" />
+                  <span className="w-7 h-6 rounded-lg bg-white text-black flex items-center justify-center text-base font-black leading-none shadow-sm">
+                    @
+                  </span>
                 </a>
               )}
               {tiktokUrl && (
@@ -1939,10 +1945,12 @@ export default function UserView({
                   href={tiktokUrl} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-black hover:border-[#25F4EE]/60 transition-all duration-300 font-black"
                   title="TikTok"
                 >
-                  <Music className="w-5 h-5" />
+                  <span className="w-7 h-6 rounded-lg bg-black text-white flex items-center justify-center text-base font-black leading-none shadow-[2px_0_0_#FE2C55,-2px_0_0_#25F4EE]">
+                    ♪
+                  </span>
                 </a>
               )}
             </div>
