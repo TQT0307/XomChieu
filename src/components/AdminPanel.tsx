@@ -991,7 +991,7 @@ export default function AdminPanel({
     setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '' });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '' });
     setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapUrl: '' });
-    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''] });
+    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], tournamentId: '', tournamentName: '' });
   };
 
   // Delete Handlers
@@ -1293,7 +1293,18 @@ export default function AdminPanel({
           showToast('ID này đã tồn tại ở giải đấu khác!', 'error');
           return;
         }
+        const updatedTournamentName = tournamentForm.name || '';
         setTournaments(prev => prev.map(t => t.id === editId ? { ...t, ...tournamentForm, id } as Tournament : t));
+        setAchievements(prev => prev.map(achievement =>
+          achievement.tournamentId === editId
+            ? { ...achievement, tournamentId: id, tournamentName: updatedTournamentName }
+            : achievement
+        ));
+        setHighlights(prev => prev.map(highlight =>
+          highlight.tournamentId === editId
+            ? { ...highlight, tournamentId: id, tournamentName: updatedTournamentName }
+            : highlight
+        ));
         addLog('Sửa', 'tournaments', `Đã cập nhật giải đấu: "${tournamentForm.name}" (ID: ${id})`);
         showToast('Cập nhật giải đấu thành công!', 'success');
       }
@@ -3850,11 +3861,23 @@ export default function AdminPanel({
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (Tự điền)</label>
                         <input 
                           type="text" 
+                          list="achievement-saved-tournaments"
                           value={achievementForm.tournamentName || ''}
-                          onChange={e => setAchievementForm({ ...achievementForm, tournamentName: e.target.value })}
+                          onChange={e => {
+                            const name = e.target.value;
+                            const matchedTournament = tournaments.find(t => t.name === name);
+                            setAchievementForm({
+                              ...achievementForm,
+                              tournamentName: name,
+                              tournamentId: matchedTournament?.id || ''
+                            });
+                          }}
                           className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
                           placeholder="Ví dụ: Giải Vô địch Trẻ Vovinam 2026"
                         />
+                        <datalist id="achievement-saved-tournaments">
+                          {tournaments.map(t => <option key={t.id} value={t.name} />)}
+                        </datalist>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày đạt giải (Tự động tính Năm)</label>
@@ -4004,10 +4027,14 @@ export default function AdminPanel({
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu</label>
                         <input 
                           type="text" 
+                          list="tournament-saved-names"
                           value={tournamentForm.name || ''}
                           onChange={e => setTournamentForm({ ...tournamentForm, name: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
                         />
+                        <datalist id="tournament-saved-names">
+                          {tournaments.map(t => <option key={t.id} value={t.name} />)}
+                        </datalist>
                       </div>
                       <div>
                         <ImageInput 
@@ -4323,6 +4350,27 @@ export default function AdminPanel({
                           >
                             <option value="video">🎥 Video chính</option>
                             <option value="ảnh">🖼️ Bộ sưu tập hình ảnh</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Giải đấu liên kết</label>
+                          <select
+                            value={highlightForm.tournamentId || ''}
+                            onChange={e => {
+                              const tournamentId = e.target.value;
+                              const tournament = tournaments.find(t => t.id === tournamentId);
+                              setHighlightForm({
+                                ...highlightForm,
+                                tournamentId,
+                                tournamentName: tournament?.name || ''
+                              });
+                            }}
+                            className="w-full text-sm border p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                          >
+                            <option value="">-- Chọn giải đấu --</option>
+                            {tournaments.map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
                           </select>
                         </div>
                       </div>

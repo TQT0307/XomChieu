@@ -20,7 +20,7 @@ export interface Article {
 
 export interface Member {
   id: string; // ID tự chọn
-  displayOrder?: number;
+  displayOrder?: number; // Thứ tự hiển thị do admin tự chọn
   photo: string;
   fullName: string;
   birthYear: number;
@@ -41,21 +41,20 @@ export interface Coach {
 }
 
 export interface Achievement {
-  id: string;
+  id: string; // ID tự chọn
   image: string;
   title: string;
-  unit: string;
+  unit: string; // Đơn vị
   medalType: 'Vàng' | 'Bạc' | 'Đồng' | 'Khác';
   date: string;
-  status: boolean;
-  athleteName?: string;
-  memberIds?: string[];
-  tournamentId?: string;
-  tournamentName?: string;
-  year?: string;
-
-  meaning?: string;
-  journey?: string;
+  status: boolean; // Trạng thái hiển thị
+  athleteName?: string; // Họ và tên môn sinh đạt giải
+  memberIds?: string[]; // IDs of members achieving this (môn sinh đạt thành tích)
+  tournamentId?: string; // FK to Tournament (Giải đấu)
+  tournamentName?: string; // Tên giải đấu
+  year?: string; // Năm đạt thành tích
+  meaning?: string; // Ý nghĩa thành tích do admin nhập (để trống sẽ dùng mặc định)
+  journey?: string; // Các chặng hành trình, mỗi dòng là một mục (để trống sẽ dùng mặc định)
 }
 
 export interface Tournament {
@@ -91,6 +90,8 @@ export interface Highlight {
   mediaType: 'video' | 'ảnh'; // Loại video/ảnh
   status: boolean; // Trạng thái hiển thị
   mediaUrls: string[]; // Cho phép thêm nhiều ảnh và nhiều video trong 1 bài viết
+  tournamentId?: string; // Giải đấu liên kết
+  tournamentName?: string; // Lưu tên giải để lọc và vẫn hiển thị nếu giải đổi ID
 }
 
 export interface BannerConfig {

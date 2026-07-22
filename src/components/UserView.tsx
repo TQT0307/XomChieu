@@ -312,6 +312,7 @@ export default function UserView({
   const [searchAchievementQuery, setSearchAchievementQuery] = useState<string>('');
   const [searchAthleteQuery, setSearchAthleteQuery] = useState<string>(''); // For filtering by athlete name (e.g., "Thiện")
   const [searchHighlightQuery, setSearchHighlightQuery] = useState<string>('');
+  const [selectedHighlightTournament, setSelectedHighlightTournament] = useState<string>('');
   const [showAllCoaches, setShowAllCoaches] = useState<boolean>(false);
   const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
 
@@ -347,6 +348,10 @@ export default function UserView({
         })
         .filter(Boolean)
     )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const highlightTournamentOptions = Array.from(
+    new Set(tournaments.map(t => t.name?.trim()).filter(Boolean))
   ).sort((a, b) => a.localeCompare(b));
 
   // Use the achievement image consistently in both the card and detail modal.
@@ -390,12 +395,17 @@ export default function UserView({
   });
   const visibleHighlights = highlights.filter(h => {
     if (h.status === false) return false;
+    if (selectedHighlightTournament) {
+      const linkedTournamentName = h.tournamentName ||
+        (h.tournamentId ? tournaments.find(t => t.id === h.tournamentId)?.name : '');
+      if (linkedTournamentName !== selectedHighlightTournament) return false;
+    }
     if (searchHighlightQuery.trim()) {
       const q = searchHighlightQuery.toLowerCase();
-      const idMatch = h.id.toLowerCase().includes(q);
       const titleMatch = h.title.toLowerCase().includes(q);
       const athleteMatch = h.athleteName.toLowerCase().includes(q);
-      return idMatch || titleMatch || athleteMatch;
+      const tournamentMatch = (h.tournamentName || '').toLowerCase().includes(q);
+      return titleMatch || athleteMatch || tournamentMatch;
     }
     return true;
   });
@@ -1077,14 +1087,14 @@ export default function UserView({
         </div>
 
         {/* Search input for Highlights */}
-        <div className="max-w-lg mx-auto mb-12 relative z-10 px-4 sm:px-0">
+        <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="relative group/search flex items-center bg-slate-900 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all duration-300 shadow-xl shadow-slate-950/40">
             <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#FFF200] transition-colors" />
             </span>
             <input
               type="text"
-              placeholder="Tìm theo ID môn sinh, tên VĐV hoặc tiêu đề..."
+              placeholder="Tìm theo tên VĐV, giải đấu hoặc tiêu đề..."
               value={searchHighlightQuery}
               onChange={(e) => setSearchHighlightQuery(e.target.value)}
               className="w-full text-xs sm:text-sm pl-11 pr-16 py-3.5 bg-transparent text-slate-100 rounded-2xl outline-none transition-all placeholder:text-slate-500"
@@ -1106,9 +1116,23 @@ export default function UserView({
               </span>
             </div>
           </div>
-          {searchHighlightQuery && (
-            <p className="text-center text-[10px] text-slate-400 mt-2 font-mono">
-              Đang lọc theo từ khóa: <span className="text-[#FFF200] font-bold">"{searchHighlightQuery}"</span>
+          <div className="relative">
+            <select
+              value={selectedHighlightTournament}
+              onChange={(e) => setSelectedHighlightTournament(e.target.value)}
+              className="w-full h-full min-h-12 appearance-auto text-xs sm:text-sm px-4 py-3.5 bg-slate-900 text-slate-100 border border-slate-800 hover:border-slate-700 focus:border-[#FFF200] focus:ring-4 focus:ring-[#FFF200]/10 rounded-2xl outline-none transition-all shadow-xl shadow-slate-950/40 cursor-pointer"
+              aria-label="Lọc Highlights theo giải đấu"
+            >
+              <option value="">Tất cả giải đấu ({highlightTournamentOptions.length})</option>
+              {highlightTournamentOptions.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+          {(searchHighlightQuery || selectedHighlightTournament) && (
+            <p className="sm:col-span-2 text-center text-[10px] text-slate-500 mt-1">
+              Đang hiển thị {visibleHighlights.length} highlight
+              {selectedHighlightTournament ? ` thuộc giải “${selectedHighlightTournament}”` : ''}
             </p>
           )}
         </div>
@@ -1164,6 +1188,9 @@ export default function UserView({
                     <User className="w-3.5 h-3.5 text-[#FFF200]" />
                     <span className="text-[10px] text-slate-300 font-bold">Biểu diễn: {hl.athleteName}</span>
                   </div>
+                  {hl.tournamentName && (
+                    <p className="mt-2 text-[10px] text-slate-400 truncate">🏆 {hl.tournamentName}</p>
+                  )}
                 </div>
                 
                 <div className="text-right text-[10px] text-[#FFF200] font-black uppercase tracking-wider pt-3 border-t border-slate-900 mt-2 flex items-center justify-between">
