@@ -917,10 +917,10 @@ export default function UserView({
 
 
       {/* 4. GIẢI ĐẤU (Tournaments) */}
-      <section className="py-20 bg-gradient-to-b from-[#f1f5f9] to-white relative scroll-mt-32" id="section-tournaments">
+      <section className="py-16 sm:py-20 bg-gradient-to-b from-[#f1f5f9] to-white relative scroll-mt-32" id="section-tournaments">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
-          <div className="text-center max-w-2xl mx-auto mb-16">
+          <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
               Lịch trình thi đấu & Võ nghiệp
             </span>
@@ -983,12 +983,21 @@ export default function UserView({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="relative group/slider">
+              {visibleTournaments.length > 1 && (<>
+                <button onClick={() => scrollRow('TOURNAMENTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
+                  <ChevronLeft className="w-5 h-5 text-slate-700" />
+                </button>
+                <button onClick={() => scrollRow('TOURNAMENTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
+                  <ChevronRight className="w-5 h-5 text-slate-700" />
+                </button>
+              </>)}
+              <div ref={(el) => (rowScrollRefs.current['TOURNAMENTS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
               {visibleTournaments.map((t) => (
                 <div 
                   key={t.id}
                   onClick={() => onSelectTournament(t)}
-                  className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl cursor-pointer group transition-all duration-300 transform hover:-translate-y-2 flex flex-col hover:border-[#0054A6]/20"
+                  className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl cursor-pointer group transition-all duration-300 transform hover:-translate-y-1 flex flex-col hover:border-[#0054A6]/20"
                 >
                   <div className="relative h-52 overflow-hidden bg-slate-900">
                     <img 
@@ -1036,6 +1045,7 @@ export default function UserView({
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           )}
         </div>
@@ -1043,11 +1053,11 @@ export default function UserView({
 
 
       {/* 5. HIGHLIGHTS (Bento gallery gọn gàng, dễ nhìn, dễ thao tác) */}
-      <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-highlights">
+      <section className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-highlights">
         {/* Soft background decor to avoid monotony */}
         <div className="absolute top-1/3 right-12 w-64 h-64 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="text-center max-w-2xl mx-auto mb-16 relative z-10">
+        <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
             Khoảnh khắc thi đấu
           </span>
@@ -1097,13 +1107,22 @@ export default function UserView({
           )}
         </div>
 
-        {/* Bento grid layout */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10">
+        {/* Responsive horizontal gallery */}
+        <div className="relative z-10 group/slider">
+          {visibleHighlights.length > 1 && (<>
+            <button onClick={() => scrollRow('HIGHLIGHTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
+              <ChevronLeft className="w-5 h-5 text-slate-700" />
+            </button>
+            <button onClick={() => scrollRow('HIGHLIGHTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
+              <ChevronRight className="w-5 h-5 text-slate-700" />
+            </button>
+          </>)}
+          <div ref={(el) => (rowScrollRefs.current['HIGHLIGHTS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
           {visibleHighlights.map((hl) => (
             <div 
               key={hl.id}
               onClick={() => onSelectHighlight(hl)}
-              className="bg-slate-950 text-white rounded-[2rem] p-4 border border-slate-800 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1.5"
+              className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-950 text-white rounded-[2rem] p-4 border border-slate-800 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1"
             >
               {/* Thumbnail Container */}
               <div className="relative h-48 rounded-2xl overflow-hidden bg-black shadow-inner">
@@ -1148,6 +1167,7 @@ export default function UserView({
               </div>
             </div>
           ))}
+          </div>
         </div>
       </section>
 
@@ -1800,9 +1820,9 @@ export default function UserView({
 
 
       {/* 9. CÂU LẠC BỘ (Clubs - embedded map on click) */}
-      <section className="py-20 bg-white scroll-mt-32" id="section-clubs">
+      <section className="py-16 sm:py-20 bg-white scroll-mt-32" id="section-clubs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-16">
+          <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
               Địa điểm võ đường
             </span>
@@ -1815,12 +1835,21 @@ export default function UserView({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="relative group/slider">
+            {visibleClubs.length > 1 && (<>
+              <button onClick={() => scrollRow('CLUBS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
+                <ChevronLeft className="w-5 h-5 text-slate-700" />
+              </button>
+              <button onClick={() => scrollRow('CLUBS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
+                <ChevronRight className="w-5 h-5 text-slate-700" />
+              </button>
+            </>)}
+            <div ref={(el) => (rowScrollRefs.current['CLUBS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
             {visibleClubs.map((club) => (
               <div 
                 key={club.id}
                 onClick={() => onSelectClub(club)}
-                className="bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-200/60 hover:border-[#0054A6]/30 cursor-pointer group shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 flex flex-col justify-between"
+                className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-200/60 hover:border-[#0054A6]/30 cursor-pointer group shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col justify-between"
               >
                 <div className="relative h-48 overflow-hidden bg-slate-900">
                   <img 
@@ -1872,6 +1901,7 @@ export default function UserView({
                 </div>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </section>

@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import UserView from './components/UserView';
-import AdminPanel from './components/AdminPanel';
-import ArticleDetailModal from './components/ArticleDetailModal';
-import HighlightDetailModal from './components/HighlightDetailModal';
-import ClubDetailModal from './components/ClubDetailModal';
-import TournamentDetailModal from './components/TournamentDetailModal';
-import AchievementDetailModal from './components/AchievementDetailModal';
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
+const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
+const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
+const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
+const TournamentDetailModal = lazy(() => import('./components/TournamentDetailModal'));
+const AchievementDetailModal = lazy(() => import('./components/AchievementDetailModal'));
 
 // Initial Mock data
 import {
@@ -23,9 +23,6 @@ import {
 
 // Types
 import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types';
-
-// Zip generator helper
-import { downloadAspNetAndSqlZip } from './aspnetGenerator';
 
 export default function App() {
   // Load state from localStorage if exists, otherwise fall back to initialData
@@ -88,6 +85,27 @@ export default function App() {
   // Mode & navigation
   const [isAdmin, setIsAdmin] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+
+  // Keep the browser tab icon and title synchronized with Admin web settings.
+  useEffect(() => {
+    const logo = webConfig.logo?.trim() || '/logo.jpg';
+    let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!favicon) {
+      favicon = document.createElement('link');
+      favicon.rel = 'icon';
+      document.head.appendChild(favicon);
+    }
+    favicon.href = logo;
+
+    let appleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
+    if (!appleIcon) {
+      appleIcon = document.createElement('link');
+      appleIcon.rel = 'apple-touch-icon';
+      document.head.appendChild(appleIcon);
+    }
+    appleIcon.href = logo;
+    document.title = webConfig.seoTitle?.trim() || webConfig.clbName || 'Vovinam Xóm Chiếu';
+  }, [webConfig.logo, webConfig.seoTitle, webConfig.clbName]);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
   const hasLoadedServerDataRef = useRef(false);
@@ -144,12 +162,20 @@ export default function App() {
           }
 
           // 2. Fetch the full heavy data only if there's a mismatch or it's the initial fetch
+          const changedKey = !isInitialLoad && typeof statusOrData.changedKey === 'string'
+            ? statusOrData.changedKey
+            : '';
           return (prefetchedData
             ? Promise.resolve(prefetchedData)
-            : fetch('/api/data', { cache: 'no-store' }).then(res => {
-                if (!res.ok) throw new Error("Full server response not OK");
-                return res.json();
-              }))
+            : changedKey
+              ? fetch(`/api/key/${encodeURIComponent(changedKey)}`, { cache: 'no-store' }).then(res => {
+                  if (!res.ok) throw new Error("Changed resource response not OK");
+                  return res.json().then(payload => ({ [payload.key]: payload.data, lastUpdated: serverUpdated }));
+                })
+              : fetch('/api/data', { cache: 'no-store' }).then(res => {
+                  if (!res.ok) throw new Error("Full server response not OK");
+                  return res.json();
+                }))
             .then(data => {
               if (!isMounted || !data) return;
 
@@ -158,15 +184,16 @@ export default function App() {
 
               // Update the reference before setting React state to block write loops
               lastServerDataRef.current = {
-                categories: data.categories,
-                articles: data.articles,
-                members: data.members,
-                coaches: data.coaches,
-                achievements: data.achievements,
-                tournaments: data.tournaments,
-                clubs: data.clubs,
-                highlights: data.highlights,
-                webConfig: data.webConfig,
+                ...lastServerDataRef.current,
+                ...(data.categories !== undefined ? { categories: data.categories } : {}),
+                ...(data.articles !== undefined ? { articles: data.articles } : {}),
+                ...(data.members !== undefined ? { members: data.members } : {}),
+                ...(data.coaches !== undefined ? { coaches: data.coaches } : {}),
+                ...(data.achievements !== undefined ? { achievements: data.achievements } : {}),
+                ...(data.tournaments !== undefined ? { tournaments: data.tournaments } : {}),
+                ...(data.clubs !== undefined ? { clubs: data.clubs } : {}),
+                ...(data.highlights !== undefined ? { highlights: data.highlights } : {}),
+                ...(data.webConfig !== undefined ? { webConfig: data.webConfig } : {}),
               };
 
               const isKeyPending = (key: string) => {
@@ -297,7 +324,7 @@ export default function App() {
       pollTimer = setTimeout(async () => {
         await fetchServerData();
         if (isMounted) scheduleNextPoll();
-      }, document.hidden ? 5000 : 1000);
+      }, document.hidden ? 10000 : 1500);
     };
 
     const handleVisibilityChange = () => {
@@ -470,6 +497,9 @@ export default function App() {
   const handleDownloadZip = async () => {
     try {
       setIsDownloading(true);
+      // JSZip and the large source generator are only downloaded when an admin
+      // explicitly requests an export, never during a normal visitor page load.
+      const { downloadAspNetAndSqlZip } = await import('./aspnetGenerator');
       const blob = await downloadAspNetAndSqlZip(
         categories,
         articles,
@@ -515,6 +545,7 @@ export default function App() {
       {/* Primary views */}
       <main className="flex-1">
         {isAdmin ? (
+          <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center text-sm font-bold text-[#0054A6]">Đang tải trang quản trị...</div>}>
           <AdminPanel 
             categories={categories}
             setCategories={setCategories}
@@ -536,6 +567,7 @@ export default function App() {
             setWebConfig={setWebConfig}
             onBackToWebsite={() => setIsAdmin(false)}
           />
+          </Suspense>
         ) : (
           <UserView 
             categories={categories}
@@ -559,6 +591,7 @@ export default function App() {
       </main>
 
       {/* Article Detail View Modal */}
+      <Suspense fallback={null}>
       <ArticleDetailModal 
         article={selectedArticle}
         categories={categories}
@@ -589,6 +622,7 @@ export default function App() {
         achievement={selectedAchievement}
         onClose={() => setSelectedAchievement(null)}
       />
+      </Suspense>
 
     </div>
   );
