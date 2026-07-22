@@ -3798,39 +3798,39 @@ export default function AdminPanel({
                       </div>
                     </div>
 
-                    {/* Associated Members Section */}
+                    {/* Associated member/coach profiles */}
                     <div className="border-t pt-4">
                       <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Môn sinh đạt giải (Ghi nhận vào Hồ sơ môn sinh)
+                        Người đạt giải (Ghi nhận vào hồ sơ Thành viên / HLV)
                       </label>
                       <p className="text-[11px] text-slate-400 mb-3">
-                        Tích chọn các môn sinh đạt thành tích này để hệ thống tự động lưu vào hồ sơ chi tiết của họ.
+                        Tìm theo ID hoặc họ tên rồi tích chọn. Thành tích sẽ tự động hiển thị trong chi tiết của Thành viên hoặc HLV tương ứng.
                       </p>
-                      {members.length === 0 ? (
+                      {members.length === 0 && coaches.length === 0 ? (
                         <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-100 italic">
-                          Chưa có môn sinh nào trong danh sách hệ thống. Hãy thêm môn sinh trước.
+                          Chưa có Thành viên hoặc HLV nào trong hệ thống.
                         </p>
                       ) : (
                         <div className="space-y-3">
                           <input 
                             type="text"
-                            placeholder="🔍 Nhập mã ID hoặc tên môn sinh để tìm kiếm nhanh..."
+                            placeholder="🔍 Nhập ID hoặc tên Thành viên / HLV để tìm nhanh..."
                             value={memberSearchQuery}
                             onChange={e => setMemberSearchQuery(e.target.value)}
                             className="w-full text-xs border border-slate-200 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6]"
                           />
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
-                            {members
-                              .filter(member => {
+                            {[...members.map(person => ({ ...person, profileType: 'member' as const })), ...coaches.map(person => ({ ...person, profileType: 'coach' as const }))]
+                              .filter(person => {
                                 if (!memberSearchQuery) return true;
                                 const term = memberSearchQuery.toLowerCase().trim();
-                                return member.fullName.toLowerCase().includes(term) || member.id.toLowerCase().includes(term);
+                                return person.fullName.toLowerCase().includes(term) || person.id.toLowerCase().includes(term);
                               })
-                              .map(member => {
-                                const isChecked = achievementForm.memberIds?.includes(member.id) || false;
+                              .map(person => {
+                                const isChecked = achievementForm.memberIds?.includes(person.id) || false;
                                 return (
                                   <label 
-                                    key={member.id} 
+                                    key={`${person.profileType}-${person.id}`} 
                                     className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer select-none transition-all ${
                                       isChecked 
                                         ? 'bg-blue-50 border-blue-200 text-[#0054A6] font-bold shadow-sm' 
@@ -3843,24 +3843,26 @@ export default function AdminPanel({
                                       onChange={e => {
                                         const currentIds = achievementForm.memberIds || [];
                                         if (e.target.checked) {
-                                          setAchievementForm({ ...achievementForm, memberIds: [...currentIds, member.id] });
+                                          setAchievementForm({ ...achievementForm, memberIds: Array.from(new Set([...currentIds, person.id])) });
                                         } else {
-                                          setAchievementForm({ ...achievementForm, memberIds: currentIds.filter(id => id !== member.id) });
+                                          setAchievementForm({ ...achievementForm, memberIds: currentIds.filter(id => id !== person.id) });
                                         }
                                       }}
                                       className="rounded border-slate-300 text-[#0054A6] focus:ring-[#0054A6] w-4 h-4 cursor-pointer"
                                     />
                                     <div className="flex items-center gap-2">
-                                      {member.photo ? (
-                                        <img src={member.photo} alt={member.fullName} className="w-7 h-7 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                      {person.photo ? (
+                                        <img src={person.photo} alt={person.fullName} className="w-7 h-7 rounded-full object-cover border" referrerPolicy="no-referrer" />
                                       ) : (
                                         <div className="w-7 h-7 bg-blue-100 text-[#0054A6] rounded-full flex items-center justify-center font-bold text-[10px]">
-                                          {member.fullName.charAt(0)}
+                                          {person.fullName.charAt(0)}
                                         </div>
                                       )}
                                       <div className="text-left">
-                                        <p className="text-xs font-bold leading-tight">{member.fullName}</p>
-                                        <p className="text-[9px] text-slate-400 font-medium">{member.rank} (ID: {member.id})</p>
+                                        <p className="text-xs font-bold leading-tight">{person.fullName}</p>
+                                        <p className="text-[9px] text-slate-400 font-medium">
+                                          {person.profileType === 'coach' ? 'HLV' : 'Thành viên'} • {person.rank} (ID: {person.id})
+                                        </p>
                                       </div>
                                     </div>
                                   </label>

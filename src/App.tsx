@@ -108,6 +108,7 @@ export default function App() {
   // Track timestamps of the last local write of each key to prevent overwriting with older server polling replies
   const pendingSyncsRef = useRef<Record<string, number>>({});
   const initialSyncCompletedRef = useRef(false);
+  const localStorageTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
@@ -302,11 +303,20 @@ export default function App() {
 
   // Helper to save safely to localStorage to avoid QuotaExceededError crashes
   const safeSetItem = (key: string, value: any) => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch (e) {
-      console.error(`Không thể lưu ${key} vào localStorage do giới hạn dung lượng trình duyệt (đầy bộ nhớ)!`, e);
+    // Images can be large base64 strings. Serializing them synchronously in every
+    // state effect blocks the admin UI, so coalesce writes and run after React paints.
+    if (localStorageTimersRef.current[key]) {
+      clearTimeout(localStorageTimersRef.current[key]);
     }
+    localStorageTimersRef.current[key] = setTimeout(() => {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (e) {
+        console.error(`Không thể lưu ${key} vào localStorage do giới hạn dung lượng trình duyệt (đầy bộ nhớ)!`, e);
+      } finally {
+        delete localStorageTimersRef.current[key];
+      }
+    }, 100);
   };
 
   // Helper to sync state changes to production API
@@ -348,7 +358,7 @@ export default function App() {
     safeSetItem('vovinam_categories', categories);
     
     // Only write back to server if this change did NOT come from a server sync
-    const isDifferent = JSON.stringify(categories) !== JSON.stringify(lastServerDataRef.current.categories);
+    const isDifferent = categories !== lastServerDataRef.current.categories;
     if (isDifferent) {
       syncKeyWithServer('categories', categories);
     }
@@ -358,7 +368,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_articles', articles);
     
-    const isDifferent = JSON.stringify(articles) !== JSON.stringify(lastServerDataRef.current.articles);
+    const isDifferent = articles !== lastServerDataRef.current.articles;
     if (isDifferent) {
       syncKeyWithServer('articles', articles);
     }
@@ -368,7 +378,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_members', members);
     
-    const isDifferent = JSON.stringify(members) !== JSON.stringify(lastServerDataRef.current.members);
+    const isDifferent = members !== lastServerDataRef.current.members;
     if (isDifferent) {
       syncKeyWithServer('members', members);
     }
@@ -378,7 +388,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_coaches', coaches);
     
-    const isDifferent = JSON.stringify(coaches) !== JSON.stringify(lastServerDataRef.current.coaches);
+    const isDifferent = coaches !== lastServerDataRef.current.coaches;
     if (isDifferent) {
       syncKeyWithServer('coaches', coaches);
     }
@@ -388,7 +398,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_achievements', achievements);
     
-    const isDifferent = JSON.stringify(achievements) !== JSON.stringify(lastServerDataRef.current.achievements);
+    const isDifferent = achievements !== lastServerDataRef.current.achievements;
     if (isDifferent) {
       syncKeyWithServer('achievements', achievements);
     }
@@ -398,7 +408,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_tournaments', tournaments);
     
-    const isDifferent = JSON.stringify(tournaments) !== JSON.stringify(lastServerDataRef.current.tournaments);
+    const isDifferent = tournaments !== lastServerDataRef.current.tournaments;
     if (isDifferent) {
       syncKeyWithServer('tournaments', tournaments);
     }
@@ -408,7 +418,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_clubs', clubs);
     
-    const isDifferent = JSON.stringify(clubs) !== JSON.stringify(lastServerDataRef.current.clubs);
+    const isDifferent = clubs !== lastServerDataRef.current.clubs;
     if (isDifferent) {
       syncKeyWithServer('clubs', clubs);
     }
@@ -418,7 +428,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_highlights', highlights);
     
-    const isDifferent = JSON.stringify(highlights) !== JSON.stringify(lastServerDataRef.current.highlights);
+    const isDifferent = highlights !== lastServerDataRef.current.highlights;
     if (isDifferent) {
       syncKeyWithServer('highlights', highlights);
     }
@@ -428,7 +438,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_webConfig', webConfig);
     
-    const isDifferent = JSON.stringify(webConfig) !== JSON.stringify(lastServerDataRef.current.webConfig);
+    const isDifferent = webConfig !== lastServerDataRef.current.webConfig;
     if (isDifferent) {
       syncKeyWithServer('webConfig', webConfig);
     }
