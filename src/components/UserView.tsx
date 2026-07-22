@@ -576,7 +576,7 @@ export default function UserView({
               
               <div className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans space-y-4">
                 <p className="border-l-4 border-[#0054A6] pl-4 italic">
-                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Quận 4.
+                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Xóm Chiếu.
                 </p>
                 <p>
                   Tại đây, môn sinh không chỉ được trang bị kỹ năng phòng vệ thực chiến, hệ thống đòn chân tấn công danh tiếng, mà còn được nuôi dưỡng tinh thần dũng cảm, tự tôn dân tộc và lối sống lành mạnh, có ích cho xã hội.
@@ -621,39 +621,39 @@ export default function UserView({
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <span>Việt Võ Đạo sinh nguyện tích cực xây dựng đại gia đình Vovinam, cùng nhau đoàn kết thương yêu giúp đỡ lẫn nhau.</span>
+                    <span>Việt Võ Đạo Sinh: Nguyện trung kiên phát huy môn phái, xây dựng thế hệ thanh niên dấn thân hiến ích.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <span>Việt Võ Đạo sinh nguyện tôn trọng kỷ luật võ phái, tôn kính sư trưởng, mến yêu đồng môn.</span>
+                    <span>Việt Võ Đạo Sinh: Đồng tâm nhất trí, tôn kính người trên, thương mền đồng đạo.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                    <span>Việt Võ Đạo sinh nguyện tôn trọng pháp luật, bảo vệ danh dự võ phái, giữ gìn thanh danh môn sinh.</span>
+                    <span>Việt Võ Đạo Sinh: Tuyệt đối tôn trọng kỷ luật, nêu cao danh dự võ sĩ.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                    <span>Việt Võ Đạo sinh nguyện tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bảo vệ lẽ phải.</span>
+                    <span>Việt Võ Đạo Sinh: Tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bênh vực lẽ phải.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
-                    <span>Việt Võ Đạo sinh nguyện rèn luyện tâm trí, giữ gìn nề nếp sống trong sạch, giản dị, thành thật và cao thượng.</span>
+                    <span>Việt Võ Đạo Sinh: Chuyên cần học tập, rèn luyện tinh thần, trau dồi đạo hạnh.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">7</span>
-                    <span>Việt Võ Đạo sinh nguyện kiên trì, vượt qua khó khăn, không kiêu căng, không nản chí trước thử thách.</span>
+                    <span>Việt Võ Đạo Sinh: Sống trong sạch, trung thực, giản dị và cao thượng.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">8</span>
-                    <span>Việt Võ Đạo sinh nguyện thận trọng, suy xét kỹ càng trước khi hành động, luôn sáng suốt quyết định.</span>
+                    <span>Việt Võ Đạo Sinh: Kiện toàn một ý chí đanh thép, nỗ lực tự thân cầu tiến.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">9</span>
-                    <span>Việt Võ Đạo sinh nguyện sống vị tha, khoan dung, biết giúp người khác sống và cùng sống lành mạnh.</span>
+                    <span>Việt Võ Đạo Sinh: Sáng suốt nhận định, bền gan tranh đấu, tháo vát hành động.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">10</span>
-                    <span>Việt Võ Đạo sinh nguyện bền bỉ rèn luyện, nâng cao ý chí tiến thủ, quyết tâm xây dựng bản thân thành võ đạo sinh gương mẫu.</span>
+                    <span>Việt Võ Đạo Sinh: Tự tin, tự thắng, khiêm cung, độ lượng, luôn luôn kiểm điểm để tiến bộ.</span>
                   </li>
                 </ul>
               </div>
