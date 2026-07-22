@@ -967,7 +967,22 @@ export default function AdminPanel({
         setCoaches(prev => prev.filter(item => item.id !== id));
         break;
       case 'members':
-        setMembers(prev => prev.filter(item => item.id !== id));
+        setMembers(prev => {
+          const remainingMembers = prev
+            .filter(item => item.id !== id)
+            .sort((a, b) =>
+              (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+              (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+            );
+
+          // Keep display IDs continuous after deletion: 1, 2, 3, ...
+          // Technical IDs (for example TV001) remain untouched so achievement
+          // and club references never break.
+          return remainingMembers.map((member, index) => ({
+            ...member,
+            displayOrder: index + 1
+          }));
+        });
         break;
       case 'achievements':
         setAchievements(prev => prev.filter(item => item.id !== id));
