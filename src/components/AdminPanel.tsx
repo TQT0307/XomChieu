@@ -11,6 +11,22 @@ import {
   AdminAccount, EditHistory
 } from '../types';
 import AdminItemDetailModal from './AdminItemDetailModal';
+import defaultBanner1 from '../assets/images/banner1.jpg';
+import defaultBanner2 from '../assets/images/banner2.jpg';
+import defaultBanner3 from '../assets/images/banner3.jpg';
+import defaultBanner4 from '../assets/images/banner4.jpg';
+import defaultBanner5 from '../assets/images/banner5.jpg';
+
+const adminBundledBannerImages: Record<string, string> = {
+  '/src/assets/images/banner1.jpg': defaultBanner1,
+  '/src/assets/images/banner2.jpg': defaultBanner2,
+  '/src/assets/images/banner3.jpg': defaultBanner3,
+  '/src/assets/images/banner4.jpg': defaultBanner4,
+  '/src/assets/images/banner5.jpg': defaultBanner5,
+};
+
+const resolveAdminBannerImage = (image?: string) =>
+  (image && adminBundledBannerImages[image]) || image || defaultBanner1;
 
 interface AdminPanelProps {
   categories: Category[];
@@ -2576,7 +2592,7 @@ export default function AdminPanel({
                               {/* Background Image */}
                               {activeBn?.image ? (
                                 <img
-                                  src={activeBn.image}
+                                  src={resolveAdminBannerImage(activeBn.image)}
                                   alt="Preview Slide"
                                   className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
                                   style={{ objectPosition: `center ${alignment}%` }}
@@ -2729,10 +2745,11 @@ export default function AdminPanel({
                                           let width = img.width;
                                           let height = img.height;
                                           
-                                          // Max width 1200px
-                                          if (width > 1200) {
-                                            height = Math.round((height * 1200) / width);
-                                            width = 1200;
+                                          // Keep every Firestore banner document safely
+                                          // below its 1 MiB limit, including base64 overhead.
+                                          if (width > 1000) {
+                                            height = Math.round((height * 1000) / width);
+                                            width = 1000;
                                           }
                                           
                                           canvas.width = width;
@@ -2740,7 +2757,7 @@ export default function AdminPanel({
                                           const ctx = canvas.getContext('2d');
                                           if (ctx) {
                                             ctx.drawImage(img, 0, 0, width, height);
-                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality JPEG
+                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.62);
                                             setBannerForm(prev => ({ ...prev, image: compressedBase64 }));
                                           } else {
                                             setBannerForm(prev => ({ ...prev, image: reader.result as string }));
@@ -2789,7 +2806,7 @@ export default function AdminPanel({
                           <div className={`w-full ${getBannerPreviewAspectClass(webConfigForm.bannerHeight || 'medium')} border border-slate-300 rounded-xl overflow-hidden relative bg-slate-900 flex flex-col justify-between shadow-inner select-none`}>
                             {bannerForm.image ? (
                               <img
-                                src={bannerForm.image}
+                                src={resolveAdminBannerImage(bannerForm.image)}
                                 alt="Single Preview Background"
                                 className="absolute inset-0 w-full h-full object-cover"
                                 style={{ objectPosition: `center ${bannerForm.alignmentPct}%` }}
@@ -2893,7 +2910,7 @@ export default function AdminPanel({
                                 {/* Micro Thumbnail */}
                                 <div className="w-16 h-12 bg-slate-900 border rounded-lg overflow-hidden flex-shrink-0 relative">
                                   <img
-                                    src={banner.image}
+                                    src={resolveAdminBannerImage(banner.image)}
                                     alt="Thumbnail"
                                     className="w-full h-full object-cover"
                                     style={{ objectPosition: `center ${pct}%` }}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
 import { Member, Achievement, Club, getBeltStyle, parseBeltRank } from '../types';
+import PersonAvatar from './PersonAvatar';
 
 interface MemberDetailModalProps {
   member: Member | null;
@@ -83,11 +84,11 @@ export default function MemberDetailModal({
               className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-cyan-400 shadow-xl shadow-blue-950/40 flex-shrink-0 cursor-zoom-in hover:scale-105 active:scale-95 transition-transform"
               title="Bấm để xem ảnh phóng to"
             >
-              <img 
-                src={member.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'} 
+              <PersonAvatar
+                src={member.photo}
                 alt={member.fullName} 
                 className="w-full h-full rounded-full object-cover bg-slate-800"
-                referrerPolicy="no-referrer"
+                iconClassName="w-12 h-12"
               />
             </div>
 

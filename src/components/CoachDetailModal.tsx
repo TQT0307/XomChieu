@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, MapPin, Award, Medal, Star, Quote, Trophy } from 'lucide-react';
 import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
+import PersonAvatar from './PersonAvatar';
 
 interface CoachDetailModalProps {
   coach: Coach | null;
@@ -87,11 +88,11 @@ export default function CoachDetailModal({
             {/* Big Avatar with Glow Ring */}
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-orange-400 shadow-xl shadow-blue-950/40 flex-shrink-0">
               <div className="w-full h-full rounded-full overflow-hidden bg-slate-800">
-                <img 
-                  src={coach.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'} 
+                <PersonAvatar
+                  src={coach.photo}
                   alt={coach.fullName} 
                   className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
+                  iconClassName="w-12 h-12"
                 />
               </div>
             </div>

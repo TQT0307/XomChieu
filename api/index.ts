@@ -776,7 +776,7 @@ async function getDbData() {
 }
 
 // Helper to save DB data (async)
-async function saveDbData(data: any) {
+async function saveDbData(data: any, changedKey?: string) {
   const { _id, ...dataToSave } = data;
   
   // Always update in-memory representation so current process stays up to date
@@ -794,7 +794,8 @@ async function saveDbData(data: any) {
           throw new Error(`A maximum of ${MAX_BANNERS} banners is supported`);
         }
         
-        EXPECTED_KEYS.forEach(k => {
+        const keysToWrite = changedKey ? [changedKey] : EXPECTED_KEYS;
+        keysToWrite.forEach(k => {
           const docRef = dbInstance.collection("vovinam").doc(k);
           if (k === "webConfig") {
             batch.set(docRef, splitWebConfig.config);
@@ -803,16 +804,18 @@ async function saveDbData(data: any) {
           }
         });
 
-        // Set current banner documents and delete obsolete ones in the same
-        // atomic batch, so visitors never receive a partially updated carousel.
-        for (let index = 0; index < MAX_BANNERS; index += 1) {
-          const bannerRef = dbInstance
-            .collection("vovinam")
-            .doc(`${BANNER_DOC_PREFIX}${index}`);
-          if (index < splitWebConfig.banners.length) {
-            batch.set(bannerRef, { banner: splitWebConfig.banners[index] });
-          } else {
-            batch.delete(bannerRef);
+        if (!changedKey || changedKey === "webConfig") {
+          // Set current banner documents and delete obsolete ones in the same
+          // atomic batch, so visitors never receive a partially updated carousel.
+          for (let index = 0; index < MAX_BANNERS; index += 1) {
+            const bannerRef = dbInstance
+              .collection("vovinam")
+              .doc(`${BANNER_DOC_PREFIX}${index}`);
+            if (index < splitWebConfig.banners.length) {
+              batch.set(bannerRef, { banner: splitWebConfig.banners[index] });
+            } else {
+              batch.delete(bannerRef);
+            }
           }
         }
         
@@ -1191,7 +1194,7 @@ app.post("/api/save-key", async (req, res) => {
     const now = Date.now();
     db.lastUpdated = now;
     
-    if (await saveDbData(db)) {
+    if (await saveDbData(db, key)) {
       res.json({ success: true, lastUpdated: now });
     } else {
       res.status(500).json({ error: "Failed to write database changes" });

@@ -9,6 +9,7 @@ import {
 } from '../types';
 import MemberDetailModal from './MemberDetailModal';
 import CoachDetailModal from './CoachDetailModal';
+import PersonAvatar from './PersonAvatar';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
@@ -1395,11 +1396,11 @@ export default function UserView({
                   {/* Photo with beautiful dual ring indicator */}
                   <div className="w-32 h-32 mx-auto rounded-full overflow-hidden p-1.5 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-xl relative group-hover:scale-105 transition-transform duration-300">
                     <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
-                      <img 
+                      <PersonAvatar
                         src={coach.photo} 
                         alt={coach.fullName} 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        referrerPolicy="no-referrer"
+                        iconClassName="w-14 h-14"
                       />
                     </div>
                   </div>
@@ -1476,11 +1477,11 @@ export default function UserView({
                     {/* Photo with beautiful dual ring indicator */}
                     <div className="w-28 h-28 mx-auto rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-md relative group-hover:scale-105 transition-transform duration-300">
                       <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
-                        <img 
+                        <PersonAvatar
                           src={coach.photo} 
                           alt={coach.fullName} 
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          referrerPolicy="no-referrer"
+                          iconClassName="w-12 h-12"
                         />
                       </div>
                     </div>
@@ -1620,11 +1621,11 @@ export default function UserView({
                       className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
                       title="Bấm vào ảnh để phóng to chi tiết"
                     >
-                      <img 
+                      <PersonAvatar
                         src={m.photo} 
                         alt={m.fullName} 
                         className="w-full h-full rounded-full object-cover"
-                        referrerPolicy="no-referrer"
+                        iconClassName="w-10 h-10"
                       />
                     </div>
                     
@@ -1705,11 +1706,11 @@ export default function UserView({
                         className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
                         title="Bấm vào ảnh để phóng to chi tiết"
                       >
-                        <img 
+                        <PersonAvatar
                           src={m.photo} 
                           alt={m.fullName} 
                           className="w-full h-full rounded-full object-cover"
-                          referrerPolicy="no-referrer"
+                          iconClassName="w-8 h-8"
                         />
                       </div>
                       
