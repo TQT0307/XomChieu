@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
-  Play, Award, User, CheckCircle, MapPin, Mail, Languages, ChevronDown
+  Play, Award, User, CheckCircle, MapPin, Mail, Globe2, ChevronDown
 } from 'lucide-react';
 import { WebConfig } from '../types';
 
@@ -29,19 +29,15 @@ export default function Header({
   const [lastClickTime, setLastClickTime] = useState(0);
   const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-  const [language, setLanguage] = useState<'vi' | 'en'>(() =>
-    localStorage.getItem('vovinam_language') === 'en' ? 'en' : 'vi'
-  );
+  const [language, setLanguage] = useState<'vi' | 'en'>(() => {
+    const translateCookie = decodeURIComponent(
+      document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/)?.[1] || ''
+    );
+    if (translateCookie.endsWith('/en')) return 'en';
+    return localStorage.getItem('vovinam_language') === 'en' ? 'en' : 'vi';
+  });
 
   useEffect(() => {
-    const applyLanguage = (nextLanguage: 'vi' | 'en') => {
-      const select = document.querySelector<HTMLSelectElement>('.goog-te-combo');
-      if (!select) return false;
-      select.value = nextLanguage === 'en' ? 'en' : '';
-      select.dispatchEvent(new Event('change'));
-      return true;
-    };
-
     const initializeTranslate = () => {
       const googleTranslate = (window as any).google?.translate?.TranslateElement;
       if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
@@ -49,7 +45,6 @@ export default function Header({
         { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
         'google_translate_element'
       );
-      window.setTimeout(() => applyLanguage(language), 250);
     };
 
     (window as any).vovinamGoogleTranslateInit = initializeTranslate;
@@ -65,15 +60,22 @@ export default function Header({
   }, []);
 
   const handleLanguageChange = (nextLanguage: 'vi' | 'en') => {
+    if (nextLanguage === language) return;
     setLanguage(nextLanguage);
     localStorage.setItem('vovinam_language', nextLanguage);
     document.documentElement.lang = nextLanguage;
 
-    const select = document.querySelector<HTMLSelectElement>('.goog-te-combo');
-    if (select) {
-      select.value = nextLanguage === 'en' ? 'en' : '';
-      select.dispatchEvent(new Event('change'));
+    const expires = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    if (nextLanguage === 'en') {
+      document.cookie = 'googtrans=/vi/en; path=/; SameSite=Lax';
+    } else {
+      document.cookie = `googtrans=; expires=${expires}; path=/; SameSite=Lax`;
+      document.cookie = `googtrans=; expires=${expires}; path=/; domain=${window.location.hostname}; SameSite=Lax`;
     }
+
+    // Reload once so Google Translate and the selector always start in the same
+    // language. This also restores the original Vietnamese DOM without leftovers.
+    window.location.reload();
   };
 
   useEffect(() => {
@@ -200,12 +202,14 @@ export default function Header({
 
           {!isAdmin && (
             <div className="relative flex-shrink-0" title="Chọn ngôn ngữ / Select language">
-              <Languages className="pointer-events-none absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-[#FFF200]" />
+              <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFF200]/50 bg-[#003f80] shadow-sm">
+                <Globe2 className="h-3.5 w-3.5 text-[#FFF200]" strokeWidth={2.2} />
+              </span>
               <select
                 value={language}
                 onChange={(event) => handleLanguageChange(event.target.value as 'vi' | 'en')}
                 aria-label="Chọn ngôn ngữ"
-                className="h-8 appearance-none rounded-lg border border-white/20 bg-white/10 pl-7 pr-6 text-[10px] font-black text-white outline-none transition hover:bg-white/20 focus:border-[#FFF200] cursor-pointer"
+                className="h-9 appearance-none rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 pl-8 pr-7 text-[10px] font-black text-white shadow-sm outline-none transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:border-[#FFF200] focus:ring-2 focus:ring-[#FFF200]/20 cursor-pointer"
               >
                 <option value="vi" className="text-slate-900">VI</option>
                 <option value="en" className="text-slate-900">EN</option>
