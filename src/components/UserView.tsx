@@ -782,7 +782,6 @@ export default function UserView({
                                     {article.date}
                                   </span>
                                   <span>•</span>
-                                  <span>Mã: #{article.id}</span>
                                 </div>
                                 <h3 className="font-bold text-slate-800 text-sm leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
                                   {article.title}
@@ -885,7 +884,6 @@ export default function UserView({
                                     {article.date}
                                   </span>
                                   <span>•</span>
-                                  <span>Mã: #{article.id}</span>
                                 </div>
 
                                 <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase tracking-tight group-hover/card:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
@@ -1046,7 +1044,6 @@ export default function UserView({
                     </div>
 
                     <div className="pt-4 border-t border-slate-100/80 flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-wider">
-                      <span>Mã sự kiện: #{t.id}</span>
                       <span className="text-[#0054A6] group-hover:translate-x-1 transition-transform flex items-center gap-1 font-extrabold">
                         Xem chi tiết <span className="text-sm">→</span>
                       </span>
@@ -1170,7 +1167,6 @@ export default function UserView({
                 </div>
                 
                 <div className="text-right text-[10px] text-[#FFF200] font-black uppercase tracking-wider pt-3 border-t border-slate-900 mt-2 flex items-center justify-between">
-                  <span className="text-slate-500 font-medium font-mono">#{hl.id}</span>
                   <span>Xem Chi Tiết &gt;</span>
                 </div>
               </div>

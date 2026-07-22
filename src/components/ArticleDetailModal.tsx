@@ -51,9 +51,6 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
         {/* Article Metadata & Content */}
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pb-4 mb-6 border-b border-slate-100">
-            <span className="flex items-center gap-1.5 font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded">
-              ID: #{article.id}
-            </span>
             <span className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-[#0054A6]" />
               {new Date(article.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
