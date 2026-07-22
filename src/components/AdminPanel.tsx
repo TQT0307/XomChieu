@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   FileText, FolderOpen, Users, Award, Trophy, Film, Settings, 
   Plus, Edit2, Trash2, Save, X, Search, Map, CheckCircle2, ShieldAlert,
@@ -586,6 +586,15 @@ export default function AdminPanel({
       return () => clearTimeout(timer);
     }
   }, [toast]);
+
+  useEffect(() => {
+    const handleSyncError = (event: Event) => {
+      const key = (event as CustomEvent<{ key?: string }>).detail?.key;
+      showToast(`Không thể lưu ${key || 'dữ liệu'} lên Firebase. Vui lòng thử lại!`, 'error');
+    };
+    window.addEventListener('vovinam-sync-error', handleSyncError);
+    return () => window.removeEventListener('vovinam-sync-error', handleSyncError);
+  }, []);
 
   // Initialize Admin Accounts state from localStorage
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(() => {
@@ -1542,7 +1551,10 @@ export default function AdminPanel({
     }
   };
 
-  const renderedData = getFilteredData();
+  const renderedData = useMemo(
+    () => getFilteredData(),
+    [activeTab, searchQuery, alphabetFilter, articles, categories, coaches, members, achievements, tournaments, clubs, highlights]
+  );
 
   const isCrudTab = [
     'articles', 'categories', 'coaches', 'members', 'achievements', 'tournaments', 'clubs', 'highlights'

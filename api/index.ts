@@ -342,6 +342,11 @@ const EXPECTED_KEYS = [
 // that limit. Store each banner in its own document instead.
 const BANNER_DOC_PREFIX = "webConfig_banner_";
 const MAX_BANNERS = 50;
+const ACHIEVEMENT_DOC_PREFIX = "achievement_item_";
+const MAX_ACHIEVEMENTS = 400;
+
+const getAchievementDocId = (id: unknown) =>
+  `${ACHIEVEMENT_DOC_PREFIX}${encodeURIComponent(String(id))}`;
 
 function splitWebConfigForFirestore(webConfig: any) {
   const source = webConfig || {};
@@ -483,6 +488,71 @@ async function getDbTimestamp() {
   return 0;
 }
 
+async function getDbChangeStatus() {
+  if (hasFirebase && !firebaseFailed) {
+    const dbInstance = await getFirebaseFirestore();
+    if (dbInstance) {
+      try {
+        const snapshot: any = await withTimeout(
+          dbInstance.collection("vovinam").doc("metadata").get(),
+          5000,
+          "Firebase GET change status timed out"
+        );
+        if (snapshot.exists) {
+          const metadata = snapshot.data() || {};
+          return { lastUpdated: metadata.lastUpdated || 0, changedKey: metadata.changedKey || null };
+        }
+      } catch (err) {
+        console.error("[Firebase] Change status error:", err);
+      }
+    }
+  }
+  return { lastUpdated: await getDbTimestamp(), changedKey: null };
+}
+
+async function getDbKeyData(key: string) {
+  if (hasFirebase && !firebaseFailed) {
+    const dbInstance = await getFirebaseFirestore();
+    if (dbInstance) {
+      try {
+        const snapshot: any = await withTimeout(
+          dbInstance.collection("vovinam").doc(key).get(),
+          7000,
+          `Firebase GET ${key} timed out`
+        );
+        if (snapshot.exists) {
+          if (key === "achievements" && Array.isArray(snapshot.data()?.itemIds)) {
+            const itemIds = snapshot.data().itemIds.map((itemId: any) => String(itemId));
+            const itemSnapshots: any[] = await Promise.all(
+              itemIds.map((itemId: string) =>
+                dbInstance.collection("vovinam").doc(getAchievementDocId(itemId)).get()
+              )
+            );
+            return itemSnapshots.map(item => item.data()?.item).filter(Boolean);
+          }
+          if (key !== "webConfig") return snapshot.data()?.list || [];
+
+          const { bannerCount = 0, ...config } = snapshot.data() || {};
+          const safeCount = Math.min(Math.max(Number(bannerCount) || 0, 0), MAX_BANNERS);
+          const bannerSnapshots: any[] = await Promise.all(
+            Array.from({ length: safeCount }, (_, index) =>
+              dbInstance.collection("vovinam").doc(`${BANNER_DOC_PREFIX}${index}`).get()
+            )
+          );
+          return {
+            ...config,
+            banners: bannerSnapshots.map(item => item.data()?.banner).filter(Boolean)
+          };
+        }
+      } catch (err) {
+        console.error(`[Firebase] Key GET error (${key}):`, err);
+      }
+    }
+  }
+  const db = await getDbData();
+  return db[key];
+}
+
 // Helper to get DB data (async)
 async function getDbData() {
   // 1. Try Firebase Firestore if enabled (Highest priority)
@@ -501,6 +571,7 @@ async function getDbData() {
           let hasLegacy = false;
           let legacyData: any = null;
           const splitBanners: Array<{ index: number; value: any }> = [];
+          const splitAchievements = new Map<string, any>();
           
           snapshot.forEach((doc: any) => {
             const id = doc.id;
@@ -518,10 +589,25 @@ async function getDbData() {
               if (Number.isInteger(index) && docData.banner) {
                 splitBanners.push({ index, value: docData.banner });
               }
+            } else if (id.startsWith(ACHIEVEMENT_DOC_PREFIX)) {
+              if (docData.item?.id !== undefined) {
+                splitAchievements.set(String(docData.item.id), docData.item);
+              }
             } else if (EXPECTED_KEYS.includes(id)) {
-              db[id] = docData.list || [];
+              if (id === "achievements" && Array.isArray(docData.itemIds)) {
+                db.__achievementItemIds = docData.itemIds.map((itemId: any) => String(itemId));
+              } else {
+                db[id] = docData.list || [];
+              }
             }
           });
+
+          if (Array.isArray(db.__achievementItemIds)) {
+            db.achievements = db.__achievementItemIds
+              .map((itemId: string) => splitAchievements.get(itemId))
+              .filter(Boolean);
+            delete db.__achievementItemIds;
+          }
 
           if (splitBanners.length > 0 && db.webConfig) {
             db.webConfig.banners = splitBanners
@@ -799,10 +885,26 @@ async function saveDbData(data: any, changedKey?: string) {
           const docRef = dbInstance.collection("vovinam").doc(k);
           if (k === "webConfig") {
             batch.set(docRef, splitWebConfig.config);
+          } else if (k === "achievements") {
+            const achievementList = Array.isArray(dataToSave.achievements) ? dataToSave.achievements : [];
+            if (achievementList.length > MAX_ACHIEVEMENTS) {
+              throw new Error(`A maximum of ${MAX_ACHIEVEMENTS} achievements is supported`);
+            }
+            batch.set(docRef, { itemIds: achievementList.map((item: any) => String(item.id)) });
           } else {
             batch.set(docRef, { list: dataToSave[k] || [] });
           }
         });
+
+        if (!changedKey || changedKey === "achievements") {
+          const achievementList = Array.isArray(dataToSave.achievements) ? dataToSave.achievements : [];
+          achievementList.forEach((item: any) => {
+            batch.set(
+              dbInstance.collection("vovinam").doc(getAchievementDocId(item.id)),
+              { item }
+            );
+          });
+        }
 
         if (!changedKey || changedKey === "webConfig") {
           // Set current banner documents and delete obsolete ones in the same
@@ -820,7 +922,7 @@ async function saveDbData(data: any, changedKey?: string) {
         }
         
         const metaRef = dbInstance.collection("vovinam").doc("metadata");
-        batch.set(metaRef, { lastUpdated: dataToSave.lastUpdated || Date.now() });
+        batch.set(metaRef, { lastUpdated: dataToSave.lastUpdated || Date.now(), changedKey: changedKey || null });
         
         // Delete legacy main_state document to clean up Firestore
         const legacyRef = dbInstance.collection("vovinam").doc("main_state");
@@ -1124,10 +1226,19 @@ app.put("/api/admin-accounts", async (req, res) => {
 
 app.get("/api/timestamp", async (req, res) => {
   try {
-    const ts = await getDbTimestamp();
-    res.json({ lastUpdated: ts });
+    res.json(await getDbChangeStatus());
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch timestamp" });
+  }
+});
+
+app.get("/api/key/:key", async (req, res) => {
+  try {
+    const key = req.params.key;
+    if (!EXPECTED_KEYS.includes(key)) return res.status(400).json({ error: "Invalid data key" });
+    res.json({ key, data: await getDbKeyData(key) });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch requested data key" });
   }
 });
 

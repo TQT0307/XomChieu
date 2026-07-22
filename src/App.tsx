@@ -386,7 +386,7 @@ export default function App() {
     })
     .then(res => {
       if (!res.ok) {
-        console.error(`Failed to sync ${key} with server API`);
+        throw new Error(`Failed to sync ${key} with server API (${res.status})`);
       } else {
         return res.json();
       }
@@ -398,6 +398,9 @@ export default function App() {
     })
     .catch(err => {
       console.error(`Network error syncing ${key} to server API:`, err);
+      delete pendingSyncsRef.current[key];
+      localStorage.setItem('vovinam_last_updated', '0');
+      window.dispatchEvent(new CustomEvent('vovinam-sync-error', { detail: { key } }));
     });
   };
 
