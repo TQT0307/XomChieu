@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
-  Play, Award, User, CheckCircle, MapPin, Mail 
+  Play, Award, User, CheckCircle, MapPin, Mail, Languages, ChevronDown
 } from 'lucide-react';
 import { WebConfig } from '../types';
 
@@ -29,6 +29,52 @@ export default function Header({
   const [lastClickTime, setLastClickTime] = useState(0);
   const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const [language, setLanguage] = useState<'vi' | 'en'>(() =>
+    localStorage.getItem('vovinam_language') === 'en' ? 'en' : 'vi'
+  );
+
+  useEffect(() => {
+    const applyLanguage = (nextLanguage: 'vi' | 'en') => {
+      const select = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (!select) return false;
+      select.value = nextLanguage === 'en' ? 'en' : '';
+      select.dispatchEvent(new Event('change'));
+      return true;
+    };
+
+    const initializeTranslate = () => {
+      const googleTranslate = (window as any).google?.translate?.TranslateElement;
+      if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
+      new googleTranslate(
+        { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
+        'google_translate_element'
+      );
+      window.setTimeout(() => applyLanguage(language), 250);
+    };
+
+    (window as any).vovinamGoogleTranslateInit = initializeTranslate;
+    if ((window as any).google?.translate?.TranslateElement) {
+      initializeTranslate();
+    } else if (!document.getElementById('google-translate-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-translate-script';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=vovinamGoogleTranslateInit';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  const handleLanguageChange = (nextLanguage: 'vi' | 'en') => {
+    setLanguage(nextLanguage);
+    localStorage.setItem('vovinam_language', nextLanguage);
+    document.documentElement.lang = nextLanguage;
+
+    const select = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+    if (select) {
+      select.value = nextLanguage === 'en' ? 'en' : '';
+      select.dispatchEvent(new Event('change'));
+    }
+  };
 
   useEffect(() => {
     setLogoLoadFailed(false);
@@ -151,6 +197,24 @@ export default function Header({
               ))}
             </nav>
           )}
+
+          {!isAdmin && (
+            <div className="relative flex-shrink-0" title="Chọn ngôn ngữ / Select language">
+              <Languages className="pointer-events-none absolute left-2 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-[#FFF200]" />
+              <select
+                value={language}
+                onChange={(event) => handleLanguageChange(event.target.value as 'vi' | 'en')}
+                aria-label="Chọn ngôn ngữ"
+                className="h-8 appearance-none rounded-lg border border-white/20 bg-white/10 pl-7 pr-6 text-[10px] font-black text-white outline-none transition hover:bg-white/20 focus:border-[#FFF200] cursor-pointer"
+              >
+                <option value="vi" className="text-slate-900">VI</option>
+                <option value="en" className="text-slate-900">EN</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-white" />
+            </div>
+          )}
+
+          <div id="google_translate_element" className="google-translate-host" aria-hidden="true" />
 
         </div>
       </div>
