@@ -1194,14 +1194,16 @@ export default function AdminPanel({
         showToast('ID thứ tự hiển thị phải là số nguyên từ 1 trở lên', 'error');
         return;
       }
-      if (members.some(m => m.id !== editId && m.displayOrder === displayOrder)) {
+      if (members.some(m => m.id !== editId && Number(m.displayOrder) === displayOrder)) {
         showToast('ID thứ tự hiển thị này đã được sử dụng!', 'error');
         return;
       }
-      memberForm.displayOrder = displayOrder;
+      const finalMember = { ...memberForm, id, displayOrder } as Member;
       if (editId === null) {
         if (members.some(m => m.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setMembers(prev => [...prev, memberForm as Member]);
+        setMembers(prev => [...prev, finalMember].sort((a, b) =>
+          Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+        ));
         addLog('Thêm', 'members', `Đã thêm thành viên CLB mới: "${memberForm.fullName}" (ID: ${id})`);
         showToast('Thêm thành viên CLB mới thành công!', 'success');
       } else {
@@ -1209,7 +1211,17 @@ export default function AdminPanel({
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
-        setMembers(prev => prev.map(m => m.id === editId ? { ...m, ...memberForm, id } as Member : m));
+        setMembers(prev => prev
+          .map(m => m.id === editId ? finalMember : m)
+          .sort((a, b) =>
+            Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+          ));
+        if (id !== editId) {
+          setAchievements(prev => prev.map(achievement => ({
+            ...achievement,
+            memberIds: achievement.memberIds?.map(memberId => memberId === editId ? id : memberId)
+          })));
+        }
         addLog('Sửa', 'members', `Đã cập nhật thành viên CLB: "${memberForm.fullName}" (ID: ${id})`);
         showToast('Cập nhật thành viên CLB thành công!', 'success');
       }
@@ -1459,10 +1471,13 @@ export default function AdminPanel({
             (m.birthYear && String(m.birthYear).includes(q)) ||
             (m.displayOrder && String(m.displayOrder).includes(q))
           ))
-          .sort((a, b) =>
-            (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
-            (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
-          );
+          .sort((a, b) => {
+            const orderDifference = Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+              Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER);
+            return orderDifference !== 0
+              ? orderDifference
+              : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+          });
       case 'achievements':
         return achievements.filter(a => !q ? true : (
           a.title.toLowerCase().includes(q) ||

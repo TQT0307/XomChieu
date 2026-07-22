@@ -268,10 +268,13 @@ export default function UserView({
         (m.birthYear && String(m.birthYear).includes(q))
       );
     })
-    .sort((a, b) =>
-      (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
-      (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
-    );
+    .sort((a, b) => {
+      const orderDifference = Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+        Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER);
+      return orderDifference !== 0
+        ? orderDifference
+        : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+    });
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
   const visibleTournaments = tournaments.filter(t => {
