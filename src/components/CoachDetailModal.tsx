@@ -187,7 +187,7 @@ export default function CoachDetailModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 sm:p-8 space-y-6 overflow-y-auto overscroll-contain">
+        <div className="detail-scrollbar p-5 sm:p-8 space-y-6 overflow-y-auto overscroll-contain">
           
           {/* Quick Specifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -295,16 +295,6 @@ export default function CoachDetailModal({
                 })}
               </div>
             )}
-          </div>
-
-          {/* Action Footer */}
-          <div className="flex justify-end pt-4 border-t border-white/5">
-            <button
-              onClick={onClose}
-              className="bg-white/10 hover:bg-white/20 text-white font-black text-xs uppercase px-6 py-2.5 rounded-xl border border-white/10 transition-all cursor-pointer"
-            >
-              Đóng Cửa Sổ
-            </button>
           </div>
 
         </div>

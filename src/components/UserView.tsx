@@ -27,6 +27,12 @@ const bundledBannerImages: Record<string, string> = {
 const resolveBannerImage = (image?: string) =>
   (image && bundledBannerImages[image]) || image || defaultBanner1;
 
+const getBannerObjectPosition = (position?: string) => {
+  const match = position?.match(/object-\[center_(\d+)%\]/);
+  const verticalPercent = match ? Math.min(100, Math.max(0, Number(match[1]))) : 50;
+  return `center ${verticalPercent}%`;
+};
+
 type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'tiktok';
 
 const normalizeSocialUrl = (platform: SocialPlatform, value?: string) => {
@@ -420,10 +426,12 @@ export default function UserView({
   const instagramUrl = normalizeSocialUrl('instagram', webConfig.instagram);
   const threadsUrl = normalizeSocialUrl('threads', webConfig.threads);
   const tiktokUrl = normalizeSocialUrl('tiktok', webConfig.tiktok);
-  const carouselHeightClass = 
-    configHeight === 'short' ? 'h-[280px] sm:h-[400px]' :
-    configHeight === 'large' ? 'h-[440px] sm:h-[620px]' :
-    'h-[365px] sm:h-[500px]'; // medium (default)
+  // A fixed aspect ratio gives the banner the exact same crop on phone, tablet
+  // and desktop. These ratios are also used by the admin preview.
+  const carouselAspectClass =
+    configHeight === 'short' ? 'aspect-[18/5]' :
+    configHeight === 'large' ? 'aspect-[72/31]' :
+    'aspect-[72/25]'; // medium (default)
 
   return (
     <div className="bg-[#f8fafc] min-h-screen text-slate-800 font-sans selection:bg-[#0054A6]/20" id="vovinam-user-root">
@@ -442,20 +450,21 @@ export default function UserView({
       </div>
 
       {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
-      <section className={`relative ${carouselHeightClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
+      <section className={`relative w-full ${carouselAspectClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
           <img 
             src={resolveBannerImage(banners[safeCurrentBanner]?.image)} 
             alt="Vovinam Slide" 
-            className={`w-full h-full object-cover opacity-100 scale-105 transition-all duration-1000 ${banners[safeCurrentBanner]?.position || 'object-center'}`}
+            className="w-full h-full object-cover opacity-100 transition-opacity duration-1000"
+            style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position) }}
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
         </div>
 
         {/* Content Box - Centered horizontally and positioned closer to the top */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-8 sm:pt-12 items-center text-white">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-[clamp(0.5rem,3.3vw,3rem)] items-center text-white">
           <div className="max-w-xl flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/25">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FFF200] animate-ping"></span>
@@ -489,19 +498,19 @@ export default function UserView({
         {/* Manual navigation buttons */}
         <button 
           onClick={prevBanner}
-          className="absolute left-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          className="absolute left-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <button 
           onClick={nextBanner}
-          className="absolute right-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          className="absolute right-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
 
         {/* Carousel indicators */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2.5">
+        <div className="absolute bottom-[clamp(0.5rem,2.2vw,2rem)] left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-2.5">
           {banners.map((_, idx) => (
             <button
               key={idx}

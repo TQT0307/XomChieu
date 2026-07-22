@@ -21,6 +21,33 @@ html {
   scrollbar-width: none;  /* Firefox */
 }
 
+/* Thanh cuộn chung cho cửa sổ chi tiết, đồng bộ với khung 10 điều tâm niệm. */
+.detail-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(251, 191, 36, 0.55) transparent;
+}
+
+.detail-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.detail-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(251, 191, 36, 0.55);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+}
+
+.detail-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.85);
+  background-clip: padding-box;
+}
+
 body {
   font-family: var(--font-sans);
 }

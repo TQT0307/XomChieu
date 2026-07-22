@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, Eye, Share2, Award, ArrowLeft } from 'lucide-react';
+import { X, Calendar, Eye, Share2, Award } from 'lucide-react';
 import { Article, Category } from '../types';
 
 interface ArticleDetailModalProps {
@@ -15,7 +15,7 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      <div className="detail-scrollbar bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
         <div className="relative h-64 sm:h-80 w-full overflow-hidden">
@@ -73,16 +73,6 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
             ))}
           </div>
 
-          {/* Footer of the article */}
-          <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-end">
-            <button 
-              onClick={onClose}
-              className="flex items-center gap-2 bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Quay lại trang tin</span>
-            </button>
-          </div>
         </div>
 
       </div>

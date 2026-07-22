@@ -29,7 +29,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="detail-scrollbar fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-slate-900 text-white rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header bar */}
@@ -104,7 +104,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         {mediaList.length > 1 && (
           <div className="p-4 bg-slate-950 border-t border-slate-800">
             <p className="text-xs text-slate-400 mb-2 font-semibold">Tất cả tư liệu bài viết ({mediaList.length}):</p>
-            <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin">
+            <div className="detail-scrollbar flex gap-2.5 overflow-x-auto pb-2">
               {mediaList.map((mediaUrl, idx) => {
                 const isVid = isVideoUrl(mediaUrl);
                 return (

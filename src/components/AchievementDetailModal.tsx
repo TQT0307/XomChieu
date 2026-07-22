@@ -130,7 +130,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 sm:p-8 max-h-[60vh] overflow-y-auto space-y-6">
+        <div className="detail-scrollbar p-6 sm:p-8 max-h-[60vh] overflow-y-auto space-y-6">
           
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -213,16 +213,6 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             </div>
           </div>
 
-        </div>
-
-        {/* Modal Footer */}
-        <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
-          <button 
-            onClick={onClose}
-            className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow transition-all"
-          >
-            Đóng cửa sổ
-          </button>
         </div>
 
       </div>
