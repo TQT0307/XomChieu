@@ -587,30 +587,6 @@ export default function AdminPanel({
     }
   }, [toast]);
 
-  // Repair gaps already present in older cloud data as soon as admin opens.
-  // This runs once per actual mismatch and then stops after 1, 2, 3... is reached.
-  useEffect(() => {
-    if (members.length === 0) return;
-
-    const normalizedMembers = [...members]
-      .sort((a, b) =>
-        (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
-        (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
-      )
-      .map((member, index) => ({
-        ...member,
-        displayOrder: index + 1
-      }));
-
-    const needsNormalization = normalizedMembers.some((member, index) =>
-      members[index]?.id !== member.id || members[index]?.displayOrder !== index + 1
-    );
-
-    if (needsNormalization) {
-      setMembers(normalizedMembers);
-    }
-  }, [members, setMembers]);
-
   // Initialize Admin Accounts state from localStorage
   const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(() => {
     const saved = localStorage.getItem('vovinam_admin_accounts');
@@ -1194,12 +1170,13 @@ export default function AdminPanel({
         showToast('ID thứ tự hiển thị phải là số nguyên từ 1 trở lên', 'error');
         return;
       }
-      if (members.some(m => m.id !== editId && Number(m.displayOrder) === displayOrder)) {
-        showToast('ID thứ tự hiển thị này đã được sử dụng!', 'error');
-        return;
-      }
+      const conflictingMember = members.find(m => m.id !== editId && Number(m.displayOrder) === displayOrder);
       const finalMember = { ...memberForm, id, displayOrder } as Member;
       if (editId === null) {
+        if (conflictingMember) {
+          showToast('ID thứ tự hiển thị này đã được sử dụng!', 'error');
+          return;
+        }
         if (members.some(m => m.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
         setMembers(prev => [...prev, finalMember].sort((a, b) =>
           Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER)
@@ -1211,8 +1188,25 @@ export default function AdminPanel({
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
+        const originalMember = members.find(m => m.id === editId);
+        const originalDisplayOrder = Number(originalMember?.displayOrder);
+        if (conflictingMember) {
+          const shouldSwap = window.confirm(
+            `ID thứ tự ${displayOrder} đang thuộc về "${conflictingMember.fullName}".\n\n` +
+            `Bạn có muốn hoán đổi không?\n` +
+            `• ${memberForm.fullName}: ${originalDisplayOrder} → ${displayOrder}\n` +
+            `• ${conflictingMember.fullName}: ${displayOrder} → ${originalDisplayOrder}`
+          );
+          if (!shouldSwap) return;
+        }
         setMembers(prev => prev
-          .map(m => m.id === editId ? finalMember : m)
+          .map(m => {
+            if (m.id === editId) return finalMember;
+            if (conflictingMember && m.id === conflictingMember.id) {
+              return { ...m, displayOrder: originalDisplayOrder };
+            }
+            return m;
+          })
           .sort((a, b) =>
             Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER)
           ));
@@ -1222,8 +1216,10 @@ export default function AdminPanel({
             memberIds: achievement.memberIds?.map(memberId => memberId === editId ? id : memberId)
           })));
         }
-        addLog('Sửa', 'members', `Đã cập nhật thành viên CLB: "${memberForm.fullName}" (ID: ${id})`);
-        showToast('Cập nhật thành viên CLB thành công!', 'success');
+        addLog('Sửa', 'members', conflictingMember
+          ? `Đã hoán đổi thứ tự hiển thị ${originalDisplayOrder} ↔ ${displayOrder} giữa "${memberForm.fullName}" và "${conflictingMember.fullName}"`
+          : `Đã cập nhật thành viên CLB: "${memberForm.fullName}" (ID: ${id})`);
+        showToast(conflictingMember ? 'Hoán đổi ID thứ tự thành công!' : 'Cập nhật thành viên CLB thành công!', 'success');
       }
     } else if (activeTab === 'achievements') {
       const id = achievementForm.id?.trim() || '';
