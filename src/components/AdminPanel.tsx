@@ -1639,6 +1639,7 @@ export default function AdminPanel({
   const [isOptimizingMedia, setIsOptimizingMedia] = useState(false);
   const [backupStatus, setBackupStatus] = useState<any>(null);
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isImportingBackup, setIsImportingBackup] = useState(false);
 
   const buildLocalBackupData = () => ({
     vovinam_categories: categories,
@@ -2756,16 +2757,25 @@ export default function AdminPanel({
                     </button>
 
                     {/* Import */}
-                    <label className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer">
+                    <label className={`flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm ${
+                      isImportingBackup
+                        ? 'cursor-not-allowed opacity-60'
+                        : 'cursor-pointer hover:bg-slate-50'
+                    }`}>
                       <input
                         type="file"
                         accept=".json"
                         onChange={(e) => {
+                          if (isImportingBackup) {
+                            e.target.value = '';
+                            return;
+                          }
                           const file = e.target.files?.[0];
                           if (!file) return;
                           
                           if (confirm('Khôi phục dữ liệu sẽ ghi đè và thay thế toàn bộ danh mục, thành viên, bài viết hiện tại. Bạn có chắc chắn muốn khôi phục không?')) {
-                            downloadLocalBackup('vovinam_before_import');
+                            setIsImportingBackup(true);
+                            showToast('Đang sao lưu Cloud và khôi phục dữ liệu. Vui lòng không tải lại trang...', 'info');
                             const reader = new FileReader();
                             reader.onload = async (event) => {
                               try {
@@ -2810,7 +2820,15 @@ export default function AdminPanel({
                                     : 'File sao lưu không đúng định dạng JSON hợp lệ!',
                                   'error'
                                 );
+                              } finally {
+                                setIsImportingBackup(false);
+                                e.target.value = '';
                               }
+                            };
+                            reader.onerror = () => {
+                              setIsImportingBackup(false);
+                              e.target.value = '';
+                              showToast('Không thể đọc file JSON đã chọn.', 'error');
                             };
                             reader.readAsText(file);
                           } else {
@@ -2819,7 +2837,7 @@ export default function AdminPanel({
                         }}
                         className="hidden"
                       />
-                      <span>📤 Nhập Sao Lưu (.json)</span>
+                      <span>{isImportingBackup ? '⏳ Đang khôi phục...' : '📤 Nhập Sao Lưu (.json)'}</span>
                     </label>
                   </div>
                 </div>
@@ -2872,11 +2890,21 @@ export default function AdminPanel({
                           <span>Chọn ảnh từ máy tính 📁</span>
                         </label>
                         {webConfigForm.logo && (
-                          <div className="w-8 h-8 border rounded-lg overflow-hidden flex-shrink-0 bg-white p-0.5">
-                            <img src={webConfigForm.logo} alt="Logo preview" className="w-full h-full object-cover rounded-full scale-[1.14] [clip-path:circle(49%_at_50%_50%)]" referrerPolicy="no-referrer" />
+                          <div className="w-12 h-12 rounded-full flex-shrink-0 bg-[#0054A6] p-[1px] ring-2 ring-[#FFF200]">
+                            <img
+                              src={webConfigForm.logo}
+                              alt="Logo preview"
+                              className="block w-full h-full object-contain"
+                              width={1024}
+                              height={1024}
+                              referrerPolicy="no-referrer"
+                            />
                           </div>
                         )}
                       </div>
+                      <p className="text-[10px] text-slate-400">
+                        Nên dùng PNG vuông tối thiểu 800×800 px để logo rõ trên màn hình Retina.
+                      </p>
                     </div>
                   </div>
                   <div>

@@ -89,8 +89,8 @@ export default function App() {
 
   const [webConfig, setWebConfig] = useState<WebConfig>(() => {
     const parsed = readCachedValue<WebConfig>('vovinam_webConfig', initialWebConfig);
-    if (parsed.logo === '/src/assets/images/h.jpg' || parsed.logo === '/src/assets/images/logo.jpg' || parsed.logo === '/logo_1784192552510.jpg') {
-      return { ...parsed, logo: '/logo.jpg' };
+    if (parsed.logo === '/src/assets/images/h.jpg' || parsed.logo === '/src/assets/images/logo.jpg' || parsed.logo === '/logo_1784192552510.jpg' || parsed.logo === '/logo.jpg') {
+      return { ...parsed, logo: '/logo-sharp.png' };
     }
     return parsed;
   });
@@ -101,7 +101,7 @@ export default function App() {
 
   // Keep the browser tab icon and title synchronized with Admin web settings.
   useEffect(() => {
-    const logo = webConfig.logo?.trim() || '/logo.jpg';
+    const logo = webConfig.logo?.trim() || '/logo-sharp.png';
     let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!favicon) {
       favicon = document.createElement('link');
@@ -164,11 +164,15 @@ export default function App() {
           const defaultLogoPaths = new Set([
             '',
             '/logo.jpg',
+            '/logo-sharp.png',
             '/logo_1784192552510.jpg',
             '/src/assets/images/h.jpg',
             '/src/assets/images/logo.jpg'
           ]);
-          const serverLogo = String(incomingData?.logo || '').trim();
+          const rawServerLogo = String(incomingData?.logo || '').trim();
+          const serverLogo = defaultLogoPaths.has(rawServerLogo)
+            ? '/logo-sharp.png'
+            : rawServerLogo;
           const currentLogo = String(previous.logo || '').trim();
           const shouldKeepCurrentLogo =
             defaultLogoPaths.has(serverLogo) &&
@@ -176,7 +180,7 @@ export default function App() {
             !defaultLogoPaths.has(currentLogo);
           const nextValue = shouldKeepCurrentLogo
             ? { ...(incomingData || {}), logo: currentLogo }
-            : incomingData || {};
+            : { ...(incomingData || {}), logo: serverLogo };
           lastServerDataRef.current.webConfig = nextValue;
           return force || JSON.stringify(previous) !== JSON.stringify(nextValue) ? nextValue : previous;
         });

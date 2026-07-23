@@ -1,4 +1,4 @@
-import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types.js';
+import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types';
 
 export const initialCategories: Category[] = [
   {
@@ -53,7 +53,7 @@ export const initialArticles: Article[] = [
     image: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80',
     title: 'Đội tuyển Vovinam Xóm Chiếu thắng lớn tại Giải Vô Địch Trẻ Toàn Quốc',
     categoryId: 'GIAI_DAU',
-    content: 'Giải Vô độp trẻ Vovinam Toàn quốc 2026 vừa khép lại với những trận chung kết kịch tính. Đoàn Vovinam Xóm Chiếu tham gia thi đấu ở 5 nội dung đối kháng và 3 nội dung quyền pháp, xuất sắc mang về 3 Huy chương Vàng, 2 Huy chương Bạc và 1 Huy chương Đồng.\n\nĐây là thành tích xứng đáng cho những tháng ngày khổ luyện miệt mài dưới sự chỉ dẫn tận tình của các huấn luyện viên phụ trách. Các vận động viên trẻ đã thể hiện bản lĩnh thi đấu kiên cường và tinh thần võ đạo cao đẹp của môn phái Vovinam - Việt Võ Đạo.',
+    content: 'Giải Vô địch trẻ Vovinam Toàn quốc 2026 vừa khép lại với những trận chung kết kịch tính. Đoàn Vovinam Xóm Chiếu tham gia thi đấu ở 5 nội dung đối kháng và 3 nội dung quyền pháp, xuất sắc mang về 3 Huy chương Vàng, 2 Huy chương Bạc và 1 Huy chương Đồng.\n\nĐây là thành tích xứng đáng cho những tháng ngày khổ luyện miệt mài dưới sự chỉ dẫn tận tình của các huấn luyện viên phụ trách. Các vận động viên trẻ đã thể hiện bản lĩnh thi đấu kiên cường và tinh thần võ đạo cao đẹp của môn phái Vovinam - Việt Võ Đạo.',
     date: yesterdayStr,
     views: 512,
     status: true,
@@ -79,7 +79,7 @@ export const initialArticles: Article[] = [
     date: fiveDaysAgoStr,
     views: 215,
     status: true,
-    showInNews: true
+    showInNews: true // Marked as showInNews but posted 5 days ago, so expired in the Latest News section but visible in Category list!
   }
 ];
 
@@ -288,7 +288,7 @@ export const initialHighlights: Highlight[] = [
 
 export const initialWebConfig: WebConfig = {
   clbName: 'Vovinam Việt Võ Đạo Xóm Chiếu',
-  logo: '/logo.jpg',
+  logo: '/logo-sharp.png',
   address: 'Số 122 Đường Xóm Chiếu, Phường 14, Quận 4, TP. Hồ Chí Minh',
   phone: '0903.123.456 - 0989.987.789',
   email: 'vovinamxomchieu@gmail.com',
@@ -298,7 +298,7 @@ export const initialWebConfig: WebConfig = {
   tiktok: 'https://tiktok.com/@vovinamxomchieu',
   footerText: '© 2026 Vovinam Việt Võ Đạo Xóm Chiếu - Sắt son một lòng Võ Đạo Việt Nam. Thiết kế tinh tế, tối ưu hiệu năng.',
   seoTitle: 'CLB Vovinam Xóm Chiếu - Việt Võ Đạo Quận 4',
-  seoDescription: 'Chào mừng đến với Câu lạc bộ Vovinam Xóm Chiếu Quận 4 - Địa chỉ học võ uy tích, rèn luyện thể chất, tinh thần tự tôn dân tộc và võ đạo kiên cường.',
+  seoDescription: 'Chào mừng đến với Câu lạc bộ Vovinam Xóm Chiếu Quận 4 - Địa chỉ học võ uy tín, rèn luyện thể chất, tinh thần tự tôn dân tộc và võ đạo kiên cường.',
   banners: [
     {
       id: '1',

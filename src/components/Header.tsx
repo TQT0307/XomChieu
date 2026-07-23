@@ -137,15 +137,18 @@ export default function Header({
           className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none active:scale-95 transition-transform"
           title="CLB Vovinam Xóm Chiếu"
         >
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-[#0054A6] rounded-full flex items-center justify-center overflow-hidden border-2 border-[#FFF200] shadow-md transform hover:rotate-12 transition-transform duration-300">
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-[#0054A6] rounded-full flex items-center justify-center flex-shrink-0 p-[1px] ring-2 ring-[#FFF200] shadow-md hover:rotate-6 transition-transform duration-300">
             {webConfig.logo && !logoLoadFailed ? (
               <img 
                 src={webConfig.logo}
                 alt="Vovinam Logo" 
-                className="w-full h-full object-contain rounded-full"
+                className="block w-full h-full object-contain [image-rendering:auto]"
+                width={1024}
+                height={1024}
                 decoding="async"
                 fetchPriority="high"
                 referrerPolicy="no-referrer"
+                draggable={false}
                 onError={() => setLogoLoadFailed(true)}
               />
             ) : (
