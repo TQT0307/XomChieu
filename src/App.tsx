@@ -128,6 +128,10 @@ export default function App() {
   const pendingSyncsRef = useRef<Record<string, number>>({});
   const initialSyncCompletedRef = useRef(false);
   const localStorageTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  // Only state setters passed to AdminPanel are allowed to mark cloud data as
+  // dirty. Server polling, initial bundled data, and ordinary visitors must
+  // never write anything back to Firebase.
+  const adminDirtyKeysRef = useRef<Set<string>>(new Set());
 
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
@@ -397,6 +401,7 @@ export default function App() {
       if (payload && payload.lastUpdated) {
         localStorage.setItem('vovinam_last_updated', payload.lastUpdated.toString());
       }
+      adminDirtyKeysRef.current.delete(key);
     })
     .catch(err => {
       console.error(`Network error syncing ${key} to server API:`, err);
@@ -412,7 +417,7 @@ export default function App() {
     safeSetItem('vovinam_categories', categories);
     
     // Only write back to server if this change did NOT come from a server sync
-    const isDifferent = categories !== lastServerDataRef.current.categories;
+    const isDifferent = adminDirtyKeysRef.current.has('categories') && categories !== lastServerDataRef.current.categories;
     if (isDifferent) {
       syncKeyWithServer('categories', categories);
     }
@@ -422,7 +427,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_articles', articles);
     
-    const isDifferent = articles !== lastServerDataRef.current.articles;
+    const isDifferent = adminDirtyKeysRef.current.has('articles') && articles !== lastServerDataRef.current.articles;
     if (isDifferent) {
       syncKeyWithServer('articles', articles);
     }
@@ -432,7 +437,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_members', members);
     
-    const isDifferent = members !== lastServerDataRef.current.members;
+    const isDifferent = adminDirtyKeysRef.current.has('members') && members !== lastServerDataRef.current.members;
     if (isDifferent) {
       syncKeyWithServer('members', members);
     }
@@ -442,7 +447,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_coaches', coaches);
     
-    const isDifferent = coaches !== lastServerDataRef.current.coaches;
+    const isDifferent = adminDirtyKeysRef.current.has('coaches') && coaches !== lastServerDataRef.current.coaches;
     if (isDifferent) {
       syncKeyWithServer('coaches', coaches);
     }
@@ -452,7 +457,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_achievements', achievements);
     
-    const isDifferent = achievements !== lastServerDataRef.current.achievements;
+    const isDifferent = adminDirtyKeysRef.current.has('achievements') && achievements !== lastServerDataRef.current.achievements;
     if (isDifferent) {
       syncKeyWithServer('achievements', achievements);
     }
@@ -462,7 +467,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_tournaments', tournaments);
     
-    const isDifferent = tournaments !== lastServerDataRef.current.tournaments;
+    const isDifferent = adminDirtyKeysRef.current.has('tournaments') && tournaments !== lastServerDataRef.current.tournaments;
     if (isDifferent) {
       syncKeyWithServer('tournaments', tournaments);
     }
@@ -472,7 +477,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_clubs', clubs);
     
-    const isDifferent = clubs !== lastServerDataRef.current.clubs;
+    const isDifferent = adminDirtyKeysRef.current.has('clubs') && clubs !== lastServerDataRef.current.clubs;
     if (isDifferent) {
       syncKeyWithServer('clubs', clubs);
     }
@@ -482,7 +487,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_highlights', highlights);
     
-    const isDifferent = highlights !== lastServerDataRef.current.highlights;
+    const isDifferent = adminDirtyKeysRef.current.has('highlights') && highlights !== lastServerDataRef.current.highlights;
     if (isDifferent) {
       syncKeyWithServer('highlights', highlights);
     }
@@ -492,7 +497,7 @@ export default function App() {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     safeSetItem('vovinam_webConfig', webConfig);
     
-    const isDifferent = webConfig !== lastServerDataRef.current.webConfig;
+    const isDifferent = adminDirtyKeysRef.current.has('webConfig') && webConfig !== lastServerDataRef.current.webConfig;
     if (isDifferent) {
       syncKeyWithServer('webConfig', webConfig);
     }
@@ -553,23 +558,50 @@ export default function App() {
           <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center text-sm font-bold text-[#0054A6]">Đang tải trang quản trị...</div>}>
           <AdminPanel 
             categories={categories}
-            setCategories={setCategories}
+            setCategories={update => {
+              adminDirtyKeysRef.current.add('categories');
+              setCategories(update);
+            }}
             articles={articles}
-            setArticles={setArticles}
+            setArticles={update => {
+              adminDirtyKeysRef.current.add('articles');
+              setArticles(update);
+            }}
             members={members}
-            setMembers={setMembers}
+            setMembers={update => {
+              adminDirtyKeysRef.current.add('members');
+              setMembers(update);
+            }}
             coaches={coaches}
-            setCoaches={setCoaches}
+            setCoaches={update => {
+              adminDirtyKeysRef.current.add('coaches');
+              setCoaches(update);
+            }}
             achievements={achievements}
-            setAchievements={setAchievements}
+            setAchievements={update => {
+              adminDirtyKeysRef.current.add('achievements');
+              setAchievements(update);
+            }}
             tournaments={tournaments}
-            setTournaments={setTournaments}
+            setTournaments={update => {
+              adminDirtyKeysRef.current.add('tournaments');
+              setTournaments(update);
+            }}
             clubs={clubs}
-            setClubs={setClubs}
+            setClubs={update => {
+              adminDirtyKeysRef.current.add('clubs');
+              setClubs(update);
+            }}
             highlights={highlights}
-            setHighlights={setHighlights}
+            setHighlights={update => {
+              adminDirtyKeysRef.current.add('highlights');
+              setHighlights(update);
+            }}
             webConfig={webConfig}
-            setWebConfig={setWebConfig}
+            setWebConfig={update => {
+              adminDirtyKeysRef.current.add('webConfig');
+              setWebConfig(update);
+            }}
             onBackToWebsite={() => setIsAdmin(false)}
           />
           </Suspense>

@@ -427,6 +427,14 @@ function mergeCollectionPreservingMedia(existing: any, incoming: any) {
   });
 }
 
+function isSuspiciousCollectionReplacement(existing: any, incoming: any) {
+  if (!Array.isArray(existing) || !Array.isArray(incoming)) return false;
+  if (existing.length < 5) return false;
+  const removedCount = existing.length - incoming.length;
+  const allowedSingleSaveRemoval = Math.max(2, Math.floor(existing.length * 0.25));
+  return removedCount > allowedSingleSaveRemoval;
+}
+
 // Helper to get database timestamp only (optimized)
 async function getDbTimestamp() {
   if (hasFirebase && !firebaseFailed) {
@@ -664,35 +672,10 @@ async function getDbData() {
           }
         }
         
-        // Collection is empty, initialize it in split format
+        // A read request must never initialize or overwrite cloud storage.
+        // Return bundled content for rendering only; Firebase is written solely
+        // after an explicit Admin action.
         const initialDb = getInitialDbState();
-        const batch = dbInstance.batch();
-        
-        EXPECTED_KEYS.forEach(k => {
-          const docRef = dbInstance.collection("vovinam").doc(k);
-          if (k === "webConfig") {
-            const split = splitWebConfigForFirestore(initialDb.webConfig);
-            batch.set(docRef, split.config);
-            split.banners.forEach((banner: any, index: number) => {
-              batch.set(
-                dbInstance.collection("vovinam").doc(`${BANNER_DOC_PREFIX}${index}`),
-                { banner }
-              );
-            });
-          } else {
-            batch.set(docRef, { list: (initialDb as any)[k] });
-          }
-        });
-        
-        const metaRef = dbInstance.collection("vovinam").doc("metadata");
-        batch.set(metaRef, { lastUpdated: initialDb.lastUpdated });
-        
-        await withTimeout(
-          batch.commit(),
-          10000,
-          "Firebase Firestore initialization batch commit timed out"
-        );
-        
         memoryDb = initialDb;
         return initialDb;
       } catch (err) {
@@ -746,11 +729,8 @@ async function getDbData() {
           return legacyData;
         }
         
+        // Reads never seed persistent storage.
         const initialDb = getInitialDbState();
-        await Promise.all([
-          ...EXPECTED_KEYS.map(k => kv.set(`vovinam_${k}`, (initialDb as any)[k])),
-          kv.set("vovinam_metadata", { lastUpdated: initialDb.lastUpdated })
-        ]);
         memoryDb = initialDb;
         return initialDb;
       }
@@ -803,13 +783,8 @@ async function getDbData() {
         memoryDb = db;
         return db;
       } else {
+        // Reads never seed persistent storage.
         const initialDb = getInitialDbState();
-        await runRedisCommand(async (client) => {
-          await Promise.all([
-            ...EXPECTED_KEYS.map(k => client.set(`vovinam_${k}`, JSON.stringify((initialDb as any)[k]))),
-            client.set("vovinam_metadata", JSON.stringify({ lastUpdated: initialDb.lastUpdated }))
-          ]);
-        });
         memoryDb = initialDb;
         return initialDb;
       }
@@ -836,17 +811,8 @@ async function getDbData() {
           memoryDb = rest; // Sync memoryDb
           return rest;
         } else {
-          // Initial insert
+          // Reads never create the initial document.
           const initialDb = getInitialDbState();
-          try {
-            await withTimeout(
-              collection.insertOne({ _id: "main_state" as any, ...initialDb }),
-              2000,
-              "MongoDB insertOne operation timed out"
-            );
-          } catch (insertErr) {
-            console.error("[MongoDB] Initial insert error:", insertErr);
-          }
           memoryDb = initialDb;
           return initialDb;
         }
@@ -888,6 +854,83 @@ async function getDbData() {
   }
 }
 
+async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) {
+  const candidates = await readFirebaseRecoveryCandidates();
+  const previous = candidates.find(candidate => candidate.source === "firebase-current")?.data;
+  if (!previous) return;
+
+  const recoveryCollection = dbInstance.collection("vovinam_recovery");
+  const stateRef = recoveryCollection.doc("slot_state");
+  const stateSnapshot: any = await withTimeout(
+    stateRef.get(),
+    5000,
+    "Firebase recovery slot read timed out"
+  );
+  const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
+  const slots = { ...(state.slots || {}) };
+  const keysToBackup = changedKey ? [changedKey] : EXPECTED_KEYS;
+  const batch = dbInstance.batch();
+  const backupAt = Date.now();
+
+  keysToBackup.forEach(key => {
+    const slot = slots[key] === 0 ? 1 : 0;
+    slots[key] = slot;
+    const baseId = `${key}_slot_${slot}`;
+
+    if (key === "webConfig") {
+      const split = splitWebConfigForFirestore(previous.webConfig);
+      batch.set(recoveryCollection.doc(baseId), {
+        kind: "webConfig",
+        key,
+        slot,
+        backupAt,
+        config: split.config,
+        bannerCount: split.banners.length
+      });
+      split.banners.forEach((banner: any, index: number) => {
+        batch.set(recoveryCollection.doc(`${baseId}_banner_${index}`), {
+          kind: "banner",
+          key,
+          slot,
+          index,
+          backupAt,
+          banner
+        });
+      });
+    } else if (key === "achievements") {
+      const list = Array.isArray(previous.achievements) ? previous.achievements : [];
+      batch.set(recoveryCollection.doc(baseId), {
+        kind: "achievements",
+        key,
+        slot,
+        backupAt,
+        itemIds: list.map((item: any) => String(item.id))
+      });
+      list.forEach((item: any) => {
+        batch.set(
+          recoveryCollection.doc(`${baseId}_item_${encodeURIComponent(String(item.id))}`),
+          { kind: "achievement-item", key, slot, backupAt, item }
+        );
+      });
+    } else {
+      batch.set(recoveryCollection.doc(baseId), {
+        kind: "list",
+        key,
+        slot,
+        backupAt,
+        list: Array.isArray(previous[key]) ? previous[key] : []
+      });
+    }
+  });
+
+  batch.set(stateRef, { slots, updatedAt: backupAt }, { merge: true });
+  await withTimeout(
+    batch.commit(),
+    10000,
+    "Firebase safety backup timed out"
+  );
+}
+
 // Helper to save DB data (async)
 async function saveDbData(data: any, changedKey?: string) {
   const { _id, ...dataToSave } = data;
@@ -900,6 +943,7 @@ async function saveDbData(data: any, changedKey?: string) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
       try {
+        await createFirebaseSafetyBackup(dbInstance, changedKey);
         const batch = dbInstance.batch();
         const splitWebConfig = splitWebConfigForFirestore(dataToSave.webConfig);
 
@@ -951,9 +995,9 @@ async function saveDbData(data: any, changedKey?: string) {
         const metaRef = dbInstance.collection("vovinam").doc("metadata");
         batch.set(metaRef, { lastUpdated: dataToSave.lastUpdated || Date.now(), changedKey: changedKey || null });
         
-        // Delete legacy main_state document to clean up Firestore
-        const legacyRef = dbInstance.collection("vovinam").doc("main_state");
-        batch.delete(legacyRef);
+        // Never delete the legacy main_state document automatically. Older
+        // deployments may still contain the only complete copy of the club's
+        // data there, so it is retained as a recovery source.
         
         await withTimeout(
           batch.commit(),
@@ -1052,6 +1096,250 @@ async function saveDbData(data: any, changedKey?: string) {
 }
 
 // API Routes
+type RecoveryCandidate = {
+  source: string;
+  data: any;
+};
+
+function summarizeRecoveryData(data: any) {
+  if (!data || typeof data !== "object") {
+    return { available: false };
+  }
+  const counts: Record<string, number> = {};
+  EXPECTED_KEYS.forEach(key => {
+    if (Array.isArray(data[key])) counts[key] = data[key].length;
+  });
+  const bannerCount = Array.isArray(data.webConfig?.banners) ? data.webConfig.banners.length : 0;
+  return {
+    available: true,
+    lastUpdated: Number(data.lastUpdated || 0),
+    counts,
+    bannerCount,
+    hasLogo: typeof data.webConfig?.logo === "string" && data.webConfig.logo.trim() !== "",
+    approximateJsonBytes: Buffer.byteLength(JSON.stringify(data), "utf8")
+  };
+}
+
+async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
+  const dbInstance = await getFirebaseFirestore();
+  if (!dbInstance) return [];
+
+  const snapshot: any = await withTimeout(
+    dbInstance.collection("vovinam").get(),
+    10000,
+    "Firebase recovery read timed out"
+  );
+  const current: any = {};
+  let legacy: any = null;
+  let hasCurrent = false;
+  const splitBanners: Array<{ index: number; value: any }> = [];
+  const achievementItems = new Map<string, any>();
+  let achievementIds: string[] | null = null;
+
+  snapshot.forEach((doc: any) => {
+    const id = doc.id;
+    const value = doc.data() || {};
+    if (id === "main_state") {
+      legacy = value;
+    } else if (id === "metadata") {
+      current.lastUpdated = value.lastUpdated || 0;
+    } else if (id === "webConfig") {
+      const { bannerCount: _bannerCount, ...config } = value;
+      current.webConfig = config;
+      hasCurrent = true;
+    } else if (id.startsWith(BANNER_DOC_PREFIX)) {
+      const index = Number(id.substring(BANNER_DOC_PREFIX.length));
+      if (Number.isInteger(index) && value.banner) {
+        splitBanners.push({ index, value: value.banner });
+      }
+    } else if (id.startsWith(ACHIEVEMENT_DOC_PREFIX)) {
+      if (value.item?.id !== undefined) {
+        achievementItems.set(String(value.item.id), value.item);
+      }
+    } else if (EXPECTED_KEYS.includes(id)) {
+      hasCurrent = true;
+      if (id === "achievements" && Array.isArray(value.itemIds)) {
+        achievementIds = value.itemIds.map((itemId: any) => String(itemId));
+      } else {
+        current[id] = Array.isArray(value.list) ? value.list : [];
+      }
+    }
+  });
+
+  if (achievementIds) {
+    current.achievements = achievementIds
+      .map(itemId => achievementItems.get(itemId))
+      .filter(Boolean);
+  }
+  if (splitBanners.length > 0) {
+    current.webConfig = current.webConfig || {};
+    current.webConfig.banners = splitBanners
+      .sort((a, b) => a.index - b.index)
+      .map(item => item.value);
+  }
+
+  const candidates: RecoveryCandidate[] = [];
+  if (hasCurrent) candidates.push({ source: "firebase-current", data: current });
+  if (legacy) candidates.push({ source: "firebase-legacy", data: legacy });
+
+  const recoverySnapshot: any = await withTimeout(
+    dbInstance.collection("vovinam_recovery").get(),
+    10000,
+    "Firebase safety backup scan timed out"
+  );
+  const backupGroups = new Map<string, any>();
+  recoverySnapshot.forEach((doc: any) => {
+    const value = doc.data() || {};
+    if (!value.key || (value.slot !== 0 && value.slot !== 1)) return;
+    const groupId = `${value.key}:${value.slot}`;
+    const group = backupGroups.get(groupId) || {
+      key: value.key,
+      slot: value.slot,
+      backupAt: value.backupAt || 0,
+      banners: [],
+      items: new Map<string, any>()
+    };
+    group.backupAt = Math.max(group.backupAt, value.backupAt || 0);
+    if (value.kind === "list") group.list = value.list || [];
+    if (value.kind === "webConfig") {
+      group.config = value.config || {};
+      group.itemIds = null;
+    }
+    if (value.kind === "banner" && Number.isInteger(value.index)) {
+      group.banners.push({ index: value.index, value: value.banner });
+    }
+    if (value.kind === "achievements") group.itemIds = value.itemIds || [];
+    if (value.kind === "achievement-item" && value.item?.id !== undefined) {
+      group.items.set(String(value.item.id), value.item);
+    }
+    backupGroups.set(groupId, group);
+  });
+
+  backupGroups.forEach(group => {
+    let value: any;
+    if (Array.isArray(group.list)) {
+      value = group.list;
+    } else if (group.config) {
+      value = {
+        ...group.config,
+        banners: group.banners
+          .sort((a: any, b: any) => a.index - b.index)
+          .map((item: any) => item.value)
+      };
+    } else if (Array.isArray(group.itemIds)) {
+      value = group.itemIds.map((id: string) => group.items.get(String(id))).filter(Boolean);
+    } else {
+      return;
+    }
+    candidates.push({
+      source: `firebase-backup-${group.key}-slot-${group.slot}`,
+      data: { [group.key]: value, lastUpdated: group.backupAt }
+    });
+  });
+  return candidates;
+}
+
+async function readKvRecoveryCandidates(): Promise<RecoveryCandidate[]> {
+  if (!hasVercelKv || vercelKvFailed) return [];
+  const results = await Promise.all(
+    EXPECTED_KEYS.map(key => withTimeout(kv.get(`vovinam_${key}`), 2500, `KV recovery ${key} timed out`))
+  );
+  const metadata: any = await withTimeout(kv.get("vovinam_metadata"), 2500, "KV recovery metadata timed out");
+  const current: any = { lastUpdated: metadata?.lastUpdated || 0 };
+  let hasCurrent = false;
+  EXPECTED_KEYS.forEach((key, index) => {
+    if (results[index] !== null && results[index] !== undefined) {
+      current[key] = results[index];
+      hasCurrent = true;
+    }
+  });
+  const legacy = await withTimeout(kv.get("vovinam_db_state"), 2500, "KV legacy recovery timed out");
+  return [
+    ...(hasCurrent ? [{ source: "kv-current", data: current }] : []),
+    ...(legacy ? [{ source: "kv-legacy", data: legacy }] : [])
+  ];
+}
+
+async function readRedisRecoveryCandidates(): Promise<RecoveryCandidate[]> {
+  if (!hasRedis || redisFailed) return [];
+  const candidates: RecoveryCandidate[] = [];
+  await runRedisCommand(async client => {
+    const results = await Promise.all(EXPECTED_KEYS.map(key => client.get(`vovinam_${key}`)));
+    const metadataText = await client.get("vovinam_metadata");
+    const current: any = {
+      lastUpdated: metadataText ? JSON.parse(metadataText).lastUpdated || 0 : 0
+    };
+    let hasCurrent = false;
+    EXPECTED_KEYS.forEach((key, index) => {
+      if (results[index]) {
+        current[key] = JSON.parse(results[index] as string);
+        hasCurrent = true;
+      }
+    });
+    if (hasCurrent) candidates.push({ source: "redis-current", data: current });
+    const legacyText = await client.get("vovinam_db_state");
+    if (legacyText) candidates.push({ source: "redis-legacy", data: JSON.parse(legacyText) });
+  });
+  return candidates;
+}
+
+async function readMongoRecoveryCandidates(): Promise<RecoveryCandidate[]> {
+  if (!MONGODB_URI || mongoFailed) return [];
+  const client = await getMongoClient();
+  if (!client) return [];
+  const document: any = await withTimeout(
+    client.db("vovinam").collection("data").findOne({ _id: "main_state" as any }),
+    5000,
+    "Mongo recovery read timed out"
+  );
+  if (!document) return [];
+  const { _id, ...data } = document;
+  return [{ source: "mongo-current", data }];
+}
+
+async function collectRecoveryCandidates() {
+  const groups = await Promise.allSettled([
+    readFirebaseRecoveryCandidates(),
+    readKvRecoveryCandidates(),
+    readRedisRecoveryCandidates(),
+    readMongoRecoveryCandidates()
+  ]);
+  return groups.flatMap(result => result.status === "fulfilled" ? result.value : []);
+}
+
+app.get("/api/recovery-status", async (_req, res) => {
+  try {
+    const candidates = await collectRecoveryCandidates();
+    res.json({
+      warning: "Read-only recovery scan. No data was changed.",
+      sources: candidates.map(candidate => ({
+        source: candidate.source,
+        ...summarizeRecoveryData(candidate.data)
+      }))
+    });
+  } catch (err: any) {
+    console.error("[recovery-status]", err);
+    res.status(500).json({ error: "Không thể quét các nguồn khôi phục.", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/recovery-export/:source", async (req, res) => {
+  try {
+    const source = String(req.params.source || "");
+    const candidates = await collectRecoveryCandidates();
+    const candidate = candidates.find(item => item.source === source);
+    if (!candidate) {
+      return res.status(404).json({ error: "Không tìm thấy nguồn dữ liệu khôi phục này." });
+    }
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="vovinam-recovery-${source}-${Date.now()}.json"`);
+    res.send(JSON.stringify(candidate.data, null, 2));
+  } catch (err: any) {
+    console.error("[recovery-export]", err);
+    res.status(500).json({ error: "Không thể xuất dữ liệu khôi phục.", message: err?.message || String(err) });
+  }
+});
+
 app.get("/api/db-status", async (req, res) => {
   try {
     // Reset connection failure flags to allow active troubleshooting retries
@@ -1469,6 +1757,15 @@ app.post("/api/save-key", async (req, res) => {
     }
     
     const db = await getDbData();
+    if (isSuspiciousCollectionReplacement(db[key], data)) {
+      return res.status(409).json({
+        error: "Đã chặn thao tác có nguy cơ làm mất hàng loạt dữ liệu.",
+        key,
+        existingCount: db[key].length,
+        incomingCount: data.length,
+        message: "Hãy xuất bản sao lưu và thực hiện xóa theo từng mục nếu đây là thao tác có chủ ý."
+      });
+    }
     db[key] = key === "webConfig"
       ? mergeWebConfigPreservingMedia(db.webConfig, data)
       : Array.isArray(data)
@@ -1493,6 +1790,20 @@ app.post("/api/save-all", async (req, res) => {
   try {
     const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig, lastUpdated } = req.body;
     const existing = await getDbData();
+    const incomingByKey: Record<string, any> = {
+      categories, articles, members, coaches, achievements, tournaments, clubs, highlights
+    };
+    const suspiciousKey = Object.keys(incomingByKey).find(key =>
+      isSuspiciousCollectionReplacement(existing[key], incomingByKey[key])
+    );
+    if (suspiciousKey) {
+      return res.status(409).json({
+        error: "Đã chặn đồng bộ toàn bộ vì có nguy cơ làm mất hàng loạt dữ liệu.",
+        key: suspiciousKey,
+        existingCount: existing[suspiciousKey]?.length || 0,
+        incomingCount: incomingByKey[suspiciousKey]?.length || 0
+      });
+    }
 
     const now = lastUpdated || Date.now();
     const db = {
