@@ -323,13 +323,14 @@ export default function App() {
     // Initial load
     fetchServerData();
 
-    // Poll quickly while visible, but slow down background tabs to avoid wasting
-    // Firebase/Vercel requests. setTimeout prevents overlapping slow requests.
+    // Keep the free Firestore quota safe. The previous 1.5-second loop could use
+    // more than 50,000 reads/day from one long-running tab. Admin saves are
+    // optimistic, while visitors receive updates within at most one minute.
     const scheduleNextPoll = () => {
       pollTimer = setTimeout(async () => {
         await fetchServerData();
         if (isMounted) scheduleNextPoll();
-      }, document.hidden ? 10000 : 1500);
+      }, document.hidden ? 300000 : 60000);
     };
 
     const handleVisibilityChange = () => {

@@ -435,6 +435,35 @@ function isSuspiciousCollectionReplacement(existing: any, incoming: any) {
   return removedCount > allowedSingleSaveRemoval;
 }
 
+async function mirrorFirebaseDataToRedis(data: any, changedKey?: string) {
+  if (!hasRedis || redisFailed || !data) return;
+  try {
+    await runRedisCommand(async client => {
+      const metadataText = await client.get("vovinam_metadata");
+      const cachedTimestamp = metadataText ? Number(JSON.parse(metadataText).lastUpdated || 0) : 0;
+      const sourceTimestamp = Number(data.lastUpdated || 0);
+      if (!changedKey && sourceTimestamp > 0 && cachedTimestamp === sourceTimestamp) return;
+
+      const keys = changedKey ? [changedKey] : EXPECTED_KEYS;
+      await Promise.all([
+        ...keys.map(key =>
+          client.set(
+            `vovinam_${key}`,
+            JSON.stringify(data[key] ?? (key === "webConfig" ? {} : []))
+          )
+        ),
+        client.set("vovinam_metadata", JSON.stringify({
+          lastUpdated: sourceTimestamp || Date.now(),
+          changedKey: changedKey || null
+        }))
+      ]);
+    });
+  } catch (err) {
+    // Firebase remains authoritative. A cache failure must not fail an Admin save.
+    console.error("[Redis mirror] Failed to refresh recovery cache:", err);
+  }
+}
+
 // Helper to get database timestamp only (optimized)
 async function getDbTimestamp() {
   if (hasFirebase && !firebaseFailed) {
@@ -524,6 +553,27 @@ async function getDbTimestamp() {
 }
 
 async function getDbChangeStatus() {
+  // Use the inexpensive Redis mirror for polling. Firebase is reserved for the
+  // initial data load and actual changes, preventing the 50k free daily reads
+  // from being exhausted by open visitor tabs.
+  if (hasRedis && !redisFailed) {
+    try {
+      let cachedStatus: any = null;
+      await runRedisCommand(async client => {
+        const value = await client.get("vovinam_metadata");
+        if (value) cachedStatus = JSON.parse(value);
+      });
+      if (Number(cachedStatus?.lastUpdated || 0) > 0) {
+        return {
+          lastUpdated: Number(cachedStatus.lastUpdated),
+          changedKey: cachedStatus.changedKey || null
+        };
+      }
+    } catch (err) {
+      console.error("[Redis] Change status cache error:", err);
+    }
+  }
+
   if (hasFirebase && !firebaseFailed) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
@@ -654,6 +704,7 @@ async function getDbData() {
             // Merge legacy data, prioritize split documents if they exist
             const merged = { ...legacyData, ...db };
             memoryDb = merged;
+            await mirrorFirebaseDataToRedis(merged);
             return merged;
           }
           
@@ -668,6 +719,7 @@ async function getDbData() {
               db.lastUpdated = 0;
             }
             memoryDb = db;
+            await mirrorFirebaseDataToRedis(db);
             return db;
           }
         }
@@ -1004,6 +1056,7 @@ async function saveDbData(data: any, changedKey?: string) {
           10000,
           "Firebase Firestore SET batch commit timed out"
         );
+        await mirrorFirebaseDataToRedis(dataToSave, changedKey);
         return true;
       } catch (err) {
         console.error("[Firebase] Write batch error:", err);
@@ -1604,11 +1657,11 @@ app.get("/api/db-status", async (req, res) => {
       tests.push((async () => {
         try {
           const start = Date.now();
-          const docRef = dbInstance.collection("vovinam").doc("main_state_ping_test");
+          const docRef = dbInstance.collection("vovinam").doc("metadata");
           await withTimeout(
-            docRef.set({ ping: true, timestamp: new Date().toISOString() }),
+            docRef.get(),
             2000,
-            "Firebase Firestore ping write timed out"
+            "Firebase Firestore read test timed out"
           );
           status.firebase.test = `success (took ${Date.now() - start}ms)`;
         } catch (err: any) {
