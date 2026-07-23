@@ -403,6 +403,9 @@ export default function App() {
         localStorage.setItem('vovinam_last_updated', payload.lastUpdated.toString());
       }
       adminDirtyKeysRef.current.delete(key);
+      window.dispatchEvent(new CustomEvent('vovinam-sync-success', {
+        detail: { key, lastUpdated: payload?.lastUpdated || Date.now() }
+      }));
     })
     .catch(err => {
       console.error(`Network error syncing ${key} to server API:`, err);

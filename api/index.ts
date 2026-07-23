@@ -28,6 +28,7 @@ const app = express();
 const PORT = 3000;
 const MEDIA_COLLECTION = "vovinam_media";
 const MAX_STORED_IMAGE_BYTES = 650 * 1024;
+const FIREBASE_BACKUP_SLOT_COUNT = 5;
 
 // Body parser
 app.use(express.json({ limit: "50mb" }));
@@ -429,10 +430,31 @@ function mergeCollectionPreservingMedia(existing: any, incoming: any) {
 
 function isSuspiciousCollectionReplacement(existing: any, incoming: any) {
   if (!Array.isArray(existing) || !Array.isArray(incoming)) return false;
-  if (existing.length < 5) return false;
-  const removedCount = existing.length - incoming.length;
-  const allowedSingleSaveRemoval = Math.max(2, Math.floor(existing.length * 0.25));
-  return removedCount > allowedSingleSaveRemoval;
+  if (existing.length >= 5) {
+    const removedCount = existing.length - incoming.length;
+    const allowedSingleSaveRemoval = Math.max(2, Math.floor(existing.length * 0.25));
+    if (removedCount > allowedSingleSaveRemoval) return true;
+  }
+
+  const existingIds = new Set(
+    existing
+      .map(item => item?.id)
+      .filter(id => id !== undefined && id !== null)
+      .map(id => String(id))
+  );
+  const incomingIds = new Set(
+    incoming
+      .map(item => item?.id)
+      .filter(id => id !== undefined && id !== null)
+      .map(id => String(id))
+  );
+  if (existingIds.size >= 3 && incomingIds.size >= 3) {
+    const overlap = Array.from(existingIds).filter(id => incomingIds.has(id)).length;
+    const overlapRatio = overlap / Math.min(existingIds.size, incomingIds.size);
+    if (overlapRatio < 0.34) return true;
+  }
+
+  return false;
 }
 
 async function mirrorFirebaseDataToRedis(data: any, changedKey?: string) {
@@ -946,10 +968,79 @@ async function getDbData() {
   }
 }
 
+async function readFirebaseCurrentForBackup(dbInstance: any) {
+  const snapshot: any = await withTimeout(
+    dbInstance.collection("vovinam").get(),
+    10000,
+    "Firebase current data backup read timed out"
+  );
+  if (snapshot.empty) return null;
+
+  const current: any = {};
+  let legacy: any = null;
+  let hasCurrent = false;
+  const splitBanners: Array<{ index: number; value: any }> = [];
+  const achievementItems = new Map<string, any>();
+  let achievementIds: string[] | null = null;
+
+  snapshot.forEach((doc: any) => {
+    const id = doc.id;
+    const value = doc.data() || {};
+    if (id === "main_state") {
+      legacy = value;
+    } else if (id === "metadata") {
+      current.lastUpdated = value.lastUpdated || 0;
+    } else if (id === "webConfig") {
+      const { bannerCount: _bannerCount, ...config } = value;
+      current.webConfig = config;
+      hasCurrent = true;
+    } else if (id.startsWith(BANNER_DOC_PREFIX)) {
+      const index = Number(id.substring(BANNER_DOC_PREFIX.length));
+      if (Number.isInteger(index) && value.banner) {
+        splitBanners.push({ index, value: value.banner });
+      }
+    } else if (id.startsWith(ACHIEVEMENT_DOC_PREFIX)) {
+      if (value.item?.id !== undefined) {
+        achievementItems.set(String(value.item.id), value.item);
+      }
+    } else if (EXPECTED_KEYS.includes(id)) {
+      hasCurrent = true;
+      if (id === "achievements" && Array.isArray(value.itemIds)) {
+        achievementIds = value.itemIds.map((itemId: any) => String(itemId));
+      } else {
+        current[id] = Array.isArray(value.list) ? value.list : [];
+      }
+    }
+  });
+
+  if (achievementIds) {
+    current.achievements = achievementIds
+      .map(itemId => achievementItems.get(itemId))
+      .filter(Boolean);
+  }
+  if (splitBanners.length > 0) {
+    current.webConfig = current.webConfig || {};
+    current.webConfig.banners = splitBanners
+      .sort((a, b) => a.index - b.index)
+      .map(item => item.value);
+  }
+
+  if (hasCurrent) {
+    EXPECTED_KEYS.forEach(key => {
+      if (current[key] === undefined) {
+        current[key] = key === "webConfig" ? {} : [];
+      }
+    });
+    return current;
+  }
+  return legacy;
+}
+
 async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) {
-  const candidates = await readFirebaseRecoveryCandidates();
-  const previous = candidates.find(candidate => candidate.source === "firebase-current")?.data;
-  if (!previous) return;
+  // Read only the live collection. Do not scan the recovery collection on
+  // every save, otherwise backup retention itself would consume read quota.
+  const previous = await readFirebaseCurrentForBackup(dbInstance);
+  if (!previous) return null;
 
   const recoveryCollection = dbInstance.collection("vovinam_recovery");
   const stateRef = recoveryCollection.doc("slot_state");
@@ -965,7 +1056,10 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
   const backupAt = Date.now();
 
   keysToBackup.forEach(key => {
-    const slot = slots[key] === 0 ? 1 : 0;
+    const previousSlot = Number.isInteger(Number(slots[key]))
+      ? Number(slots[key])
+      : -1;
+    const slot = (previousSlot + 1) % FIREBASE_BACKUP_SLOT_COUNT;
     slots[key] = slot;
     const baseId = `${key}_slot_${slot}`;
 
@@ -989,6 +1083,9 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
           banner
         });
       });
+      for (let index = split.banners.length; index < MAX_BANNERS; index += 1) {
+        batch.delete(recoveryCollection.doc(`${baseId}_banner_${index}`));
+      }
     } else if (key === "achievements") {
       const list = Array.isArray(previous.achievements) ? previous.achievements : [];
       batch.set(recoveryCollection.doc(baseId), {
@@ -1015,12 +1112,18 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
     }
   });
 
-  batch.set(stateRef, { slots, updatedAt: backupAt }, { merge: true });
+  batch.set(stateRef, {
+    slots,
+    updatedAt: backupAt,
+    retentionSlots: FIREBASE_BACKUP_SLOT_COUNT,
+    ...(changedKey ? {} : { lastFullBackupAt: backupAt })
+  }, { merge: true });
   await withTimeout(
     batch.commit(),
     10000,
     "Firebase safety backup timed out"
   );
+  return backupAt;
 }
 
 // Helper to save DB data (async)
@@ -1422,7 +1525,12 @@ async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
   const backupGroups = new Map<string, any>();
   recoverySnapshot.forEach((doc: any) => {
     const value = doc.data() || {};
-    if (!value.key || (value.slot !== 0 && value.slot !== 1)) return;
+    if (
+      !value.key ||
+      !Number.isInteger(value.slot) ||
+      value.slot < 0 ||
+      value.slot >= FIREBASE_BACKUP_SLOT_COUNT
+    ) return;
     const groupId = `${value.key}:${value.slot}`;
     const group = backupGroups.get(groupId) || {
       key: value.key,
@@ -1435,6 +1543,7 @@ async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
     if (value.kind === "list") group.list = value.list || [];
     if (value.kind === "webConfig") {
       group.config = value.config || {};
+      group.bannerCount = Number(value.bannerCount || 0);
       group.itemIds = null;
     }
     if (value.kind === "banner" && Number.isInteger(value.index)) {
@@ -1456,6 +1565,7 @@ async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
         ...group.config,
         banners: group.banners
           .sort((a: any, b: any) => a.index - b.index)
+          .slice(0, Math.max(0, group.bannerCount || 0))
           .map((item: any) => item.value)
       };
     } else if (Array.isArray(group.itemIds)) {
@@ -1637,6 +1747,72 @@ app.get("/api/recovery-export/:source", async (req, res) => {
   } catch (err: any) {
     console.error("[recovery-export]", err);
     res.status(500).json({ error: "Không thể xuất dữ liệu khôi phục.", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/backup-status", async (_req, res) => {
+  try {
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) {
+      return res.status(503).json({
+        error: "Firebase Firestore chưa sẵn sàng để kiểm tra sao lưu."
+      });
+    }
+    const [changeStatus, stateSnapshot]: any[] = await Promise.all([
+      getDbChangeStatus(),
+      withTimeout(
+        dbInstance.collection("vovinam_recovery").doc("slot_state").get(),
+        5000,
+        "Firebase backup status timed out"
+      )
+    ]);
+    const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
+    const lastUpdated = Number(changeStatus?.lastUpdated || 0);
+    const lastFullBackupAt = Number(state.lastFullBackupAt || 0);
+    res.json({
+      available: true,
+      lastUpdated,
+      latestSafetyBackupAt: Number(state.updatedAt || 0),
+      lastFullBackupAt,
+      retentionSlots: Number(state.retentionSlots || FIREBASE_BACKUP_SLOT_COUNT),
+      needsBackup: lastFullBackupAt <= 0 || lastFullBackupAt < lastUpdated
+    });
+  } catch (err: any) {
+    console.error("[backup-status]", err);
+    res.status(500).json({
+      error: "Không thể kiểm tra trạng thái sao lưu.",
+      message: err?.message || String(err)
+    });
+  }
+});
+
+app.post("/api/backup-now", async (_req, res) => {
+  try {
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) {
+      return res.status(503).json({
+        error: "Firebase Firestore chưa sẵn sàng để tạo sao lưu."
+      });
+    }
+    const backupAt = await createFirebaseSafetyBackup(dbInstance);
+    if (!backupAt) {
+      return res.status(404).json({
+        error: "Không tìm thấy dữ liệu Firebase hiện tại để sao lưu."
+      });
+    }
+    const current = await getDbData();
+    res.json({
+      success: true,
+      backupAt,
+      retentionSlots: FIREBASE_BACKUP_SLOT_COUNT,
+      summary: summarizeRecoveryData(current)
+    });
+  } catch (err: any) {
+    console.error("[backup-now]", err);
+    res.status(500).json({
+      error: "Không thể tạo bản sao lưu Cloud.",
+      message: err?.message || String(err)
+    });
   }
 });
 
