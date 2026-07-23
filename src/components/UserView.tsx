@@ -1198,30 +1198,27 @@ export default function UserView({
             <div 
               key={hl.id}
               onClick={() => onSelectHighlight(hl)}
-              className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-950 text-white rounded-[2rem] p-4 border border-slate-800 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1"
+              className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-900 text-white rounded-[2rem] p-4 border border-slate-700 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/10 hover:-translate-y-1"
             >
               {/* Thumbnail Container */}
-              <div className="relative h-48 rounded-2xl overflow-hidden bg-black shadow-inner">
+              <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-800 shadow-inner">
                 <img 
                   src={hl.thumbnail} 
                   alt={hl.title} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100"
+                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 brightness-105 saturate-110 group-hover:brightness-110"
                   referrerPolicy="no-referrer"
                 />
                 
-                {/* Dark overlay & play button if video */}
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/10 transition-colors">
+                {/* Video overlay is kept light so the thumbnail remains clear. */}
+                <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
+                  hl.mediaType === 'video' ? 'bg-slate-950/20 group-hover:bg-transparent' : 'bg-transparent'
+                }`}>
                   {hl.mediaType === 'video' && (
                     <div className="w-14 h-14 bg-gradient-to-br from-[#FFF200] to-yellow-400 text-slate-900 rounded-full flex items-center justify-center pl-1 shadow-xl transform group-hover:scale-110 transition-transform">
                       <Play className="w-6 h-6 text-slate-950 fill-current" />
                     </div>
                   )}
                 </div>
-
-                {/* Media type badge */}
-                <span className="absolute top-3.5 left-3.5 bg-black/75 border border-slate-800 text-[9px] px-2.5 py-1 rounded-xl uppercase font-extrabold tracking-wider text-white">
-                  {hl.mediaType} ({hl.mediaUrls?.length || 1})
-                </span>
               </div>
 
               {/* Text Title details */}

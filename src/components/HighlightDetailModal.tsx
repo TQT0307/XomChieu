@@ -75,8 +75,8 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   };
 
   return (
-    <div className="detail-scrollbar fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 text-white rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-200">
+    <div className="detail-scrollbar fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-slate-800 text-white rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-600 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header bar */}
         <div className="p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between">
@@ -102,7 +102,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         </div>
 
         {/* Media Viewer Arena */}
-        <div className="relative bg-black h-[50vh] min-h-[320px] max-h-[600px] flex items-center justify-center group">
+        <div className="relative bg-slate-900 h-[50vh] min-h-[320px] max-h-[600px] flex items-center justify-center group">
           {/* Main Media Display */}
           <div
             ref={mediaViewportRef}
@@ -175,7 +175,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           </div>
 
           {!isVideoUrl(mediaList[activeMediaIndex]) && (
-            <div className="absolute top-3 right-3 flex items-center gap-1 rounded-xl border border-slate-700 bg-black/75 p-1.5 shadow-lg">
+            <div className="absolute top-3 right-3 flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800/90 p-1.5 shadow-lg">
               <button
                 type="button"
                 onClick={() => changeZoom(zoom - 0.25)}
@@ -214,13 +214,13 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             <>
               <button 
                 onClick={handlePrev}
-                className="absolute left-4 bg-black/60 hover:bg-black/90 text-white p-3 rounded-full transition-all border border-slate-700 cursor-pointer"
+                className="absolute left-4 bg-slate-800/85 hover:bg-slate-700 text-white p-3 rounded-full transition-all border border-slate-600 cursor-pointer"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               <button 
                 onClick={handleNext}
-                className="absolute right-4 bg-black/60 hover:bg-black/90 text-white p-3 rounded-full transition-all border border-slate-700 cursor-pointer"
+                className="absolute right-4 bg-slate-800/85 hover:bg-slate-700 text-white p-3 rounded-full transition-all border border-slate-600 cursor-pointer"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -228,12 +228,12 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           )}
 
           {/* Media Count Indicator */}
-          <div className="absolute bottom-4 right-4 bg-black/70 text-xs px-3 py-1 rounded-full border border-slate-700">
+          <div className="absolute bottom-4 right-4 bg-slate-800/90 text-xs px-3 py-1 rounded-full border border-slate-600">
             {activeMediaIndex + 1} / {mediaList.length}
           </div>
 
           {!isVideoUrl(mediaList[activeMediaIndex]) && zoom > 1 && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-slate-700 bg-black/70 px-3 py-1 text-[10px] text-slate-200 pointer-events-none">
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/90 px-3 py-1 text-[10px] text-slate-100 pointer-events-none">
               <Move className="w-3 h-3" />
               Kéo ảnh để căn vị trí
             </div>
