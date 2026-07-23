@@ -2770,33 +2770,46 @@ export default function AdminPanel({
                             reader.onload = async (event) => {
                               try {
                                 const parsed = JSON.parse(event.target?.result as string);
-                                const backupRes = await fetch('/api/backup-now', { method: 'POST' });
-                                const backupPayload = await backupRes.json();
-                                if (!backupRes.ok || !backupPayload.success) {
-                                  showToast('Đã chặn Import vì chưa tạo được bản sao lưu Cloud!', 'error');
+                                const normalizedBackup = await externalizeInlineImages(parsed);
+                                const restoreRes = await fetch('/api/restore-backup', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ backup: normalizedBackup })
+                                });
+                                const restorePayload = await restoreRes.json().catch(() => ({}));
+                                if (!restoreRes.ok || !restorePayload.success) {
+                                  const partial = Array.isArray(restorePayload.restoredKeys) &&
+                                    restorePayload.restoredKeys.length > 0
+                                    ? ` Đã lưu được: ${restorePayload.restoredKeys.join(', ')}.`
+                                    : '';
+                                  throw new Error(
+                                    `${restorePayload.message || restorePayload.error || 'Không thể khôi phục dữ liệu.'}${partial}`
+                                  );
+                                }
+
+                                if (applyCloudSnapshot && restorePayload.data) {
+                                  applyCloudSnapshot(restorePayload.data);
+                                } else {
+                                  window.location.reload();
                                   return;
                                 }
-                                
-                                if (parsed.vovinam_categories) setCategories(parsed.vovinam_categories);
-                                if (parsed.vovinam_articles) setArticles(parsed.vovinam_articles);
-                                if (parsed.vovinam_members) setMembers(parsed.vovinam_members);
-                                if (parsed.vovinam_coaches) setCoaches(parsed.vovinam_coaches);
-                                if (parsed.vovinam_achievements) setAchievements(parsed.vovinam_achievements);
-                                if (parsed.vovinam_tournaments) setTournaments(parsed.vovinam_tournaments);
-                                if (parsed.vovinam_clubs) setClubs(parsed.vovinam_clubs);
-                                if (parsed.vovinam_highlights) setHighlights(parsed.vovinam_highlights);
-                                if (parsed.vovinam_webConfig) {
-                                  setWebConfig(parsed.vovinam_webConfig);
-                                  setWebConfigForm(parsed.vovinam_webConfig);
-                                }
-                                
-                                addLog('Khôi phục', 'system', 'Đã nhập dữ liệu khôi phục thành công từ file .json');
-                                showToast('Đã khôi phục và đồng bộ toàn bộ dữ liệu thành công!', 'success');
+
+                                addLog(
+                                  'Khôi phục',
+                                  'system',
+                                  `Đã khôi phục tuần tự từ file .json: ${restorePayload.restoredKeys.join(', ')}`
+                                );
+                                showToast('Đã sao lưu an toàn và khôi phục dữ liệu thành công!', 'success');
                                 
                                 // Reset file input
                                 e.target.value = '';
                               } catch (err) {
-                                showToast('File sao lưu không đúng định dạng JSON hợp lệ!', 'error');
+                                showToast(
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'File sao lưu không đúng định dạng JSON hợp lệ!',
+                                  'error'
+                                );
                               }
                             };
                             reader.readAsText(file);

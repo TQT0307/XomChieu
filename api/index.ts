@@ -2698,6 +2698,111 @@ app.post("/api/save-key", requireAdminSession, async (req, res) => {
   }
 });
 
+// Restore one or more collections from an Admin JSON backup. Unlike the
+// regular React setters, this endpoint writes each supplied key sequentially,
+// so a large import cannot launch several competing Firestore batches.
+app.post("/api/restore-backup", requireAdminSession, async (req, res) => {
+  try {
+    const rawBackup = req.body?.backup && typeof req.body.backup === "object"
+      ? req.body.backup
+      : req.body;
+    if (!rawBackup || typeof rawBackup !== "object") {
+      return res.status(400).json({ error: "File sao lưu không có dữ liệu hợp lệ." });
+    }
+
+    const supplied: Partial<Record<string, any>> = {};
+    EXPECTED_KEYS.forEach(key => {
+      const prefixedKey = `vovinam_${key}`;
+      if (rawBackup[prefixedKey] !== undefined) {
+        supplied[key] = rawBackup[prefixedKey];
+      } else if (rawBackup[key] !== undefined) {
+        supplied[key] = rawBackup[key];
+      }
+    });
+    const restoreKeys = EXPECTED_KEYS.filter(key => supplied[key] !== undefined);
+    if (restoreKeys.length === 0) {
+      return res.status(400).json({
+        error: "File sao lưu không chứa mục dữ liệu nào mà hệ thống nhận diện được."
+      });
+    }
+
+    for (const key of restoreKeys) {
+      if (key === "webConfig") {
+        if (!supplied[key] || typeof supplied[key] !== "object" || Array.isArray(supplied[key])) {
+          return res.status(400).json({ error: "Cấu hình website trong file sao lưu không hợp lệ." });
+        }
+      } else if (!Array.isArray(supplied[key])) {
+        return res.status(400).json({ error: `Dữ liệu ${key} trong file sao lưu không phải danh sách.` });
+      }
+    }
+
+    const existing = await getDbData();
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) {
+      return res.status(503).json({ error: "Firebase Firestore chưa sẵn sàng để khôi phục dữ liệu." });
+    }
+
+    // A complete safety snapshot is mandatory before the first restored key.
+    const backupAt = await createFirebaseSafetyBackup(dbInstance, undefined, existing, true);
+    if (!backupAt) {
+      return res.status(500).json({ error: "Không thể tạo bản sao an toàn trước khi khôi phục." });
+    }
+
+    let working = {
+      ...existing,
+      keyVersions: { ...(existing.keyVersions || {}) }
+    };
+    const restoredKeys: string[] = [];
+
+    for (let index = 0; index < restoreKeys.length; index += 1) {
+      const key = restoreKeys[index];
+      const previous = working;
+      const incoming = supplied[key];
+      const restoredValue = key === "webConfig"
+        ? mergeWebConfigPreservingMedia(previous.webConfig, incoming)
+        : key === "categories"
+          ? incoming
+          : mergeCollectionPreservingMedia(previous[key], incoming);
+      const now = Date.now() + index;
+      working = {
+        ...previous,
+        [key]: restoredValue,
+        lastUpdated: now,
+        changedKey: key,
+        keyVersions: {
+          ...(previous.keyVersions || {}),
+          [key]: now
+        }
+      };
+
+      const saved = await saveDbData(working, key, previous, false);
+      if (!saved) {
+        return res.status(500).json({
+          error: `Không thể lưu ${key} trong quá trình khôi phục.`,
+          failedKey: key,
+          restoredKeys,
+          backupAt
+        });
+      }
+      restoredKeys.push(key);
+    }
+
+    res.json({
+      success: true,
+      restoredKeys,
+      backupAt,
+      lastUpdated: working.lastUpdated,
+      data: working
+    });
+  } catch (err: any) {
+    console.error("[restore-backup]", err);
+    res.status(500).json({
+      error: "Không thể khôi phục dữ liệu từ file sao lưu.",
+      message: err?.message || String(err)
+    });
+  }
+});
+
 // Sync entire database at once
 app.post("/api/save-all", requireAdminSession, async (req, res) => {
   try {
