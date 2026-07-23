@@ -464,6 +464,37 @@ async function mirrorFirebaseDataToRedis(data: any, changedKey?: string) {
   }
 }
 
+async function getValidRedisMirror() {
+  if (!hasRedis || redisFailed) return null;
+  try {
+    let mirroredData: any = null;
+    await runRedisCommand(async client => {
+      const metadataText = await client.get("vovinam_metadata");
+      if (!metadataText) return;
+
+      const metadata = JSON.parse(metadataText);
+      const lastUpdated = Number(metadata?.lastUpdated || 0);
+      // Existing seed/fallback data has lastUpdated = 0. It must never become
+      // authoritative merely because Firebase is temporarily unavailable.
+      if (lastUpdated <= 0) return;
+
+      const results = await Promise.all(
+        EXPECTED_KEYS.map(key => client.get(`vovinam_${key}`))
+      );
+      if (results.some(value => value === null)) return;
+
+      mirroredData = { lastUpdated };
+      EXPECTED_KEYS.forEach((key, index) => {
+        mirroredData[key] = JSON.parse(results[index] as string);
+      });
+    });
+    return mirroredData;
+  } catch (err) {
+    console.error("[Redis mirror] Failed to read validated cache:", err);
+    return null;
+  }
+}
+
 // Helper to get database timestamp only (optimized)
 async function getDbTimestamp() {
   if (hasFirebase && !firebaseFailed) {
@@ -640,7 +671,16 @@ async function getDbKeyData(key: string) {
 
 // Helper to get DB data (async)
 async function getDbData() {
-  // 1. Try Firebase Firestore if enabled (Highest priority)
+  // Once Firebase has populated a complete Redis mirror, serve public reads
+  // from Redis. Admin saves update Firebase first and refresh this mirror, so
+  // ordinary visitors no longer consume Firestore's daily document-read quota.
+  const redisMirror = await getValidRedisMirror();
+  if (redisMirror) {
+    memoryDb = redisMirror;
+    return redisMirror;
+  }
+
+  // 1. Try Firebase Firestore if enabled (authoritative cache warm-up)
   if (hasFirebase && !firebaseFailed) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
