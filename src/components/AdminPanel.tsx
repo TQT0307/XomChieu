@@ -701,30 +701,32 @@ export default function AdminPanel({
     return () => window.removeEventListener('vovinam-sync-error', handleSyncError);
   }, []);
 
-  // Initialize Admin Accounts state from localStorage
-  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(() => {
-    const saved = localStorage.getItem('vovinam_admin_accounts');
-    if (saved) {
+  // Account credentials are kept only in the private server database. The
+  // browser receives safe account metadata after a Super Admin signs in.
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
+
+  useEffect(() => {
+    // Remove credentials cached by releases older than the secure Admin API.
+    localStorage.removeItem('vovinam_admin_accounts');
+    localStorage.removeItem('vovinam_remembered_password');
+    ([localStorage, sessionStorage] as Storage[]).forEach(storage => {
+      const raw = storage.getItem('vovinam_current_admin');
+      if (!raw) return;
       try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // Fallback below
+        const safeAccount = JSON.parse(raw);
+        delete safeAccount.password;
+        delete safeAccount.passwordHash;
+        storage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
+      } catch {
+        storage.removeItem('vovinam_current_admin');
       }
-    }
-    const defaultAccounts: AdminAccount[] = [
-      {
-        id: 'admin',
-        username: 'admin',
-        password: '123',
-        role: 'super',
-        name: 'HLV Trưởng (Admin chính)',
-        permissions: ['articles', 'categories', 'coaches', 'members', 'achievements', 'tournaments', 'clubs', 'highlights', 'webConfig']
-      }
-    ];
-    localStorage.setItem('vovinam_admin_accounts', JSON.stringify(defaultAccounts));
-    return defaultAccounts;
-  });
-  const [adminAccountsCloudReady, setAdminAccountsCloudReady] = useState(false);
+    });
+    setCurrentAdmin(current => {
+      if (!current) return current;
+      const { password: _legacyPassword, ...safeAccount } = current;
+      return safeAccount;
+    });
+  }, []);
 
   // Initialize System Action Logs state from localStorage
   const [editHistories, setEditHistories] = useState<EditHistory[]>(() => {
@@ -778,8 +780,21 @@ export default function AdminPanel({
     if (!currentAdmin) return;
     let active = true;
     fetch('/api/admin-session', { cache: 'no-store' })
-      .then(response => {
+      .then(async response => {
         if (!response.ok) throw new Error('Admin session expired');
+        return response.json();
+      })
+      .then(payload => {
+        if (!active || !payload?.session) return;
+        const safeAccount = payload.session as AdminAccount;
+        setCurrentAdmin(safeAccount);
+        if (payload.session.remember === true || rememberMe) {
+          localStorage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
+          sessionStorage.removeItem('vovinam_current_admin');
+        } else {
+          sessionStorage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
+          localStorage.removeItem('vovinam_current_admin');
+        }
       })
       .catch(() => {
         if (!active) return;
@@ -930,10 +945,10 @@ export default function AdminPanel({
     }
   }, [activeTab, currentAdmin]);
 
-  // Load shared admin accounts from Firebase. On the first migration only, merge
-  // accounts already created in this browser so they are not lost.
+  // Only the Super Admin can load account metadata. Passwords and hashes never
+  // leave the private server API.
   useEffect(() => {
-    if (!currentAdmin) return;
+    if (!currentAdmin || currentAdmin.role !== 'super') return;
     let active = true;
     fetch('/api/admin-accounts', { cache: 'no-store' })
       .then(async response => {
@@ -943,30 +958,13 @@ export default function AdminPanel({
       .then(payload => {
         if (!active) return;
         const cloudAccounts = Array.isArray(payload.accounts) ? payload.accounts as AdminAccount[] : [];
-        if (payload.exists && cloudAccounts.length > 0) {
-          setAdminAccounts(cloudAccounts);
-        } else {
-          // Existing local assistant accounts become the initial cloud account list.
-          setAdminAccounts(current => current);
-        }
-        setAdminAccountsCloudReady(true);
+        setAdminAccounts(cloudAccounts);
       })
       .catch(error => {
-        console.warn('Không thể tải tài khoản Admin từ Firebase, tạm dùng dữ liệu máy này:', error);
+        console.warn('Không thể tải danh sách tài khoản Admin an toàn:', error);
       });
     return () => { active = false; };
-  }, [currentAdmin?.id]);
-
-  // Synchronize admin accounts to localStorage and the private Firebase document.
-  useEffect(() => {
-    localStorage.setItem('vovinam_admin_accounts', JSON.stringify(adminAccounts));
-    if (!adminAccountsCloudReady) return;
-    fetch('/api/admin-accounts', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accounts: adminAccounts })
-    }).catch(error => console.error('Không thể đồng bộ tài khoản Admin:', error));
-  }, [adminAccounts, adminAccountsCloudReady]);
+  }, [currentAdmin?.id, currentAdmin?.role]);
 
   // Clear search query when changing tabs
   useEffect(() => {
@@ -1013,11 +1011,12 @@ export default function AdminPanel({
         return;
       }
       account = payload.account as AdminAccount;
-      const accountsResponse = await fetch('/api/admin-accounts', { cache: 'no-store' });
-      const accountsPayload = await accountsResponse.json().catch(() => ({}));
-      if (accountsResponse.ok && Array.isArray(accountsPayload.accounts)) {
-        setAdminAccounts(accountsPayload.accounts);
-        setAdminAccountsCloudReady(true);
+      if (account.role === 'super') {
+        const accountsResponse = await fetch('/api/admin-accounts', { cache: 'no-store' });
+        const accountsPayload = await accountsResponse.json().catch(() => ({}));
+        if (accountsResponse.ok && Array.isArray(accountsPayload.accounts)) {
+          setAdminAccounts(accountsPayload.accounts);
+        }
       }
     } catch (error) {
       console.error('Không thể đăng nhập Admin:', error);
@@ -1077,23 +1076,37 @@ export default function AdminPanel({
     sessionStorage.removeItem('vovinam_current_admin');
   };
 
+  const persistAdminAccountList = async (nextAccounts: AdminAccount[]) => {
+    try {
+      const response = await fetch('/api/admin-accounts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts: nextAccounts })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showToast(payload.error || 'Không thể lưu danh sách tài khoản Admin.', 'error');
+        return false;
+      }
+      setAdminAccounts(Array.isArray(payload.accounts) ? payload.accounts : []);
+      return true;
+    } catch (error) {
+      console.error('Không thể lưu danh sách tài khoản Admin:', error);
+      showToast('Không thể kết nối máy chủ để lưu tài khoản Admin.', 'error');
+      return false;
+    }
+  };
+
   // Password Change Handler
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
 
     if (!currentAdmin) return;
 
-    // Retrieve active account state to read latest password
-    const activeAcc = adminAccounts.find(acc => acc.username === currentAdmin.username);
-    if (!activeAcc || activeAcc.password !== currentPassword) {
-      setPasswordError('Mật khẩu hiện tại không chính xác!');
-      return;
-    }
-
-    if (newPassword.length < 3) {
-      setPasswordError('Mật khẩu mới phải dài từ 3 ký tự trở lên!');
+    if (newPassword.length < 8 || !/[A-Za-zÀ-ỹ]/u.test(newPassword) || !/\d/.test(newPassword)) {
+      setPasswordError('Mật khẩu mới phải dài ít nhất 8 ký tự, có chữ và có số!');
       return;
     }
 
@@ -1102,19 +1115,30 @@ export default function AdminPanel({
       return;
     }
 
-    // Update password (case-insensitive check for absolute safety)
-    setAdminAccounts(prev => 
-      prev.map(acc => acc.username.trim().toLowerCase() === currentAdmin.username.trim().toLowerCase() ? { ...acc, password: newPassword } : acc)
-    );
-
-    // Update currentAdmin state with new password
-    const updatedAdmin = { ...currentAdmin, password: newPassword };
-    setCurrentAdmin(updatedAdmin);
-    if (rememberMe) {
-      localStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
-      localStorage.removeItem('vovinam_remembered_password');
-    } else {
-      sessionStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
+    try {
+      const response = await fetch('/api/admin-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setPasswordError(payload.error || 'Không thể thay đổi mật khẩu.');
+        return;
+      }
+      const updatedAdmin = payload.account as AdminAccount;
+      setCurrentAdmin(updatedAdmin);
+      if (rememberMe) {
+        localStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
+        sessionStorage.removeItem('vovinam_current_admin');
+      } else {
+        sessionStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
+        localStorage.removeItem('vovinam_current_admin');
+      }
+    } catch (error) {
+      console.error('Không thể đổi mật khẩu:', error);
+      setPasswordError('Không thể kết nối máy chủ để đổi mật khẩu.');
+      return;
     }
 
     addLog('Đổi mật khẩu', 'security', `Người dùng '${currentAdmin.username}' đổi mật khẩu thành công`);
@@ -1125,9 +1149,9 @@ export default function AdminPanel({
   };
 
   // Admin account add/edit save handler
-  const handleSaveAdminAccount = (e: React.FormEvent) => {
+  const handleSaveAdminAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminForm.username || !adminForm.password || !adminForm.name) {
+    if (!adminForm.username || !adminForm.name || (editAdminId === null && !adminForm.password)) {
       showToast('Vui lòng điền đầy đủ các thông tin bắt buộc!', 'error');
       return;
     }
@@ -1147,14 +1171,21 @@ export default function AdminPanel({
         name: adminForm.name,
         permissions: adminForm.permissions || []
       };
-      setAdminAccounts(prev => [...prev, newAcc]);
+      if (!await persistAdminAccountList([...adminAccounts, newAcc])) return;
       addLog('Cấp tài khoản', 'admins', `Cấp tài khoản Admin phụ mới: ${newAcc.username} (${newAcc.name})`);
       showToast('Cấp tài khoản Admin phụ thành công!', 'success');
     } else {
-      // Edit
-      setAdminAccounts(prev => 
-        prev.map(acc => acc.id === editAdminId ? { ...acc, ...adminForm, username: uName } as AdminAccount : acc)
+      const nextAccounts = adminAccounts.map(acc =>
+        acc.id === editAdminId
+          ? {
+              ...acc,
+              ...adminForm,
+              username: uName,
+              password: adminForm.password || undefined
+            } as AdminAccount
+          : acc
       );
+      if (!await persistAdminAccountList(nextAccounts)) return;
       addLog('Sửa tài khoản', 'admins', `Cập nhật thông tin tài khoản: ${uName} (${adminForm.name})`);
       showToast('Cập nhật tài khoản Admin thành công!', 'success');
     }
@@ -1165,14 +1196,14 @@ export default function AdminPanel({
   };
 
   // Admin delete handler
-  const handleDeleteAdmin = (id: string, username: string) => {
-    if (username === 'admin') {
-      showToast('Không thể xóa tài khoản Super Admin chính!', 'error');
+  const handleDeleteAdmin = async (id: string, username: string) => {
+    if (id === currentAdmin?.id) {
+      showToast('Không thể xóa tài khoản Admin đang đăng nhập!', 'error');
       return;
     }
     if (!window.confirm(`Bạn có chắc chắn muốn xóa tài khoản '${username}'?`)) return;
 
-    setAdminAccounts(prev => prev.filter(acc => acc.id !== id));
+    if (!await persistAdminAccountList(adminAccounts.filter(acc => acc.id !== id))) return;
     addLog('Xóa tài khoản', 'admins', `Đã xóa tài khoản: ${username}`);
     showToast('Xóa tài khoản Admin thành công!', 'success');
   };
@@ -2284,7 +2315,8 @@ export default function AdminPanel({
                     type="password"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Tối thiểu 3 ký tự..."
+                    placeholder="Tối thiểu 8 ký tự, có chữ và số..."
+                    minLength={8}
                     className="w-full text-sm border p-2.5 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none transition-all font-mono"
                     required
                   />
@@ -2358,14 +2390,18 @@ export default function AdminPanel({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mật khẩu mới</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          {editAdminId === null ? 'Mật khẩu ban đầu' : 'Đặt mật khẩu mới (không bắt buộc)'}
+                        </label>
                         <input 
-                          type="text"
+                          type="password"
                           value={adminForm.password || ''}
                           onChange={e => setAdminForm({ ...adminForm, password: e.target.value })}
-                          placeholder="Nhập mật khẩu..."
+                          placeholder={editAdminId === null ? 'Tối thiểu 8 ký tự, có chữ và số' : 'Để trống nếu giữ mật khẩu hiện tại'}
                           className="w-full text-sm border p-2.5 rounded-lg font-mono outline-none"
-                          required
+                          required={editAdminId === null}
+                          minLength={editAdminId === null ? 8 : undefined}
+                          autoComplete="new-password"
                         />
                       </div>
 
@@ -2443,7 +2479,7 @@ export default function AdminPanel({
                     </div>
                     <button
                       onClick={() => {
-                        setAdminForm({ username: '', password: '123', name: '', role: 'assistant', permissions: ['articles', 'members'] });
+                        setAdminForm({ username: '', password: '', name: '', role: 'assistant', permissions: ['articles', 'members'] });
                         setEditAdminId(null);
                         setIsEditingAdmin(true);
                       }}
@@ -2474,7 +2510,7 @@ export default function AdminPanel({
                         <tr className="bg-slate-50 text-slate-400 uppercase tracking-wider font-extrabold border-b">
                           <th className="p-3">Tên hiển thị</th>
                           <th className="p-3">Tài khoản</th>
-                          <th className="p-3">Mật khẩu</th>
+                          <th className="p-3">Bảo mật</th>
                           <th className="p-3">Vai trò</th>
                           <th className="p-3">Mục được phép quản lý</th>
                           <th className="p-3 text-right">Thao tác</th>
@@ -2495,8 +2531,8 @@ export default function AdminPanel({
                               <td className="p-3 font-bold text-slate-800">{acc.name}</td>
                               <td className="p-3 font-mono text-slate-500">{acc.username}</td>
                               <td className="p-3">
-                                <span className="bg-rose-50 text-rose-700 font-mono text-xs font-bold px-2.5 py-1 rounded border border-rose-100 block w-max max-w-[150px] truncate" title={acc.password}>
-                                  {acc.password || '---'}
+                                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded border border-emerald-100 block w-max">
+                                  {acc.hasPassword ? 'Đã bảo vệ' : 'Cần đặt mật khẩu'}
                                 </span>
                               </td>
                               <td className="p-3">
@@ -2529,7 +2565,7 @@ export default function AdminPanel({
                                   <div className="flex items-center justify-end gap-1.5">
                                     <button
                                       onClick={() => {
-                                        setAdminForm(acc);
+                                        setAdminForm({ ...acc, password: '' });
                                         setEditAdminId(acc.id);
                                         setIsEditingAdmin(true);
                                       }}

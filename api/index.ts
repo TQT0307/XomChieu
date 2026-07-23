@@ -4,13 +4,24 @@ dotenv.config();
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import {
+  canAccessAdminPermission,
+  hashPassword,
+  isAllowedRequestOrigin,
+  normalizeUsername,
+  StoredAdminAccount,
+  toPublicAdminAccount,
+  validatePassword,
+  validateUsername,
+  verifyPassword
+} from "./security.js";
 
 // Seed data
 import {
@@ -32,6 +43,8 @@ const MAX_STORED_IMAGE_BYTES = 650 * 1024;
 const FIREBASE_BACKUP_SLOT_COUNT = 5;
 const AUTO_BACKUP_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const ADMIN_SESSION_COOKIE = "vovinam_admin_session";
+const LOGIN_ATTEMPT_LIMIT = 8;
+const LOGIN_ATTEMPT_WINDOW_SECONDS = 15 * 60;
 
 // Body parser
 app.use(express.json({ limit: "8mb" }));
@@ -241,6 +254,9 @@ function signAdminSession(account: any, remember: boolean) {
     id: String(account.id || ""),
     username: String(account.username || ""),
     role: account.role,
+    permissions: Array.isArray(account.permissions) ? account.permissions : [],
+    credentialVersion: Number(account.credentialVersion || 0),
+    remember: Boolean(remember),
     exp: Date.now() + (remember ? 30 * 24 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000)
   })).toString("base64url");
   const signature = createHmac("sha256", getAdminSessionSecret())
@@ -276,14 +292,71 @@ function readAdminSession(req: any) {
   }
 }
 
-function requireAdminSession(req: any, res: any, next: any) {
+function requireSameOrigin(req: any, res: any, next: any) {
+  const origin = String(req.headers?.origin || "");
+  const host = String(req.headers?.["x-forwarded-host"] || req.headers?.host || "")
+    .split(",")[0]
+    .trim();
+  if (!isAllowedRequestOrigin(origin, host)) {
+    return res.status(403).json({ error: "Nguồn gửi yêu cầu không hợp lệ." });
+  }
+  next();
+}
+
+async function requireAdminSession(req: any, res: any, next: any) {
   const session = readAdminSession(req);
   if (!session) {
     return res.status(401).json({
       error: "Phiên đăng nhập Admin đã hết hạn. Vui lòng đăng nhập lại."
     });
   }
-  req.adminSession = session;
+  try {
+    const accountResult = await readAdminAccounts();
+    let accounts = accountResult.accounts;
+    try {
+      accounts = await migrateLegacyAdminAccounts(accounts);
+    } catch (migrationError) {
+      // Do not lock out a valid administrator during a temporary database
+      // outage. A later authenticated request will retry the migration.
+      console.error("[Admin credential migration]", migrationError);
+    }
+    const storedAccount = accounts.find((account: StoredAdminAccount) =>
+      String(account.id || "") === String(session.id || "") &&
+      normalizeUsername(account.username) === normalizeUsername(session.username)
+    );
+    if (
+      !storedAccount ||
+      Number(storedAccount.credentialVersion || 0) !== Number(session.credentialVersion || 0)
+    ) {
+      return res.status(401).json({
+        error: "Tài khoản hoặc phiên đăng nhập đã thay đổi. Vui lòng đăng nhập lại."
+      });
+    }
+    req.adminSession = {
+      ...session,
+      ...toPublicAdminAccount(storedAccount)
+    };
+    next();
+  } catch (error) {
+    console.error("[Admin session validation]", error);
+    return res.status(503).json({
+      error: "Không thể xác minh phiên Admin vì kho tài khoản đang tạm thời không khả dụng."
+    });
+  }
+}
+
+function requireSuperAdmin(req: any, res: any, next: any) {
+  if (req.adminSession?.role !== "super") {
+    return res.status(403).json({ error: "Chỉ Admin chính được phép thực hiện thao tác này." });
+  }
+  next();
+}
+
+function requireRequestedKeyPermission(req: any, res: any, next: any) {
+  const key = String(req.body?.key || "");
+  if (!canAccessAdminPermission(req.adminSession, key)) {
+    return res.status(403).json({ error: "Tài khoản không có quyền cập nhật mục dữ liệu này." });
+  }
   next();
 }
 
@@ -387,15 +460,16 @@ async function getFirebaseFirestore() {
 
 const DEFAULT_ADMIN_ACCOUNTS = [{
   id: "admin",
-  username: "admin",
-  password: "123",
+  username: normalizeUsername(process.env.ADMIN_BOOTSTRAP_USERNAME || "admin"),
+  password: process.env.ADMIN_BOOTSTRAP_PASSWORD || "",
   role: "super",
   name: "HLV Trưởng (Admin chính)",
   permissions: [
     "articles", "categories", "coaches", "members", "achievements",
     "tournaments", "clubs", "highlights", "webConfig"
-  ]
-}];
+  ],
+  credentialVersion: 0
+}].filter(() => isValidEnvVar(process.env.ADMIN_BOOTSTRAP_PASSWORD));
 
 async function mirrorAdminAccountsToRedis(accounts: any[]) {
   if (!hasRedis || redisFailed) return;
@@ -408,7 +482,62 @@ async function mirrorAdminAccountsToRedis(accounts: any[]) {
   }
 }
 
-async function readAdminAccounts() {
+let adminAccountsCache: {
+  accounts: StoredAdminAccount[];
+  exists: boolean;
+  expiresAt: number;
+} | null = null;
+
+async function persistAdminAccounts(accounts: StoredAdminAccount[]) {
+  const dbInstance = await getFirebaseFirestore();
+  if (!dbInstance) throw new Error("Firebase is unavailable");
+  await withTimeout(
+    dbInstance.collection("vovinam_private").doc("admin_accounts").set({
+      accounts,
+      updatedAt: Date.now(),
+      credentialFormat: "scrypt-v1"
+    }),
+    5000,
+    "Firebase admin accounts SET timed out"
+  );
+  await mirrorAdminAccountsToRedis(accounts);
+  adminAccountsCache = {
+    accounts,
+    exists: true,
+    expiresAt: Date.now() + 30_000
+  };
+}
+
+async function migrateLegacyAdminAccounts(accounts: StoredAdminAccount[]) {
+  let changed = false;
+  const migratedAccounts: StoredAdminAccount[] = [];
+  for (const account of accounts) {
+    if (!account.passwordHash && typeof account.password === "string" && account.password) {
+      const migrated: StoredAdminAccount = {
+        ...account,
+        passwordHash: await hashPassword(account.password),
+        credentialVersion: Number(account.credentialVersion || 0)
+      };
+      delete migrated.password;
+      migratedAccounts.push(migrated);
+      changed = true;
+    } else {
+      migratedAccounts.push(account);
+    }
+  }
+  if (changed) await persistAdminAccounts(migratedAccounts);
+  return migratedAccounts;
+}
+
+async function readAdminAccounts(force = false) {
+  if (!force && adminAccountsCache && adminAccountsCache.expiresAt > Date.now()) {
+    return {
+      accounts: adminAccountsCache.accounts,
+      exists: adminAccountsCache.exists,
+      dbInstance: await getFirebaseFirestore()
+    };
+  }
+
   const dbInstance = await getFirebaseFirestore();
   if (dbInstance) {
     try {
@@ -420,7 +549,16 @@ async function readAdminAccounts() {
       const accounts = snapshot.exists && Array.isArray(snapshot.data()?.accounts)
         ? snapshot.data()!.accounts
         : DEFAULT_ADMIN_ACCOUNTS;
-      await mirrorAdminAccountsToRedis(accounts);
+      if (!accounts.length) {
+        throw new Error(
+          "No Admin account exists. Configure ADMIN_BOOTSTRAP_PASSWORD once to initialize the first account."
+        );
+      }
+      adminAccountsCache = {
+        accounts,
+        exists: snapshot.exists,
+        expiresAt: Date.now() + 30_000
+      };
       return { accounts, exists: snapshot.exists, dbInstance };
     } catch (error) {
       console.error("[Admin accounts] Firebase read failed, trying Redis:", error);
@@ -434,10 +572,81 @@ async function readAdminAccounts() {
       if (value) accounts = JSON.parse(value);
     });
     if (accounts && Array.isArray(accounts) && accounts.length > 0) {
+      adminAccountsCache = {
+        accounts,
+        exists: true,
+        expiresAt: Date.now() + 15_000
+      };
       return { accounts, exists: true, dbInstance };
     }
   }
   throw new Error("Admin account storage is unavailable");
+}
+
+const localLoginAttempts = new Map<string, { count: number; expiresAt: number }>();
+
+function getLoginAttemptKey(req: any, username: string) {
+  const forwarded = String(req.headers?.["x-forwarded-for"] || "")
+    .split(",")[0]
+    .trim();
+  const address = forwarded || String(req.socket?.remoteAddress || "unknown");
+  const fingerprint = createHash("sha256")
+    .update(`${address}|${normalizeUsername(username)}`)
+    .digest("hex");
+  return `vovinam_login_attempts:${fingerprint}`;
+}
+
+async function getFailedLoginCount(key: string): Promise<number> {
+  if (hasRedis && !redisFailed) {
+    try {
+      let value: string | null = null;
+      await runRedisCommand(async client => {
+        value = await client.get(key);
+      });
+      return Number(value || 0);
+    } catch {
+      // Continue with the per-instance fallback below.
+    }
+  }
+  const current = localLoginAttempts.get(key);
+  if (!current || current.expiresAt <= Date.now()) {
+    localLoginAttempts.delete(key);
+    return 0;
+  }
+  return current.count;
+}
+
+async function recordFailedLogin(key: string): Promise<number> {
+  if (hasRedis && !redisFailed) {
+    try {
+      let count = 0;
+      await runRedisCommand(async client => {
+        count = Number(await client.incr(key));
+        if (count === 1) await client.expire(key, LOGIN_ATTEMPT_WINDOW_SECONDS);
+      });
+      return count;
+    } catch {
+      // Continue with the per-instance fallback below.
+    }
+  }
+  const current = localLoginAttempts.get(key);
+  const next = current && current.expiresAt > Date.now() ? current.count + 1 : 1;
+  localLoginAttempts.set(key, {
+    count: next,
+    expiresAt: Date.now() + LOGIN_ATTEMPT_WINDOW_SECONDS * 1000
+  });
+  return next;
+}
+
+async function clearFailedLogins(key: string) {
+  localLoginAttempts.delete(key);
+  if (hasRedis && !redisFailed) {
+    try {
+      await runRedisCommand(client => client.del(key));
+    } catch {
+      // Login already succeeded; failure to clear the secondary limiter is non-fatal.
+    }
+  }
 }
 
 // Global in-memory fallback to avoid crashes on read-only environments like Vercel Serverless
@@ -1937,7 +2146,7 @@ async function collectRecoveryCandidates() {
   return groups.flatMap(result => result.status === "fulfilled" ? result.value : []);
 }
 
-app.get("/api/recovery-status", async (_req, res) => {
+app.get("/api/recovery-status", requireAdminSession, requireSuperAdmin, async (_req, res) => {
   try {
     const candidates = await collectRecoveryCandidates();
     res.json({
@@ -1953,7 +2162,7 @@ app.get("/api/recovery-status", async (_req, res) => {
   }
 });
 
-app.get("/api/recovery-pitr-scan", async (_req, res) => {
+app.get("/api/recovery-pitr-scan", requireAdminSession, requireSuperAdmin, async (_req, res) => {
   try {
     const projectId = getFirebaseRecoveryProjectId();
     if (!projectId) return res.status(503).json({ error: "Không xác định được Firebase projectId." });
@@ -1990,7 +2199,7 @@ app.get("/api/recovery-pitr-scan", async (_req, res) => {
   }
 });
 
-app.get("/api/recovery-pitr-export", async (req, res) => {
+app.get("/api/recovery-pitr-export", requireAdminSession, requireSuperAdmin, async (req, res) => {
   try {
     const minutesAgo = Number(req.query.minutesAgo);
     const variant = String(req.query.variant || "");
@@ -2021,7 +2230,7 @@ app.get("/api/recovery-pitr-export", async (req, res) => {
   }
 });
 
-app.get("/api/recovery-export/:source", async (req, res) => {
+app.get("/api/recovery-export/:source", requireAdminSession, requireSuperAdmin, async (req, res) => {
   try {
     const source = String(req.params.source || "");
     const candidates = await collectRecoveryCandidates();
@@ -2038,7 +2247,7 @@ app.get("/api/recovery-export/:source", async (req, res) => {
   }
 });
 
-app.get("/api/backup-status", async (_req, res) => {
+app.get("/api/backup-status", requireAdminSession, requireSuperAdmin, async (_req, res) => {
   try {
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
@@ -2077,7 +2286,12 @@ app.get("/api/backup-status", async (_req, res) => {
   }
 });
 
-app.post("/api/backup-now", requireAdminSession, async (_req, res) => {
+app.post(
+  "/api/backup-now",
+  requireSameOrigin,
+  requireAdminSession,
+  requireSuperAdmin,
+  async (_req, res) => {
   try {
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
@@ -2105,9 +2319,14 @@ app.post("/api/backup-now", requireAdminSession, async (_req, res) => {
       message: err?.message || String(err)
     });
   }
+  }
+);
+
+app.get("/api/health", (_req, res) => {
+  res.json({ ok: true, service: "vovinam-api", timestamp: Date.now() });
 });
 
-app.get("/api/db-status", async (req, res) => {
+app.get("/api/db-status", requireAdminSession, requireSuperAdmin, async (req, res) => {
   try {
     // Reset connection failure flags to allow active troubleshooting retries
     firebaseFailed = false;
@@ -2285,28 +2504,54 @@ app.get("/api/db-status", async (req, res) => {
   }
 });
 
-app.post("/api/admin-login", async (req, res) => {
+app.post("/api/admin-login", requireSameOrigin, async (req, res) => {
   try {
-    const username = String(req.body?.username || "").trim().toLowerCase();
+    const username = normalizeUsername(req.body?.username);
     const password = String(req.body?.password || "");
     const remember = req.body?.remember === true;
     if (!username || !password) {
       return res.status(400).json({ error: "Vui lòng nhập tài khoản và mật khẩu." });
     }
 
-    const { accounts, exists, dbInstance } = await readAdminAccounts();
-    const account = accounts.find((item: any) =>
-      String(item.username || "").trim().toLowerCase() === username &&
-      String(item.password || "") === password
+    const attemptKey = getLoginAttemptKey(req, username);
+    if (await getFailedLoginCount(attemptKey) >= LOGIN_ATTEMPT_LIMIT) {
+      res.setHeader("Retry-After", String(LOGIN_ATTEMPT_WINDOW_SECONDS));
+      return res.status(429).json({
+        error: "Đã thử đăng nhập sai quá nhiều lần. Vui lòng chờ 15 phút rồi thử lại."
+      });
+    }
+
+    const { accounts, exists } = await readAdminAccounts(true);
+    let account = accounts.find((item: StoredAdminAccount) =>
+      normalizeUsername(item.username) === username
     );
-    if (!account) {
+    const passwordResult = account
+      ? await verifyPassword(account, password)
+      : { valid: false, needsMigration: false };
+    if (!account || !passwordResult.valid) {
+      const failedCount = await recordFailedLogin(attemptKey);
+      if (failedCount >= LOGIN_ATTEMPT_LIMIT) {
+        res.setHeader("Retry-After", String(LOGIN_ATTEMPT_WINDOW_SECONDS));
+      }
       return res.status(401).json({ error: "Tài khoản hoặc mật khẩu không chính xác!" });
     }
-    if (!exists && dbInstance) {
-      await dbInstance
-        .collection("vovinam_private")
-        .doc("admin_accounts")
-        .set({ accounts, updatedAt: Date.now() });
+
+    await clearFailedLogins(attemptKey);
+
+    // Existing accounts are migrated without forcing a password reset. The
+    // plaintext field is removed immediately after the first valid login.
+    if (passwordResult.needsMigration || !exists) {
+      const migratedAccount: StoredAdminAccount = {
+        ...account,
+        passwordHash: await hashPassword(password),
+        credentialVersion: Number(account.credentialVersion || 0)
+      };
+      delete migratedAccount.password;
+      const migratedAccounts = accounts.map((item: StoredAdminAccount) =>
+        item.id === account!.id ? migratedAccount : item
+      );
+      await persistAdminAccounts(migratedAccounts);
+      account = migratedAccount;
     }
 
     const token = signAdminSession(account, remember);
@@ -2319,21 +2564,18 @@ app.post("/api/admin-login", async (req, res) => {
       process.env.VERCEL || process.env.NODE_ENV === "production" ? "Secure" : ""
     ].filter(Boolean);
     res.setHeader("Set-Cookie", cookieParts.join("; "));
-    const { password: _password, ...safeAccount } = account;
-    res.json({ success: true, account: safeAccount });
+    res.json({ success: true, account: toPublicAdminAccount(account) });
   } catch (error: any) {
     console.error("[admin-login]", error);
     res.status(500).json({ error: "Không thể đăng nhập Admin.", message: error?.message || String(error) });
   }
 });
 
-app.get("/api/admin-session", (req, res) => {
-  const session = readAdminSession(req);
-  if (!session) return res.status(401).json({ authenticated: false });
-  res.json({ authenticated: true, session });
+app.get("/api/admin-session", requireAdminSession, (req: any, res) => {
+  res.json({ authenticated: true, session: req.adminSession });
 });
 
-app.post("/api/admin-logout", (_req, res) => {
+app.post("/api/admin-logout", requireSameOrigin, (_req, res) => {
   res.setHeader(
     "Set-Cookie",
     `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.VERCEL ? "; Secure" : ""}`
@@ -2343,45 +2585,161 @@ app.post("/api/admin-logout", (_req, res) => {
 
 // Admin accounts live in a private Firestore document and are deliberately kept
 // out of /api/data, so public website visitors never receive them with site data.
-app.get("/api/admin-accounts", requireAdminSession, async (_req, res) => {
+app.get("/api/admin-accounts", requireAdminSession, requireSuperAdmin, async (_req, res) => {
   try {
     const { accounts, exists } = await readAdminAccounts();
-    res.json({ accounts, exists });
+    res.json({
+      accounts: accounts.map((account: StoredAdminAccount) => toPublicAdminAccount(account)),
+      exists
+    });
   } catch (err: any) {
     console.error("[admin-accounts GET]", err);
     res.status(500).json({ error: "Cannot load admin accounts" });
   }
 });
 
-app.put("/api/admin-accounts", requireAdminSession, async (req, res) => {
+app.put(
+  "/api/admin-accounts",
+  requireSameOrigin,
+  requireAdminSession,
+  requireSuperAdmin,
+  async (req: any, res) => {
   try {
-    const accounts = req.body?.accounts;
-    if (!Array.isArray(accounts) || accounts.length === 0) {
+    const submittedAccounts = req.body?.accounts;
+    if (!Array.isArray(submittedAccounts) || submittedAccounts.length === 0) {
       return res.status(400).json({ error: "A non-empty accounts array is required" });
     }
-    const validAccounts = accounts.every((account: any) =>
-      account && typeof account.id === "string" && typeof account.username === "string" &&
-      typeof account.password === "string" && typeof account.name === "string" &&
-      (account.role === "super" || account.role === "assistant") && Array.isArray(account.permissions)
-    );
-    if (!validAccounts) return res.status(400).json({ error: "Invalid admin account data" });
 
-    const dbInstance = await getFirebaseFirestore();
-    if (!dbInstance) return res.status(503).json({ error: "Firebase is unavailable" });
-    await withTimeout(
-      dbInstance.collection("vovinam_private").doc("admin_accounts").set({ accounts, updatedAt: Date.now() }),
-      5000,
-      "Firebase admin accounts SET timed out"
+    const { accounts: existingAccounts } = await readAdminAccounts(true);
+    const existingById = new Map<string, StoredAdminAccount>(
+      existingAccounts.map((account: StoredAdminAccount): [string, StoredAdminAccount] =>
+        [String(account.id), account]
+      )
     );
-    await mirrorAdminAccountsToRedis(accounts);
-    res.json({ success: true });
+    const seenIds = new Set<string>();
+    const seenUsernames = new Set<string>();
+    const nextAccounts: StoredAdminAccount[] = [];
+
+    for (const submitted of submittedAccounts) {
+      const id = String(submitted?.id || "").trim();
+      const username = normalizeUsername(submitted?.username);
+      const name = String(submitted?.name || "").trim();
+      const role = submitted?.role === "super" ? "super" : "assistant";
+      const permissions: string[] = Array.isArray(submitted?.permissions)
+        ? [...new Set<string>(submitted.permissions.filter((value: unknown): value is string =>
+            typeof value === "string" && EXPECTED_KEYS.includes(value)
+          ))]
+        : [];
+      if (!id || !name || validateUsername(username) || seenIds.has(id) || seenUsernames.has(username)) {
+        return res.status(400).json({ error: "Thông tin tài khoản Admin không hợp lệ hoặc bị trùng." });
+      }
+      seenIds.add(id);
+      seenUsernames.add(username);
+
+      const existing = existingById.get(id);
+      const suppliedPassword = typeof submitted?.password === "string"
+        ? submitted.password
+        : "";
+      let passwordHash = existing?.passwordHash;
+      let legacyPassword = existing?.password;
+      let credentialVersion = Number(existing?.credentialVersion || 0);
+
+      if (suppliedPassword) {
+        const passwordError = validatePassword(suppliedPassword, username);
+        if (passwordError) return res.status(400).json({ error: passwordError });
+        passwordHash = await hashPassword(suppliedPassword);
+        legacyPassword = undefined;
+        credentialVersion += 1;
+      } else if (!existing || (!existing.passwordHash && !existing.password)) {
+        return res.status(400).json({
+          error: `Phải nhập mật khẩu ban đầu cho tài khoản ${username}.`
+        });
+      }
+
+      nextAccounts.push({
+        id,
+        username,
+        ...(passwordHash ? { passwordHash } : {}),
+        ...(!passwordHash && legacyPassword ? { password: legacyPassword } : {}),
+        role,
+        name,
+        permissions,
+        credentialVersion
+      });
+    }
+
+    if (!nextAccounts.some(account => account.role === "super")) {
+      return res.status(400).json({ error: "Hệ thống phải luôn có ít nhất một Admin chính." });
+    }
+    const actingAccount = nextAccounts.find(account => account.id === req.adminSession.id);
+    if (!actingAccount || actingAccount.role !== "super") {
+      return res.status(400).json({
+        error: "Không thể xóa hoặc hạ quyền tài khoản Admin chính đang đăng nhập."
+      });
+    }
+
+    await persistAdminAccounts(nextAccounts);
+    res.json({
+      success: true,
+      accounts: nextAccounts.map(account => toPublicAdminAccount(account))
+    });
   } catch (err: any) {
     console.error("[admin-accounts PUT]", err);
     res.status(500).json({ error: "Cannot save admin accounts" });
   }
-});
+  }
+);
 
-app.post("/api/media/image", requireAdminSession, async (req, res) => {
+app.post(
+  "/api/admin-change-password",
+  requireSameOrigin,
+  requireAdminSession,
+  async (req: any, res) => {
+    try {
+      const currentPassword = String(req.body?.currentPassword || "");
+      const newPassword = String(req.body?.newPassword || "");
+      const passwordError = validatePassword(newPassword, req.adminSession.username);
+      if (passwordError) return res.status(400).json({ error: passwordError });
+
+      const { accounts } = await readAdminAccounts(true);
+      const account = accounts.find((item: StoredAdminAccount) =>
+        String(item.id) === String(req.adminSession.id)
+      );
+      if (!account || !(await verifyPassword(account, currentPassword)).valid) {
+        return res.status(401).json({ error: "Mật khẩu hiện tại không chính xác." });
+      }
+
+      const updatedAccount: StoredAdminAccount = {
+        ...account,
+        passwordHash: await hashPassword(newPassword),
+        credentialVersion: Number(account.credentialVersion || 0) + 1
+      };
+      delete updatedAccount.password;
+      const updatedAccounts = accounts.map((item: StoredAdminAccount) =>
+        item.id === updatedAccount.id ? updatedAccount : item
+      );
+      await persistAdminAccounts(updatedAccounts);
+
+      const remember = req.adminSession.remember === true;
+      const token = signAdminSession(updatedAccount, remember);
+      const cookieParts = [
+        `${ADMIN_SESSION_COOKIE}=${token}`,
+        "Path=/",
+        "HttpOnly",
+        "SameSite=Lax",
+        remember ? `Max-Age=${30 * 24 * 60 * 60}` : "",
+        process.env.VERCEL || process.env.NODE_ENV === "production" ? "Secure" : ""
+      ].filter(Boolean);
+      res.setHeader("Set-Cookie", cookieParts.join("; "));
+      res.json({ success: true, account: toPublicAdminAccount(updatedAccount) });
+    } catch (err: any) {
+      console.error("[admin-change-password]", err);
+      res.status(500).json({ error: "Không thể đổi mật khẩu lúc này." });
+    }
+  }
+);
+
+app.post("/api/media/image", requireSameOrigin, requireAdminSession, async (req, res) => {
   try {
     const dataUrl = typeof req.body?.dataUrl === "string" ? req.body.dataUrl.trim() : "";
     const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(dataUrl);
@@ -2629,7 +2987,12 @@ app.get("/api/webConfig", async (req, res) => {
 });
 
 // Sync any specific state key
-app.post("/api/save-key", requireAdminSession, async (req, res) => {
+app.post(
+  "/api/save-key",
+  requireSameOrigin,
+  requireAdminSession,
+  requireRequestedKeyPermission,
+  async (req, res) => {
   try {
     const { key, data, baseVersion } = req.body;
     if (!key || !EXPECTED_KEYS.includes(key)) {
@@ -2696,12 +3059,18 @@ app.post("/api/save-key", requireAdminSession, async (req, res) => {
     console.error("[save-key]", err);
     res.status(500).json({ error: "Internal server error during save", message: err?.message || String(err) });
   }
-});
+  }
+);
 
 // Restore one or more collections from an Admin JSON backup. Unlike the
 // regular React setters, this endpoint writes each supplied key sequentially,
 // so a large import cannot launch several competing Firestore batches.
-app.post("/api/restore-backup", requireAdminSession, async (req, res) => {
+app.post(
+  "/api/restore-backup",
+  requireSameOrigin,
+  requireAdminSession,
+  requireSuperAdmin,
+  async (req, res) => {
   try {
     const rawBackup = req.body?.backup && typeof req.body.backup === "object"
       ? req.body.backup
@@ -2801,10 +3170,16 @@ app.post("/api/restore-backup", requireAdminSession, async (req, res) => {
       message: err?.message || String(err)
     });
   }
-});
+  }
+);
 
 // Sync entire database at once
-app.post("/api/save-all", requireAdminSession, async (req, res) => {
+app.post(
+  "/api/save-all",
+  requireSameOrigin,
+  requireAdminSession,
+  requireSuperAdmin,
+  async (req, res) => {
   try {
     const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig } = req.body;
     const existing = await getDbData();
@@ -2848,7 +3223,8 @@ app.post("/api/save-all", requireAdminSession, async (req, res) => {
     console.error("[save-all]", err);
     res.status(500).json({ error: "Internal server error during save-all", message: err?.message || String(err) });
   }
-});
+  }
+);
 
 // Vite or Static Assets handling
 async function initServer() {

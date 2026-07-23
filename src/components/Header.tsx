@@ -5,6 +5,18 @@ import {
 } from 'lucide-react';
 import { WebConfig } from '../types';
 
+const PUBLIC_SECTION_IDS = [
+  'section-about',
+  'section-news',
+  'section-tournaments',
+  'section-highlights',
+  'section-achievements',
+  'section-coaches',
+  'section-members',
+  'section-clubs',
+  'section-contact'
+] as const;
+
 interface HeaderProps {
   isAdmin: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
@@ -28,6 +40,7 @@ export default function Header({
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
   const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historyNavigationFrameRef = useRef<number | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
   const [language, setLanguage] = useState<'vi' | 'en'>(() => {
     const translateCookie = decodeURIComponent(
@@ -84,6 +97,72 @@ export default function Header({
   useEffect(() => {
     setLogoLoadFailed(false);
   }, [webConfig.logo]);
+
+  const markManualNavigation = () => {
+    (window as any)._isManualScrolling = true;
+    if ((window as any)._manualScrollTimeout) {
+      clearTimeout((window as any)._manualScrollTimeout);
+    }
+    (window as any)._manualScrollTimeout = setTimeout(() => {
+      (window as any)._isManualScrolling = false;
+    }, 1200);
+  };
+
+  const scrollToSection = (sectionId: string, behavior: ScrollBehavior = 'smooth') => {
+    const targetEl = document.getElementById(sectionId);
+    if (!targetEl) return false;
+    markManualNavigation();
+    targetEl.scrollIntoView({ behavior, block: 'start' });
+    setActiveNavSection?.(sectionId);
+    return true;
+  };
+
+  const navigateToSection = (sectionId: string) => {
+    const nextHash = `#${sectionId}`;
+    if (window.location.hash !== nextHash) {
+      window.history.pushState({ vovinamSection: sectionId }, '', nextHash);
+    }
+    scrollToSection(sectionId);
+  };
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    const restoreHistoryPosition = (behavior: ScrollBehavior) => {
+      if (historyNavigationFrameRef.current !== null) {
+        window.cancelAnimationFrame(historyNavigationFrameRef.current);
+      }
+      historyNavigationFrameRef.current = window.requestAnimationFrame(() => {
+        historyNavigationFrameRef.current = null;
+        let sectionId = window.location.hash.replace(/^#/, '');
+        try {
+          sectionId = decodeURIComponent(sectionId);
+        } catch {
+          // Keep the raw hash when it contains malformed URL encoding.
+        }
+        if (PUBLIC_SECTION_IDS.includes(sectionId as (typeof PUBLIC_SECTION_IDS)[number])) {
+          scrollToSection(sectionId, behavior);
+        } else if (!window.location.hash) {
+          markManualNavigation();
+          window.scrollTo({ top: 0, behavior });
+          setActiveNavSection?.('section-about');
+        }
+      });
+    };
+
+    const handleHistoryNavigation = () => restoreHistoryPosition('smooth');
+    window.addEventListener('popstate', handleHistoryNavigation);
+    window.addEventListener('hashchange', handleHistoryNavigation);
+    restoreHistoryPosition('auto');
+
+    return () => {
+      window.removeEventListener('popstate', handleHistoryNavigation);
+      window.removeEventListener('hashchange', handleHistoryNavigation);
+      if (historyNavigationFrameRef.current !== null) {
+        window.cancelAnimationFrame(historyNavigationFrameRef.current);
+      }
+    };
+  }, [isAdmin, setActiveNavSection]);
 
   const handleLogoClick = () => {
     const now = Date.now();
@@ -181,20 +260,7 @@ export default function Header({
                   href={`#${sec.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    const targetEl = document.getElementById(sec.id);
-                    if (targetEl) {
-                      targetEl.scrollIntoView({ behavior: 'smooth' });
-                    }
-                    setActiveNavSection?.(sec.id);
-                    
-                    // Disable scrollspy temporarily to avoid jumpy effects
-                    (window as any)._isManualScrolling = true;
-                    if ((window as any)._manualScrollTimeout) {
-                      clearTimeout((window as any)._manualScrollTimeout);
-                    }
-                    (window as any)._manualScrollTimeout = setTimeout(() => {
-                      (window as any)._isManualScrolling = false;
-                    }, 1200);
+                    navigateToSection(sec.id);
                   }}
                   className={`flex items-center px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg text-[8.5px] md:text-[9px] xl:text-[9.5px] font-bold uppercase tracking-wide cursor-pointer border transition-all duration-200 ${
                     activeNavSection === sec.id

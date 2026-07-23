@@ -123,7 +123,10 @@ export interface WebConfig {
 export interface AdminAccount {
   id: string;
   username: string;
+  // Only used transiently when creating or resetting an account. The server
+  // never returns either the plaintext password or its hash.
   password?: string;
+  hasPassword?: boolean;
   role: 'super' | 'assistant';
   name: string;
   permissions: string[]; // tabs they can access, e.g. ['articles', 'members']
