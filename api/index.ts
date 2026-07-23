@@ -1403,6 +1403,16 @@ async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
   const candidates: RecoveryCandidate[] = [];
   if (hasCurrent) candidates.push({ source: "firebase-current", data: current });
   if (legacy) candidates.push({ source: "firebase-legacy", data: legacy });
+  const referencedAchievementIds = new Set(achievementIds || []);
+  const orphanedAchievements = Array.from(achievementItems.entries())
+    .filter(([itemId]) => !referencedAchievementIds.has(itemId))
+    .map(([, item]) => item);
+  if (orphanedAchievements.length > 0) {
+    candidates.push({
+      source: "firebase-orphaned-achievements",
+      data: { achievements: orphanedAchievements, lastUpdated: current.lastUpdated || 0 }
+    });
+  }
 
   const recoverySnapshot: any = await withTimeout(
     dbInstance.collection("vovinam_recovery").get(),
