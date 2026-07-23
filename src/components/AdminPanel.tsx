@@ -28,6 +28,103 @@ const adminBundledBannerImages: Record<string, string> = {
 const resolveAdminBannerImage = (image?: string) =>
   (image && adminBundledBannerImages[image]) || image || defaultBanner1;
 
+const MAX_HIGHLIGHT_IMAGES = 50;
+const MAX_SOURCE_IMAGE_BYTES = 5 * 1024 * 1024;
+const TARGET_STORED_IMAGE_BYTES = 450 * 1024;
+const HARD_STORED_IMAGE_BYTES = 650 * 1024;
+
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('Không thể đọc dữ liệu ảnh.'));
+  reader.readAsDataURL(blob);
+});
+
+const loadBrowserImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = () => reject(new Error('Không thể mở ảnh đã chọn.'));
+  image.src = url;
+});
+
+const canvasToWebpBlob = (canvas: HTMLCanvasElement, quality: number) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error('Trình duyệt không thể nén ảnh này.')),
+      'image/webp',
+      quality
+    );
+  });
+
+async function compressHighlightImage(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Chỉ được tải ảnh từ máy. Video hãy dùng đường dẫn URL/YouTube.');
+  }
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error('Mỗi ảnh gốc tối đa 5 MB.');
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const source = await loadBrowserImage(objectUrl);
+    const sourceLongestSide = Math.max(source.naturalWidth, source.naturalHeight);
+    const maxSides = [1600, 1280, 1024, 800, 640];
+    const qualities = [0.82, 0.72, 0.62, 0.54];
+    let smallestBlob: Blob | null = null;
+    let previousSize = '';
+
+    for (const maxSide of maxSides) {
+      const scale = Math.min(1, maxSide / sourceLongestSide);
+      const width = Math.max(1, Math.round(source.naturalWidth * scale));
+      const height = Math.max(1, Math.round(source.naturalHeight * scale));
+      const sizeKey = `${width}x${height}`;
+      if (sizeKey === previousSize) continue;
+      previousSize = sizeKey;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(source, 0, 0, width, height);
+
+      for (const quality of qualities) {
+        const blob = await canvasToWebpBlob(canvas, quality);
+        if (!smallestBlob || blob.size < smallestBlob.size) smallestBlob = blob;
+        if (blob.size <= TARGET_STORED_IMAGE_BYTES) {
+          return blobToDataUrl(blob);
+        }
+      }
+    }
+
+    if (!smallestBlob || smallestBlob.size > HARD_STORED_IMAGE_BYTES) {
+      throw new Error('Không thể nén ảnh xuống dưới 650 KB. Hãy chọn ảnh khác nhỏ hơn.');
+    }
+    return blobToDataUrl(smallestBlob);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function uploadHighlightImageDataUrl(dataUrl: string): Promise<string> {
+  const response = await fetch('/api/media/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || typeof result.url !== 'string') {
+    throw new Error(result.error || result.message || 'Không thể lưu ảnh vào Firebase.');
+  }
+  return result.url;
+}
+
+async function compressAndUploadHighlightImage(file: File): Promise<string> {
+  return uploadHighlightImageDataUrl(await compressHighlightImage(file));
+}
+
 interface AdminPanelProps {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
@@ -691,7 +788,9 @@ export default function AdminPanel({
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [tournamentForm, setTournamentForm] = useState<Partial<Tournament>>({});
   const [clubForm, setClubForm] = useState<Partial<Club>>({});
-  const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [] });
+  const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [], mediaNotes: [] });
+  const [isUploadingHighlightMedia, setIsUploadingHighlightMedia] = useState(false);
+  const [highlightUploadProgress, setHighlightUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [webConfigForm, setWebConfigForm] = useState<WebConfig>(webConfig);
   const savedAchievementTournamentNames = Array.from(new Set(
     achievements
@@ -699,6 +798,58 @@ export default function AdminPanel({
         (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : ''))
       .filter((name): name is string => Boolean(name))
   )).sort((a, b) => a.localeCompare(b, 'vi'));
+
+  const handleHighlightImageUpload = async (files: File[], replaceIndex?: number) => {
+    if (isUploadingHighlightMedia || files.length === 0) return;
+
+    const selectedFiles = replaceIndex === undefined ? files : files.slice(0, 1);
+    const existingImageCount = (highlightForm.mediaUrls || []).filter(url => url.trim() !== '').length;
+    if (replaceIndex === undefined && existingImageCount + selectedFiles.length > MAX_HIGHLIGHT_IMAGES) {
+      showToast(`Mỗi Highlight được lưu tối đa ${MAX_HIGHLIGHT_IMAGES} ảnh.`, 'error');
+      return;
+    }
+
+    setIsUploadingHighlightMedia(true);
+    setHighlightUploadProgress({ current: 0, total: selectedFiles.length });
+    let uploadedCount = 0;
+
+    try {
+      for (let index = 0; index < selectedFiles.length; index += 1) {
+        const uploadedUrl = await compressAndUploadHighlightImage(selectedFiles[index]);
+        uploadedCount += 1;
+        setHighlightUploadProgress({ current: index + 1, total: selectedFiles.length });
+
+        setHighlightForm(previous => {
+          if (replaceIndex !== undefined) {
+            const urls = [...(previous.mediaUrls || [])];
+            const notes = [...(previous.mediaNotes || [])];
+            while (urls.length <= replaceIndex) urls.push('');
+            while (notes.length <= replaceIndex) notes.push('');
+            urls[replaceIndex] = uploadedUrl;
+            return { ...previous, mediaUrls: urls, mediaNotes: notes };
+          }
+
+          const existingPairs = (previous.mediaUrls || [])
+            .map((url, mediaIndex) => ({
+              url,
+              note: previous.mediaNotes?.[mediaIndex] || ''
+            }))
+            .filter(item => item.url.trim() !== '');
+          return {
+            ...previous,
+            mediaUrls: [...existingPairs.map(item => item.url), uploadedUrl],
+            mediaNotes: [...existingPairs.map(item => item.note), '']
+          };
+        });
+      }
+      showToast(`Đã nén và lưu ${uploadedCount} ảnh vào Firebase.`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không thể tải ảnh lên Firebase.', 'error');
+    } finally {
+      setIsUploadingHighlightMedia(false);
+      setHighlightUploadProgress(null);
+    }
+  };
 
   // Sync webConfig from props
   useEffect(() => {
@@ -997,7 +1148,7 @@ export default function AdminPanel({
     setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '' });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '' });
     setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapUrl: '' });
-    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], tournamentId: '', tournamentName: '' });
+    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], mediaNotes: [''], tournamentId: '', tournamentName: '' });
   };
 
   // Delete Handlers
@@ -1118,7 +1269,9 @@ export default function AdminPanel({
       case 'highlights':
         setHighlightForm({
           ...item,
-          mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : ['']
+          mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''],
+          mediaNotes: (item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''])
+            .map((_, index) => item.mediaNotes?.[index] || '')
         });
         const matchedAthlete = coaches.find(c => c.id === item.athleteName || c.fullName === item.athleteName) ||
                                members.find(m => m.id === item.athleteName || m.fullName === item.athleteName);
@@ -1128,7 +1281,7 @@ export default function AdminPanel({
   };
 
   // Save Forms Handler
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'articles') {
       let finalId: string | number = articleForm.id !== undefined ? articleForm.id : '';
@@ -1346,12 +1499,66 @@ export default function AdminPanel({
         showToast('Cập nhật câu lạc bộ thành công!', 'success');
       }
     } else if (activeTab === 'highlights') {
+      if (isUploadingHighlightMedia) {
+        showToast('Vui lòng chờ ảnh tải xong rồi mới bấm Lưu dữ liệu.', 'info');
+        return;
+      }
       const id = highlightForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
-      const finalMediaUrls = highlightForm.mediaUrls?.filter(u => u.trim() !== '') || [];
+      const mediaPairs = (highlightForm.mediaUrls || [])
+        .map((url, index) => ({ url: url.trim(), note: highlightForm.mediaNotes?.[index]?.trim() || '' }))
+        .filter(item => item.url !== '');
+      if (mediaPairs.length > MAX_HIGHLIGHT_IMAGES) {
+        showToast(`Mỗi Highlight được lưu tối đa ${MAX_HIGHLIGHT_IMAGES} ảnh.`, 'error');
+        return;
+      }
+
+      const legacyImageIndexes = mediaPairs
+        .map((item, index) => item.url.startsWith('data:image/') ? index : -1)
+        .filter(index => index >= 0);
+      if (mediaPairs.some(item => item.url.startsWith('data:video/'))) {
+        showToast('Video từ máy không thể lưu trong Firestore. Hãy xóa video đó và dùng URL/YouTube.', 'error');
+        return;
+      }
+
+      if (legacyImageIndexes.length > 0) {
+        setIsUploadingHighlightMedia(true);
+        setHighlightUploadProgress({ current: 0, total: legacyImageIndexes.length });
+        try {
+          for (let position = 0; position < legacyImageIndexes.length; position += 1) {
+            const mediaIndex = legacyImageIndexes[position];
+            const legacyResponse = await fetch(mediaPairs[mediaIndex].url);
+            const legacyBlob = await legacyResponse.blob();
+            const legacyFile = new File(
+              [legacyBlob],
+              `anh-cu-${mediaIndex + 1}.${legacyBlob.type.split('/')[1] || 'jpg'}`,
+              { type: legacyBlob.type || 'image/jpeg' }
+            );
+            mediaPairs[mediaIndex].url = await compressAndUploadHighlightImage(legacyFile);
+            setHighlightUploadProgress({ current: position + 1, total: legacyImageIndexes.length });
+          }
+          setHighlightForm(previous => ({
+            ...previous,
+            mediaUrls: mediaPairs.map(item => item.url),
+            mediaNotes: mediaPairs.map(item => item.note)
+          }));
+        } catch (error) {
+          showToast(
+            error instanceof Error ? `Không thể chuyển ảnh cũ: ${error.message}` : 'Không thể chuyển ảnh cũ lên Firebase.',
+            'error'
+          );
+          return;
+        } finally {
+          setIsUploadingHighlightMedia(false);
+          setHighlightUploadProgress(null);
+        }
+      }
+
+      const finalMediaUrls = mediaPairs.map(item => item.url);
+      const finalMediaNotes = mediaPairs.map(item => item.note);
       if (editId === null) {
         if (highlights.some(h => h.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setHighlights(prev => [...prev, { ...highlightForm, mediaUrls: finalMediaUrls } as Highlight]);
+        setHighlights(prev => [...prev, { ...highlightForm, mediaUrls: finalMediaUrls, mediaNotes: finalMediaNotes } as Highlight]);
         addLog('Thêm', 'highlights', `Đã thêm Highlight mới: "${highlightForm.title}" (ID: ${id})`);
         showToast('Thêm highlight mới thành công!', 'success');
       } else {
@@ -1359,7 +1566,7 @@ export default function AdminPanel({
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
-        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, id, mediaUrls: finalMediaUrls } as Highlight : h));
+        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, id, mediaUrls: finalMediaUrls, mediaNotes: finalMediaNotes } as Highlight : h));
         addLog('Sửa', 'highlights', `Đã cập nhật Highlight: "${highlightForm.title}" (ID: ${id})`);
         showToast('Cập nhật highlight thành công!', 'success');
       }
@@ -4482,9 +4689,56 @@ export default function AdminPanel({
                       <h4 className="text-xs font-black text-slate-700 uppercase tracking-wide mb-1 flex items-center gap-1.5">
                         <span>Quản lý các nguồn ảnh / video chi tiết ({highlightForm.mediaUrls?.length || 0})</span>
                       </h4>
-                      <p className="text-[10px] text-slate-400 mb-4">
-                        Bạn có thể chọn tải file ảnh/video từ máy lên trực tiếp, hoặc dán đường dẫn URL từ internet. Các file video tải từ máy lên sẽ được xem và phát trực tiếp.
+                      <p className="text-[10px] text-slate-500 mb-3">
+                        Ảnh từ máy sẽ được tự nén và lưu từng ảnh riêng trong Firebase. Tối đa 50 ảnh/Highlight,
+                        mỗi ảnh gốc tối đa 5 MB. Video vui lòng dùng đường dẫn URL/YouTube.
                       </p>
+
+                      <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <label className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition-all ${
+                          isUploadingHighlightMedia
+                            ? 'bg-slate-400 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                        }`}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={isUploadingHighlightMedia}
+                            className="hidden"
+                            onChange={event => {
+                              const files = Array.from(event.currentTarget.files || []) as File[];
+                              event.currentTarget.value = '';
+                              void handleHighlightImageUpload(files);
+                            }}
+                          />
+                          <Plus className="w-3.5 h-3.5" />
+                          Chọn nhiều ảnh từ máy
+                        </label>
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          JPEG, PNG, WebP hoặc GIF • hệ thống tự nén còn khoảng 450 KB/ảnh
+                        </span>
+                      </div>
+
+                      {highlightUploadProgress && (
+                        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
+                          <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold text-blue-800">
+                            <span>Đang nén và lưu từng ảnh lên Firebase…</span>
+                            <span>{highlightUploadProgress.current}/{highlightUploadProgress.total}</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                            <div
+                              className="h-full rounded-full bg-[#0054A6] transition-all"
+                              style={{
+                                width: `${Math.max(
+                                  4,
+                                  (highlightUploadProgress.current / highlightUploadProgress.total) * 100
+                                )}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="space-y-3">
                         {highlightForm.mediaUrls?.map((url, idx) => {
@@ -4498,8 +4752,10 @@ export default function AdminPanel({
                                   type="button"
                                   onClick={() => {
                                     const copy = [...(highlightForm.mediaUrls || [])];
+                                    const noteCopy = [...(highlightForm.mediaNotes || [])];
                                     copy.splice(idx, 1);
-                                    setHighlightForm({ ...highlightForm, mediaUrls: copy });
+                                    noteCopy.splice(idx, 1);
+                                    setHighlightForm({ ...highlightForm, mediaUrls: copy, mediaNotes: noteCopy });
                                   }}
                                   className="text-rose-600 hover:text-rose-800 text-xs font-black uppercase"
                                 >
@@ -4523,22 +4779,16 @@ export default function AdminPanel({
                                   <label className="bg-blue-50 text-[#0054A6] hover:bg-blue-100 text-xs font-bold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-1 transition-all">
                                     <input 
                                       type="file"
-                                      accept="image/*,video/*"
+                                      accept="image/*"
+                                      disabled={isUploadingHighlightMedia}
                                       className="hidden"
                                       onChange={e => {
                                         const file = e.target.files?.[0];
-                                        if (file) {
-                                          const reader = new FileReader();
-                                          reader.onloadend = () => {
-                                            const copy = [...(highlightForm.mediaUrls || [])];
-                                            copy[idx] = reader.result as string;
-                                            setHighlightForm({ ...highlightForm, mediaUrls: copy });
-                                          };
-                                          reader.readAsDataURL(file);
-                                        }
+                                        e.target.value = '';
+                                        if (file) void handleHighlightImageUpload([file], idx);
                                       }}
                                     />
-                                    <span>Tải file từ máy</span>
+                                    <span>Tải ảnh từ máy</span>
                                   </label>
                                   {isBase64 && (
                                     <button
@@ -4554,6 +4804,23 @@ export default function AdminPanel({
                                     </button>
                                   )}
                                 </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                  Ghi chú cho tập tin #{idx + 1}
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={highlightForm.mediaNotes?.[idx] || ''}
+                                  onChange={e => {
+                                    const noteCopy = [...(highlightForm.mediaNotes || [])];
+                                    while (noteCopy.length <= idx) noteCopy.push('');
+                                    noteCopy[idx] = e.target.value;
+                                    setHighlightForm({ ...highlightForm, mediaNotes: noteCopy });
+                                  }}
+                                  placeholder="Nhập nội dung, địa điểm, thời gian hoặc mô tả riêng cho ảnh/video này..."
+                                  className="w-full text-xs border border-slate-200 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6] resize-y"
+                                />
                               </div>
                               {/* Preview area */}
                               {url && (
@@ -4581,12 +4848,13 @@ export default function AdminPanel({
                         onClick={() => {
                           setHighlightForm({ 
                             ...highlightForm, 
-                            mediaUrls: [...(highlightForm.mediaUrls || []), ''] 
+                            mediaUrls: [...(highlightForm.mediaUrls || []), ''],
+                            mediaNotes: [...(highlightForm.mediaNotes || []), '']
                           });
                         }}
                         className="mt-3 inline-flex items-center gap-1.5 bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-all"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Thêm tư liệu mới (Ảnh hoặc Video)
+                        <Plus className="w-3.5 h-3.5" /> Thêm ô nhập URL ảnh/video
                       </button>
                     </div>
 

@@ -576,7 +576,7 @@ export default function UserView({
               
               <div className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans space-y-4">
                 <p className="border-l-4 border-[#0054A6] pl-4 italic">
-                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Xóm Chiếu.
+                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Quận 4.
                 </p>
                 <p>
                   Tại đây, môn sinh không chỉ được trang bị kỹ năng phòng vệ thực chiến, hệ thống đòn chân tấn công danh tiếng, mà còn được nuôi dưỡng tinh thần dũng cảm, tự tôn dân tộc và lối sống lành mạnh, có ích cho xã hội.
@@ -617,43 +617,73 @@ export default function UserView({
                 <ul className="space-y-3 text-blue-50 font-medium leading-relaxed">
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <span>Việt Võ Đạo Sinh: nguyện đạt tới cao độ của Võ thuật để phục vụ dân tộc và nhân loại.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện đạt tới cao độ của nghệ thuật để phục vụ dân tộc và nhân loại.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 1: Hoài bão và mục đích học võ.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <span>Việt Võ Đạo Sinh: Nguyện trung kiên phát huy môn phái, xây dựng thế hệ thanh niên dấn thân hiến ích.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện trung kiên phát huy môn phái, xây dựng thế hệ thanh niên dấn thân hiến ích.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 2: Nghĩa vụ đối với môn phái và dân tộc.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <span>Việt Võ Đạo Sinh: Đồng tâm nhất trí, tôn kính người trên, thương mền đồng đạo.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Đồng tâm nhất trí, tôn kính người trên, thương mến đồng đạo.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 3: Tình đoàn kết trong môn phái.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                    <span>Việt Võ Đạo Sinh: Tuyệt đối tôn trọng kỷ luật, nêu cao danh dự võ sĩ.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tuyệt đối tôn trọng kỷ luật, nêu cao danh dự võ sĩ.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 4: Võ kỷ và danh dự võ sĩ.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                    <span>Việt Võ Đạo Sinh: Tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bênh vực lẽ phải.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bênh vực lẽ phải.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 5: Ý thức dụng võ.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
-                    <span>Việt Võ Đạo Sinh: Chuyên cần học tập, rèn luyện tinh thần, trau dồi đạo hạnh.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Chuyên cần học tập, rèn luyện tinh thần, trau dồi đạo hạnh.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 6: Ý hướng học tập và đời sống tinh thần.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">7</span>
-                    <span>Việt Võ Đạo Sinh: Sống trong sạch, trung thực, giản dị và cao thượng.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sống trong sạch, trung thực, giản dị và cao thượng.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 7: Tâm nguyện sống.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">8</span>
-                    <span>Việt Võ Đạo Sinh: Kiện toàn một ý chí đanh thép, nỗ lực tự thân cầu tiến.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Kiện toàn một ý chí đanh thép, nỗ lực tự thân cầu tiến.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 8: Rèn luyện ý chí.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">9</span>
-                    <span>Việt Võ Đạo Sinh: Sáng suốt nhận định, bền gan tranh đấu, tháo vát hành động.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sáng suốt nhận định, bền gan tranh đấu, tháo vát hành động.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 9: Nếp suy cảm, nghị lực và tính thực tế.</em>
+                    </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">10</span>
-                    <span>Việt Võ Đạo Sinh: Tự tin, tự thắng, khiêm cung, độ lượng, luôn luôn kiểm điểm để tiến bộ.</span>
+                    <span className="space-y-1">
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tự tin, tự thắng, khiêm cung, độ lượng, luôn luôn kiểm điểm để tiến bộ.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 10: Đức sống và tinh thần cầu tiến.</em>
+                    </span>
                   </li>
                 </ul>
               </div>

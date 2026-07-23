@@ -4,6 +4,7 @@ dotenv.config();
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { randomUUID } from "crypto";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
@@ -25,6 +26,8 @@ import {
 
 const app = express();
 const PORT = 3000;
+const MEDIA_COLLECTION = "vovinam_media";
+const MAX_STORED_IMAGE_BYTES = 650 * 1024;
 
 // Body parser
 app.use(express.json({ limit: "50mb" }));
@@ -353,6 +356,30 @@ function splitWebConfigForFirestore(webConfig: any) {
   const banners = Array.isArray(source.banners) ? source.banners : [];
   const { banners: _banners, bannerCount: _bannerCount, ...config } = source;
   return { config: { ...config, bannerCount: banners.length }, banners };
+}
+
+function detectImageContentType(buffer: Buffer): string | null {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return "image/png";
+  }
+  if (
+    buffer.length >= 12 &&
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  const gifHeader = buffer.subarray(0, 6).toString("ascii");
+  if (gifHeader === "GIF87a" || gifHeader === "GIF89a") {
+    return "image/gif";
+  }
+  return null;
 }
 
 function mergeWebConfigPreservingMedia(existing: any, incoming: any) {
@@ -1221,6 +1248,103 @@ app.put("/api/admin-accounts", async (req, res) => {
   } catch (err: any) {
     console.error("[admin-accounts PUT]", err);
     res.status(500).json({ error: "Cannot save admin accounts" });
+  }
+});
+
+app.post("/api/media/image", async (req, res) => {
+  try {
+    const dataUrl = typeof req.body?.dataUrl === "string" ? req.body.dataUrl.trim() : "";
+    const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(dataUrl);
+    if (!match) {
+      return res.status(400).json({ error: "Chỉ chấp nhận ảnh JPEG, PNG, WebP hoặc GIF hợp lệ." });
+    }
+
+    const encoded = match[2].replace(/\s/g, "");
+    const imageBuffer = Buffer.from(encoded, "base64");
+    const detectedContentType = detectImageContentType(imageBuffer);
+    if (!detectedContentType) {
+      return res.status(400).json({ error: "Nội dung tải lên không phải là một file ảnh hợp lệ." });
+    }
+    if (imageBuffer.length === 0 || imageBuffer.length > MAX_STORED_IMAGE_BYTES) {
+      return res.status(413).json({
+        error: `Ảnh sau khi nén phải nhỏ hơn ${Math.round(MAX_STORED_IMAGE_BYTES / 1024)} KB.`
+      });
+    }
+
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) {
+      return res.status(503).json({
+        error: "Firebase Firestore chưa sẵn sàng. Hãy kiểm tra FIREBASE_SERVICE_ACCOUNT trên Vercel."
+      });
+    }
+
+    const id = `${Date.now()}_${randomUUID()}`;
+    await withTimeout(
+      dbInstance.collection(MEDIA_COLLECTION).doc(id).set({
+        base64: encoded,
+        contentType: detectedContentType,
+        byteSize: imageBuffer.length,
+        createdAt: Date.now()
+      }),
+      10000,
+      "Firebase image upload timed out"
+    );
+
+    res.status(201).json({
+      success: true,
+      id,
+      url: `/api/media/image/${id}`,
+      byteSize: imageBuffer.length
+    });
+  } catch (err: any) {
+    console.error("[media/image POST]", err);
+    res.status(500).json({
+      error: "Không thể lưu ảnh vào Firebase.",
+      message: err?.message || String(err)
+    });
+  }
+});
+
+app.get("/api/media/image/:id", async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    if (!/^[A-Za-z0-9_-]{10,100}$/.test(id)) {
+      return res.status(400).json({ error: "Mã ảnh không hợp lệ." });
+    }
+
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) {
+      return res.status(503).json({ error: "Firebase Firestore chưa sẵn sàng." });
+    }
+
+    const snapshot: any = await withTimeout(
+      dbInstance.collection(MEDIA_COLLECTION).doc(id).get(),
+      8000,
+      "Firebase image read timed out"
+    );
+    if (!snapshot.exists) {
+      return res.status(404).json({ error: "Không tìm thấy ảnh." });
+    }
+
+    const image = snapshot.data() || {};
+    const imageBuffer = Buffer.from(String(image.base64 || ""), "base64");
+    const contentType = detectImageContentType(imageBuffer);
+    if (!contentType) {
+      return res.status(500).json({ error: "Dữ liệu ảnh lưu trên Firebase không hợp lệ." });
+    }
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", String(imageBuffer.length));
+    res.setHeader("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
+    res.removeHeader("Pragma");
+    res.removeHeader("Expires");
+    res.send(imageBuffer);
+  } catch (err: any) {
+    console.error("[media/image GET]", err);
+    res.status(500).json({
+      error: "Không thể tải ảnh từ Firebase.",
+      message: err?.message || String(err)
+    });
   }
 });
 
