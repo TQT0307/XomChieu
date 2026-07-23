@@ -90,6 +90,7 @@ export interface Highlight {
   mediaType: 'video' | 'ảnh'; // Loại video/ảnh
   status: boolean; // Trạng thái hiển thị
   mediaUrls: string[]; // Cho phép thêm nhiều ảnh và nhiều video trong 1 bài viết
+  mediaNotes?: string[]; // Ghi chú tương ứng theo thứ tự của từng ảnh/video
   tournamentId?: string; // Giải đấu liên kết
   tournamentName?: string; // Lưu tên giải để lọc và vẫn hiển thị nếu giải đổi ID
 }

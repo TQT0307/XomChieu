@@ -30,7 +30,7 @@ const resolveAdminBannerImage = (image?: string) =>
 
 const MAX_HIGHLIGHT_IMAGES = 50;
 const MAX_SOURCE_IMAGE_BYTES = 5 * 1024 * 1024;
-const TARGET_STORED_IMAGE_BYTES = 450 * 1024;
+const TARGET_STORED_IMAGE_BYTES = 560 * 1024;
 const HARD_STORED_IMAGE_BYTES = 650 * 1024;
 
 const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
@@ -68,8 +68,10 @@ async function compressHighlightImage(file: File): Promise<string> {
   try {
     const source = await loadBrowserImage(objectUrl);
     const sourceLongestSide = Math.max(source.naturalWidth, source.naturalHeight);
-    const maxSides = [1600, 1280, 1024, 800, 640];
-    const qualities = [0.82, 0.72, 0.62, 0.54];
+    // Preserve more source pixels so the public gallery can zoom up to the
+    // original resolution without CSS upscaling or visible stretching.
+    const maxSides = [2200, 1920, 1600, 1280, 1024, 800, 640];
+    const qualities = [0.86, 0.8, 0.74, 0.68, 0.62, 0.56];
     let smallestBlob: Blob | null = null;
     let previousSize = '';
 
@@ -4716,7 +4718,7 @@ export default function AdminPanel({
                           Chọn nhiều ảnh từ máy
                         </label>
                         <span className="text-[10px] font-semibold text-slate-500">
-                          JPEG, PNG, WebP hoặc GIF • hệ thống tự nén còn khoảng 450 KB/ảnh
+                          JPEG, PNG, WebP hoặc GIF • ưu tiên độ nét, tự nén còn khoảng 560 KB/ảnh
                         </span>
                       </div>
 
