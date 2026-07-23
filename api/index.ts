@@ -1101,6 +1101,135 @@ type RecoveryCandidate = {
   data: any;
 };
 
+function decodeFirestoreRestValue(value: any): any {
+  if (!value || typeof value !== "object") return null;
+  if ("nullValue" in value) return null;
+  if ("booleanValue" in value) return value.booleanValue;
+  if ("integerValue" in value) return Number(value.integerValue);
+  if ("doubleValue" in value) return Number(value.doubleValue);
+  if ("timestampValue" in value) return value.timestampValue;
+  if ("stringValue" in value) return value.stringValue;
+  if ("bytesValue" in value) return value.bytesValue;
+  if ("referenceValue" in value) return value.referenceValue;
+  if ("geoPointValue" in value) return value.geoPointValue;
+  if ("arrayValue" in value) {
+    return (value.arrayValue?.values || []).map((item: any) => decodeFirestoreRestValue(item));
+  }
+  if ("mapValue" in value) {
+    return decodeFirestoreRestFields(value.mapValue?.fields || {});
+  }
+  return null;
+}
+
+function decodeFirestoreRestFields(fields: Record<string, any>) {
+  return Object.fromEntries(
+    Object.entries(fields || {}).map(([key, value]) => [key, decodeFirestoreRestValue(value)])
+  );
+}
+
+function getFirebaseRecoveryProjectId() {
+  let projectId = String(process.env.FIREBASE_PROJECT_ID || "").trim().replace(/^["']|["']$/g, "");
+  if (projectId) return projectId;
+  const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT || "").trim();
+  if (!raw) return "";
+  try {
+    let jsonText = raw;
+    if (!jsonText.startsWith("{") && /^[A-Za-z0-9+/=]+$/.test(jsonText)) {
+      jsonText = Buffer.from(jsonText, "base64").toString("utf8");
+    }
+    let parsed: any = JSON.parse(jsonText);
+    if (typeof parsed === "string") parsed = JSON.parse(parsed);
+    return String(parsed.project_id || "");
+  } catch {
+    return "";
+  }
+}
+
+async function getFirebaseRecoveryAccessToken() {
+  await getFirebaseFirestore();
+  const app: any = getApps()[0];
+  const credential: any = app?.options?.credential;
+  if (!credential?.getAccessToken) {
+    throw new Error("Firebase credential cannot create a recovery access token");
+  }
+  const token = await credential.getAccessToken();
+  return String(token?.access_token || token?.accessToken || "");
+}
+
+async function listVovinamDocumentsAt(readTime: string, accessToken: string, projectId: string) {
+  const documents: any[] = [];
+  let pageToken = "";
+  do {
+    const params = new URLSearchParams({
+      pageSize: "100",
+      readTime
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+    const url =
+      `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(projectId)}` +
+      `/databases/(default)/documents/vovinam?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    const body: any = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body?.error?.message || `Firestore historical read failed (${response.status})`);
+    }
+    documents.push(...(body.documents || []));
+    pageToken = String(body.nextPageToken || "");
+  } while (pageToken);
+  return documents;
+}
+
+function rebuildPitrCandidates(restDocuments: any[], minutesAgo: number): RecoveryCandidate[] {
+  const current: any = {};
+  let legacy: any = null;
+  let hasCurrent = false;
+  let achievementIds: string[] | null = null;
+  const achievementItems = new Map<string, any>();
+  const banners: Array<{ index: number; value: any }> = [];
+
+  restDocuments.forEach(document => {
+    const encodedId = String(document.name || "").split("/").pop() || "";
+    const id = decodeURIComponent(encodedId);
+    const value = decodeFirestoreRestFields(document.fields || {});
+    if (id === "main_state") {
+      legacy = value;
+    } else if (id === "metadata") {
+      current.lastUpdated = value.lastUpdated || 0;
+    } else if (id === "webConfig") {
+      const { bannerCount: _bannerCount, ...config } = value;
+      current.webConfig = config;
+      hasCurrent = true;
+    } else if (id.startsWith(BANNER_DOC_PREFIX)) {
+      const index = Number(id.substring(BANNER_DOC_PREFIX.length));
+      if (Number.isInteger(index) && value.banner) banners.push({ index, value: value.banner });
+    } else if (id.startsWith(ACHIEVEMENT_DOC_PREFIX)) {
+      if (value.item?.id !== undefined) achievementItems.set(String(value.item.id), value.item);
+    } else if (EXPECTED_KEYS.includes(id)) {
+      hasCurrent = true;
+      if (id === "achievements" && Array.isArray(value.itemIds)) {
+        achievementIds = value.itemIds.map((itemId: any) => String(itemId));
+      } else {
+        current[id] = Array.isArray(value.list) ? value.list : [];
+      }
+    }
+  });
+
+  if (achievementIds) {
+    current.achievements = achievementIds.map(id => achievementItems.get(id)).filter(Boolean);
+  }
+  if (banners.length > 0) {
+    current.webConfig = current.webConfig || {};
+    current.webConfig.banners = banners.sort((a, b) => a.index - b.index).map(item => item.value);
+  }
+
+  return [
+    ...(hasCurrent ? [{ source: `firestore-pitr-${minutesAgo}m-current`, data: current }] : []),
+    ...(legacy ? [{ source: `firestore-pitr-${minutesAgo}m-legacy`, data: legacy }] : [])
+  ];
+}
+
 function summarizeRecoveryData(data: any) {
   if (!data || typeof data !== "object") {
     return { available: false };
@@ -1320,6 +1449,74 @@ app.get("/api/recovery-status", async (_req, res) => {
   } catch (err: any) {
     console.error("[recovery-status]", err);
     res.status(500).json({ error: "Không thể quét các nguồn khôi phục.", message: err?.message || String(err) });
+  }
+});
+
+app.get("/api/recovery-pitr-scan", async (_req, res) => {
+  try {
+    const projectId = getFirebaseRecoveryProjectId();
+    if (!projectId) return res.status(503).json({ error: "Không xác định được Firebase projectId." });
+    const accessToken = await getFirebaseRecoveryAccessToken();
+    const offsets = [2, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    const scans = await Promise.allSettled(offsets.map(async minutesAgo => {
+      const readTime = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+      const documents = await listVovinamDocumentsAt(readTime, accessToken, projectId);
+      return {
+        minutesAgo,
+        readTime,
+        documentCount: documents.length,
+        sources: rebuildPitrCandidates(documents, minutesAgo).map(candidate => ({
+          source: candidate.source,
+          ...summarizeRecoveryData(candidate.data)
+        }))
+      };
+    }));
+    res.json({
+      warning: "Historical Firestore scan only. No data was changed.",
+      scannedAt: new Date().toISOString(),
+      results: scans.map((result, index) =>
+        result.status === "fulfilled"
+          ? result.value
+          : { minutesAgo: offsets[index], error: result.reason?.message || String(result.reason) }
+      )
+    });
+  } catch (err: any) {
+    console.error("[recovery-pitr-scan]", err);
+    res.status(500).json({
+      error: "Không thể quét lịch sử Firestore.",
+      message: err?.message || String(err)
+    });
+  }
+});
+
+app.get("/api/recovery-pitr-export", async (req, res) => {
+  try {
+    const minutesAgo = Number(req.query.minutesAgo);
+    const variant = String(req.query.variant || "");
+    if (!Number.isInteger(minutesAgo) || minutesAgo < 1 || minutesAgo > 59) {
+      return res.status(400).json({ error: "minutesAgo phải nằm trong khoảng 1-59." });
+    }
+    if (variant !== "current" && variant !== "legacy") {
+      return res.status(400).json({ error: "variant phải là current hoặc legacy." });
+    }
+    const projectId = getFirebaseRecoveryProjectId();
+    const accessToken = await getFirebaseRecoveryAccessToken();
+    const readTime = new Date(Date.now() - minutesAgo * 60_000).toISOString();
+    const documents = await listVovinamDocumentsAt(readTime, accessToken, projectId);
+    const source = `firestore-pitr-${minutesAgo}m-${variant}`;
+    const candidate = rebuildPitrCandidates(documents, minutesAgo).find(item => item.source === source);
+    if (!candidate) {
+      return res.status(404).json({ error: "Không tìm thấy dữ liệu tại mốc thời gian này." });
+    }
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="vovinam-${source}-${Date.now()}.json"`);
+    res.send(JSON.stringify(candidate.data, null, 2));
+  } catch (err: any) {
+    console.error("[recovery-pitr-export]", err);
+    res.status(500).json({
+      error: "Không thể xuất lịch sử Firestore.",
+      message: err?.message || String(err)
+    });
   }
 });
 
