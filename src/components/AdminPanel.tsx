@@ -16,6 +16,7 @@ import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
+import { externalizeInlineImages } from '../mediaSync';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -146,6 +147,7 @@ interface AdminPanelProps {
   setHighlights: React.Dispatch<React.SetStateAction<Highlight[]>>;
   webConfig: WebConfig;
   setWebConfig: React.Dispatch<React.SetStateAction<WebConfig>>;
+  applyCloudSnapshot?: (data: any) => void;
   onBackToWebsite?: () => void;
 }
 
@@ -668,6 +670,7 @@ export default function AdminPanel({
   clubs, setClubs,
   highlights, setHighlights,
   webConfig, setWebConfig,
+  applyCloudSnapshot,
   onBackToWebsite
 }: AdminPanelProps) {
   
@@ -688,8 +691,11 @@ export default function AdminPanel({
 
   useEffect(() => {
     const handleSyncError = (event: Event) => {
-      const key = (event as CustomEvent<{ key?: string }>).detail?.key;
-      showToast(`Không thể lưu ${key || 'dữ liệu'} lên Firebase. Vui lòng thử lại!`, 'error');
+      const detail = (event as CustomEvent<{ key?: string; message?: string }>).detail;
+      showToast(
+        detail?.message || `Không thể lưu ${detail?.key || 'dữ liệu'} lên Firebase. Vui lòng thử lại!`,
+        'error'
+      );
     };
     window.addEventListener('vovinam-sync-error', handleSyncError);
     return () => window.removeEventListener('vovinam-sync-error', handleSyncError);
@@ -761,14 +767,28 @@ export default function AdminPanel({
   const [loginUsername, setLoginUsername] = useState(() => {
     return localStorage.getItem('vovinam_remembered_username') || '';
   });
-  const [loginPassword, setLoginPassword] = useState(() => {
-    return localStorage.getItem('vovinam_remembered_password') || '';
-  });
+  const [loginPassword, setLoginPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('vovinam_remember_me_checked') === 'true';
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  useEffect(() => {
+    if (!currentAdmin) return;
+    let active = true;
+    fetch('/api/admin-session', { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error('Admin session expired');
+      })
+      .catch(() => {
+        if (!active) return;
+        setCurrentAdmin(null);
+        localStorage.removeItem('vovinam_current_admin');
+        sessionStorage.removeItem('vovinam_current_admin');
+      });
+    return () => { active = false; };
+  }, [currentAdmin?.id]);
 
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<AdminTab>('articles');
@@ -794,12 +814,15 @@ export default function AdminPanel({
   const [isUploadingHighlightMedia, setIsUploadingHighlightMedia] = useState(false);
   const [highlightUploadProgress, setHighlightUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [webConfigForm, setWebConfigForm] = useState<WebConfig>(webConfig);
-  const savedAchievementTournamentNames = Array.from(new Set(
-    achievements
-      .map(achievement => achievement.tournamentName?.trim() ||
-        (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : ''))
-      .filter((name): name is string => Boolean(name))
-  )).sort((a, b) => a.localeCompare(b, 'vi'));
+  const savedAchievementTournamentNames = useMemo(() => Array.from(new Set(
+    [
+      ...achievements.map(achievement => achievement.tournamentName?.trim() ||
+        (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : '')),
+      ...tournaments.map(tournament => tournament.name?.trim()),
+      ...highlights.map(highlight => highlight.tournamentName?.trim() ||
+        (highlight.tournamentId ? tournaments.find(t => t.id === highlight.tournamentId)?.name?.trim() : ''))
+    ].filter((name): name is string => Boolean(name))
+  )).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
 
   const handleHighlightImageUpload = async (files: File[], replaceIndex?: number) => {
     if (isUploadingHighlightMedia || files.length === 0) return;
@@ -910,6 +933,7 @@ export default function AdminPanel({
   // Load shared admin accounts from Firebase. On the first migration only, merge
   // accounts already created in this browser so they are not lost.
   useEffect(() => {
+    if (!currentAdmin) return;
     let active = true;
     fetch('/api/admin-accounts', { cache: 'no-store' })
       .then(async response => {
@@ -931,7 +955,7 @@ export default function AdminPanel({
         console.warn('Không thể tải tài khoản Admin từ Firebase, tạm dùng dữ liệu máy này:', error);
       });
     return () => { active = false; };
-  }, []);
+  }, [currentAdmin?.id]);
 
   // Synchronize admin accounts to localStorage and the private Firebase document.
   useEffect(() => {
@@ -968,14 +992,38 @@ export default function AdminPanel({
   };
 
   // Login handler
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    
-    const account = adminAccounts.find(
-      acc => acc.username.trim().toLowerCase() === loginUsername.trim().toLowerCase() && 
-             acc.password === loginPassword
-    );
+
+    let account: AdminAccount | null = null;
+    try {
+      const response = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: loginUsername,
+          password: loginPassword,
+          remember: rememberMe
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.account) {
+        setLoginError(payload.error || 'Tài khoản hoặc mật khẩu không chính xác!');
+        return;
+      }
+      account = payload.account as AdminAccount;
+      const accountsResponse = await fetch('/api/admin-accounts', { cache: 'no-store' });
+      const accountsPayload = await accountsResponse.json().catch(() => ({}));
+      if (accountsResponse.ok && Array.isArray(accountsPayload.accounts)) {
+        setAdminAccounts(accountsPayload.accounts);
+        setAdminAccountsCloudReady(true);
+      }
+    } catch (error) {
+      console.error('Không thể đăng nhập Admin:', error);
+      setLoginError('Không thể kết nối máy chủ đăng nhập. Vui lòng thử lại!');
+      return;
+    }
 
     if (account) {
       setCurrentAdmin(account);
@@ -983,7 +1031,7 @@ export default function AdminPanel({
       if (rememberMe) {
         localStorage.setItem('vovinam_current_admin', JSON.stringify(account));
         localStorage.setItem('vovinam_remembered_username', loginUsername);
-        localStorage.setItem('vovinam_remembered_password', loginPassword);
+        localStorage.removeItem('vovinam_remembered_password');
         localStorage.setItem('vovinam_remember_me_checked', 'true');
       } else {
         sessionStorage.setItem('vovinam_current_admin', JSON.stringify(account));
@@ -1023,6 +1071,7 @@ export default function AdminPanel({
   // Logout handler
   const handleLogout = () => {
     addLog('Đăng xuất', 'auth', 'Đăng xuất khỏi hệ thống');
+    void fetch('/api/admin-logout', { method: 'POST' }).catch(() => undefined);
     setCurrentAdmin(null);
     localStorage.removeItem('vovinam_current_admin');
     sessionStorage.removeItem('vovinam_current_admin');
@@ -1063,7 +1112,7 @@ export default function AdminPanel({
     setCurrentAdmin(updatedAdmin);
     if (rememberMe) {
       localStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
-      localStorage.setItem('vovinam_remembered_password', newPassword);
+      localStorage.removeItem('vovinam_remembered_password');
     } else {
       sessionStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
     }
@@ -1587,6 +1636,7 @@ export default function AdminPanel({
   const [loadingDbStatus, setLoadingDbStatus] = useState(false);
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [isFetchingCloud, setIsFetchingCloud] = useState(false);
+  const [isOptimizingMedia, setIsOptimizingMedia] = useState(false);
   const [backupStatus, setBackupStatus] = useState<any>(null);
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
 
@@ -1647,6 +1697,70 @@ export default function AdminPanel({
       showToast('Không thể tạo bản sao lưu. Không thực hiện thao tác ghi đè!', 'error');
     } finally {
       setIsCreatingBackup(false);
+    }
+  };
+
+  const handleOptimizeExistingMedia = async () => {
+    if (!window.confirm(
+      'Hệ thống sẽ sao lưu trước, sau đó chuyển ảnh đang nhúng trong dữ liệu sang kho ảnh riêng. Nội dung, logo và banner không bị xóa. Tiếp tục?'
+    )) return;
+
+    try {
+      setIsOptimizingMedia(true);
+      downloadLocalBackup('vovinam_before_media_optimization');
+
+      const backupRes = await fetch('/api/backup-now', { method: 'POST' });
+      const backupPayload = await backupRes.json().catch(() => ({}));
+      if (!backupRes.ok || !backupPayload.success) {
+        throw new Error(backupPayload.error || 'Không tạo được bản sao lưu Cloud trước khi tối ưu ảnh.');
+      }
+
+      const optimized = await externalizeInlineImages(buildLocalBackupData());
+      const savePayload = {
+        categories: optimized.vovinam_categories,
+        articles: optimized.vovinam_articles,
+        members: optimized.vovinam_members,
+        coaches: optimized.vovinam_coaches,
+        achievements: optimized.vovinam_achievements,
+        tournaments: optimized.vovinam_tournaments,
+        clubs: optimized.vovinam_clubs,
+        highlights: optimized.vovinam_highlights,
+        webConfig: optimized.vovinam_webConfig
+      };
+
+      const saveRes = await fetch('/api/save-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(savePayload)
+      });
+      const saveResult = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok || !saveResult.success) {
+        throw new Error(saveResult.error || 'Không thể lưu dữ liệu đã tối ưu lên Cloud.');
+      }
+
+      if (applyCloudSnapshot) {
+        applyCloudSnapshot(savePayload);
+      } else {
+        setCategories(savePayload.categories);
+        setArticles(savePayload.articles);
+        setMembers(savePayload.members);
+        setCoaches(savePayload.coaches);
+        setAchievements(savePayload.achievements);
+        setTournaments(savePayload.tournaments);
+        setClubs(savePayload.clubs);
+        setHighlights(savePayload.highlights);
+        setWebConfig(savePayload.webConfig);
+      }
+
+      showToast('Đã sao lưu và tối ưu kho ảnh thành công. Dữ liệu cũ vẫn được giữ nguyên.', 'success');
+      addLog('Tối ưu', 'dbSync', 'Đã tách ảnh nhúng khỏi dữ liệu JSON sau khi tạo bản sao lưu');
+      fetchDbStatus();
+      fetchBackupStatus();
+    } catch (err) {
+      console.error(err);
+      showToast(err instanceof Error ? err.message : 'Không thể tối ưu kho ảnh.', 'error');
+    } finally {
+      setIsOptimizingMedia(false);
     }
   };
 
@@ -1755,15 +1869,19 @@ export default function AdminPanel({
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       if (data) {
-        if (data.categories) setCategories(data.categories);
-        if (data.articles) setArticles(data.articles);
-        if (data.members) setMembers(data.members);
-        if (data.coaches) setCoaches(data.coaches);
-        if (data.achievements) setAchievements(data.achievements);
-        if (data.tournaments) setTournaments(data.tournaments);
-        if (data.clubs) setClubs(data.clubs);
-        if (data.highlights) setHighlights(data.highlights);
-        if (data.webConfig) setWebConfig(data.webConfig);
+        if (applyCloudSnapshot) {
+          applyCloudSnapshot(data);
+        } else {
+          if (data.categories) setCategories(data.categories);
+          if (data.articles) setArticles(data.articles);
+          if (data.members) setMembers(data.members);
+          if (data.coaches) setCoaches(data.coaches);
+          if (data.achievements) setAchievements(data.achievements);
+          if (data.tournaments) setTournaments(data.tournaments);
+          if (data.clubs) setClubs(data.clubs);
+          if (data.highlights) setHighlights(data.highlights);
+          if (data.webConfig) setWebConfig(data.webConfig);
+        }
 
         showToast('Đã tải và đồng bộ dữ liệu mới nhất từ Cloud thành công!', 'success');
         addLog('Đồng bộ', 'dbSync', 'Đã kéo dữ liệu từ Cloud Database xuống trình duyệt');
@@ -1869,6 +1987,21 @@ export default function AdminPanel({
     () => getFilteredData(),
     [activeTab, searchQuery, alphabetFilter, articles, categories, coaches, members, achievements, tournaments, clubs, highlights]
   );
+  const [crudPage, setCrudPage] = useState(1);
+  const CRUD_PAGE_SIZE = 25;
+  const crudPageCount = Math.max(1, Math.ceil(renderedData.length / CRUD_PAGE_SIZE));
+  const pagedRenderedData = useMemo(
+    () => renderedData.slice((crudPage - 1) * CRUD_PAGE_SIZE, crudPage * CRUD_PAGE_SIZE),
+    [crudPage, renderedData]
+  );
+
+  useEffect(() => {
+    setCrudPage(1);
+  }, [activeTab, alphabetFilter, searchQuery]);
+
+  useEffect(() => {
+    if (crudPage > crudPageCount) setCrudPage(crudPageCount);
+  }, [crudPage, crudPageCount]);
 
   const isCrudTab = [
     'articles', 'categories', 'coaches', 'members', 'achievements', 'tournaments', 'clubs', 'highlights'
@@ -2706,16 +2839,19 @@ export default function AdminPanel({
                           <input 
                             type="file" 
                             accept="image/*"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  if (typeof reader.result === 'string') {
-                                    setWebConfigForm({ ...webConfigForm, logo: reader.result });
-                                  }
-                                };
-                                reader.readAsDataURL(file);
+                                try {
+                                  const uploadedLogo = await compressAndUploadHighlightImage(file);
+                                  setWebConfigForm(previous => ({ ...previous, logo: uploadedLogo }));
+                                  showToast('Đã nén và tải logo lên kho ảnh.', 'success');
+                                } catch (error) {
+                                  showToast(
+                                    error instanceof Error ? error.message : 'Không thể tải logo lên kho ảnh.',
+                                    'error'
+                                  );
+                                }
                               }
                             }}
                             className="hidden" 
@@ -3124,7 +3260,7 @@ export default function AdminPanel({
                                     reader.onloadend = () => {
                                       if (typeof reader.result === 'string') {
                                         const img = new Image();
-                                        img.onload = () => {
+                                        img.onload = async () => {
                                           // Simple canvas resize to avoid massive base64 in localstorage
                                           const canvas = document.createElement('canvas');
                                           let width = img.width;
@@ -3143,7 +3279,16 @@ export default function AdminPanel({
                                           if (ctx) {
                                             ctx.drawImage(img, 0, 0, width, height);
                                             const compressedBase64 = canvas.toDataURL('image/jpeg', 0.62);
-                                            setBannerForm(prev => ({ ...prev, image: compressedBase64 }));
+                                            try {
+                                              const uploadedBanner = await uploadHighlightImageDataUrl(compressedBase64);
+                                              setBannerForm(prev => ({ ...prev, image: uploadedBanner }));
+                                              showToast('Đã nén và tải ảnh banner lên kho ảnh.', 'success');
+                                            } catch (error) {
+                                              showToast(
+                                                error instanceof Error ? error.message : 'Không thể tải banner lên kho ảnh.',
+                                                'error'
+                                              );
+                                            }
                                           } else {
                                             setBannerForm(prev => ({ ...prev, image: reader.result as string }));
                                           }
@@ -3493,6 +3638,18 @@ export default function AdminPanel({
                     <div className="text-[11px] text-slate-500 font-medium">
                       Phương thức lưu trữ hiện tại: <strong className="text-[#0054A6] font-bold">{dbStatus.storageType || 'Chưa xác định'}</strong>
                     </div>
+                    <div className={`rounded-xl border p-3 text-[11px] ${
+                      dbStatus.mediaStorage?.hasBucket && dbStatus.mediaStorage?.test?.includes('success')
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-amber-200 bg-amber-50 text-amber-800'
+                    }`}>
+                      <strong>Kho ảnh:</strong>{' '}
+                      {dbStatus.mediaStorage?.hasBucket && dbStatus.mediaStorage?.test?.includes('success')
+                        ? `Firebase Storage (${dbStatus.mediaStorage.bucket}). Ảnh mới được tách khỏi dữ liệu để trang tải nhanh hơn.`
+                        : dbStatus.mediaStorage?.hasBucket
+                          ? `Firebase Storage chưa dùng được (${dbStatus.mediaStorage.error || dbStatus.mediaStorage.test}). Ảnh đang rơi về Firestore dự phòng.`
+                          : 'Ảnh đang dùng Firestore dự phòng. Khi số lượng ảnh tăng cao, hãy thêm FIREBASE_STORAGE_BUCKET trên Vercel để tránh đầy Firestore.'}
+                    </div>
                   </div>
                 ) : dbStatus && dbStatus.error ? (
                   <div className="space-y-2 py-1">
@@ -3569,6 +3726,28 @@ export default function AdminPanel({
                         <span>Tải dữ liệu từ Cloud về máy</span>
                       </>
                     )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                      Tối ưu ảnh đã lưu trước đây
+                    </h3>
+                    <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-amber-800">
+                      Tách logo, banner và ảnh HLV/thành viên đang nhúng trong dữ liệu sang kho ảnh riêng để giảm dung lượng tải.
+                      Hệ thống bắt buộc tạo bản sao lưu Cloud và tải một bản JSON về máy trước khi thực hiện.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isOptimizingMedia}
+                    onClick={handleOptimizeExistingMedia}
+                    className="shrink-0 rounded-xl bg-amber-600 px-5 py-3 text-xs font-bold text-white shadow transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isOptimizingMedia ? 'Đang sao lưu và tối ưu...' : 'Sao lưu & tối ưu ảnh'}
                   </button>
                 </div>
               </div>
@@ -5099,7 +5278,7 @@ export default function AdminPanel({
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700 text-xs">
-                      {renderedData.map((item: any) => (
+                      {pagedRenderedData.map((item: any) => (
                         <tr key={item.id} className="hover:bg-slate-50/50 transition-all">
                           <td className="p-3 font-bold text-slate-400">
                             #{item.id}
@@ -5117,6 +5296,8 @@ export default function AdminPanel({
                                   src={item.photo || item.image || item.thumbnail} 
                                   alt="" 
                                   className="w-10 h-10 object-cover rounded-lg border bg-slate-100"
+                                  loading="lazy"
+                                  decoding="async"
                                   referrerPolicy="no-referrer"
                                 />
                               )}
@@ -5246,6 +5427,35 @@ export default function AdminPanel({
                   </table>
                 )}
               </div>
+
+              {crudPageCount > 1 && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <span className="text-slate-500">
+                    Trang <strong className="text-[#0054A6]">{crudPage}</strong> / {crudPageCount}
+                    {' '}• tối đa {CRUD_PAGE_SIZE} bản ghi mỗi trang
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCrudPage(page => Math.max(1, page - 1))}
+                      disabled={crudPage === 1}
+                      className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Trước
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCrudPage(page => Math.min(crudPageCount, page + 1))}
+                      disabled={crudPage === crudPageCount}
+                      className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sau
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
             </div>
           )}

@@ -21,5 +21,5 @@ export default function PersonAvatar({ src, alt, className = '', iconClassName =
     );
   }
 
-  return <img src={src} alt={alt} className={className} referrerPolicy="no-referrer" onError={() => setLoadFailed(true)} />;
+  return <img src={src} alt={alt} className={className} loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={() => setLoadFailed(true)} />;
 }

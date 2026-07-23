@@ -52,6 +52,24 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Defer paint/layout work for long public sections until they approach the
+   viewport. The hero remains immediate so logo and banner are never delayed. */
+#vovinam-user-root > section:not(#section-hero-carousel) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 760px;
+}
+
+/* Horizontal carousels can contain hundreds of records over time. Off-screen
+   cards keep their scroll size but do not consume paint time. */
+#vovinam-user-root .snap-start {
+  content-visibility: auto;
+  contain-intrinsic-size: 320px 300px;
+}
+
+img {
+  content-visibility: auto;
+}
+
 /* Google Translate is controlled by the compact VI/EN selector in the header. */
 .google-translate-host,
 .goog-te-banner-frame,

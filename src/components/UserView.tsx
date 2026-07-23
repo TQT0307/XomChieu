@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
@@ -7,14 +7,15 @@ import {
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, getBeltStyle, getNormalizedTournamentStatus 
 } from '../types';
-import MemberDetailModal from './MemberDetailModal';
-import CoachDetailModal from './CoachDetailModal';
 import PersonAvatar from './PersonAvatar';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
+
+const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
+const CoachDetailModal = lazy(() => import('./CoachDetailModal'));
 
 const bundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -215,7 +216,6 @@ export default function UserView({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // News category filter tab selection state
-  const [activeNewsTab, setActiveNewsTab] = useState<string>('ALL');
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
   const rowScrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const achievementsScrollRef = React.useRef<HTMLDivElement>(null);
@@ -262,12 +262,15 @@ export default function UserView({
   };
 
   // Filter visible items based on status
-  const visibleArticles = articles.filter(a => a.status !== false);
+  const visibleArticles = useMemo(
+    () => articles.filter(a => a.status !== false),
+    [articles]
+  );
   
   const [searchCoachQuery, setSearchCoachQuery] = useState<string>('');
   const [searchMemberQuery, setSearchMemberQuery] = useState<string>('');
 
-  const visibleCoaches = coaches.filter(c => {
+  const visibleCoaches = useMemo(() => coaches.filter(c => {
     if (c.status === false) return false;
     const q = searchCoachQuery.toLowerCase().trim();
     if (!q) return true;
@@ -278,9 +281,9 @@ export default function UserView({
       (c.experience && c.experience.toLowerCase().includes(q)) ||
       (c.birthYear && String(c.birthYear).includes(q))
     );
-  });
+  }), [coaches, searchCoachQuery]);
 
-  const visibleMembers = members
+  const visibleMembers = useMemo(() => members
     .filter(m => {
       if (m.status === false) return false;
       const q = searchMemberQuery.toLowerCase().trim();
@@ -298,13 +301,13 @@ export default function UserView({
       return orderDifference !== 0
         ? orderDifference
         : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
-    });
+    }), [members, searchMemberQuery]);
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
-  const visibleTournaments = tournaments.filter(t => {
+  const visibleTournaments = useMemo(() => tournaments.filter(t => {
     const norm = getNormalizedTournamentStatus(t.status);
     return tournamentStatusFilter === 'all' || norm === tournamentStatusFilter;
-  });
+  }), [tournamentStatusFilter, tournaments]);
 
   // Filter state for achievements section
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('');
@@ -327,15 +330,15 @@ export default function UserView({
     return '';
   };
 
-  const uniqueYears = Array.from(
+  const uniqueYears = useMemo(() => Array.from(
     new Set(
       achievements
         .map(a => getYearFromAchievement(a))
         .filter(Boolean)
     )
-  ).sort((a, b) => b.localeCompare(a));
+  ).sort((a, b) => b.localeCompare(a)), [achievements]);
 
-  const uniqueTournaments = Array.from(
+  const uniqueTournaments = useMemo(() => Array.from(
     new Set(
       achievements
         .map(a => {
@@ -348,16 +351,20 @@ export default function UserView({
         })
         .filter(Boolean)
     )
-  ).sort((a, b) => a.localeCompare(b));
+  ).sort((a, b) => a.localeCompare(b)), [achievements, tournaments]);
 
-  const highlightTournamentOptions = Array.from(
+  const highlightTournamentOptions = useMemo(() => Array.from(
     new Set(
-      achievements
-        .map(achievement => achievement.tournamentName?.trim() ||
-          (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : ''))
+      [
+        ...achievements.map(achievement => achievement.tournamentName?.trim() ||
+          (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : '')),
+        ...tournaments.map(tournament => tournament.name?.trim()),
+        ...highlights.map(highlight => highlight.tournamentName?.trim() ||
+          (highlight.tournamentId ? tournaments.find(t => t.id === highlight.tournamentId)?.name?.trim() : ''))
+      ]
         .filter((name): name is string => Boolean(name))
     )
-  ).sort((a, b) => a.localeCompare(b, 'vi'));
+  ).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
 
   // Use the achievement image consistently in both the card and detail modal.
   // Mixing profile photos here with achievement photos in the modal made one
@@ -366,7 +373,7 @@ export default function UserView({
     return ach.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
   };
 
-  const visibleAchievements = achievements.filter(a => {
+  const visibleAchievements = useMemo(() => achievements.filter(a => {
     if (a.status === false) return false;
     
     // Search query match (achievement title or unit)
@@ -397,8 +404,15 @@ export default function UserView({
     }
     
     return true;
-  });
-  const visibleHighlights = highlights.filter(h => {
+  }), [
+    achievements,
+    searchAchievementQuery,
+    searchAthleteQuery,
+    selectedTournamentFilter,
+    selectedYearFilter,
+    tournaments
+  ]);
+  const visibleHighlights = useMemo(() => highlights.filter(h => {
     if (h.status === false) return false;
     if (selectedHighlightTournament) {
       const linkedTournamentName = h.tournamentName ||
@@ -413,26 +427,8 @@ export default function UserView({
       return titleMatch || athleteMatch || tournamentMatch;
     }
     return true;
-  });
+  }), [highlights, searchHighlightQuery, selectedHighlightTournament, tournaments]);
   const visibleClubs = clubs;
-
-  // Filter articles based on activeNewsTab (Latest vs specific Category)
-  const displayedArticles = visibleArticles.filter(article => {
-    if (activeNewsTab === 'ALL') {
-      return true; // Hiển thị toàn bộ bài viết
-    } else if (activeNewsTab === 'LATEST') {
-      if (!article.showInNews) return false;
-      const itemDate = new Date(article.date);
-      const now = new Date();
-      const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
-      const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const diffTime = d2.getTime() - d1.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 2;
-    } else {
-      return article.categoryId === activeNewsTab;
-    }
-  });
 
   const configHeight = webConfig.bannerHeight || 'medium';
   const zaloPhoneMatch = String(webConfig.phone || '').match(/(?:\+?84|0)(?:[\s.-]?\d){8,9}(?![\s.-]?\d)/);
@@ -460,6 +456,8 @@ export default function UserView({
           src={webConfig.logo || "/logo.jpg"} 
           alt="Vovinam Watermark Logo" 
           className="w-[85vw] max-w-[550px] aspect-square object-cover rounded-full scale-[1.08] [clip-path:circle(49%_at_50%_50%)] animate-[spin_120s_linear_infinite] saturate-125 contrast-110"
+          loading="lazy"
+          decoding="async"
           referrerPolicy="no-referrer"
         />
       </div>
@@ -473,6 +471,9 @@ export default function UserView({
             alt="Vovinam Slide" 
             className="w-full h-full object-cover opacity-100 transition-opacity duration-1000"
             style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position) }}
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
@@ -811,6 +812,8 @@ export default function UserView({
                                 src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                loading="lazy"
+                                decoding="async"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
@@ -915,6 +918,8 @@ export default function UserView({
                                 src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
+                                loading="lazy"
+                                decoding="async"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
@@ -1056,6 +1061,8 @@ export default function UserView({
                       src={t.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80'} 
                       alt={t.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"
+                      loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
@@ -1206,6 +1213,8 @@ export default function UserView({
                   src={hl.thumbnail} 
                   alt={hl.title} 
                   className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 brightness-105 saturate-110 group-hover:brightness-110"
+                  loading="lazy"
+                  decoding="async"
                   referrerPolicy="no-referrer"
                 />
                 
@@ -1403,6 +1412,8 @@ export default function UserView({
                       src={getMemberPhotoForAchievement(ach)} 
                       alt={ach.athleteName || 'Môn sinh'} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     {/* Medal overlay at bottom-right */}
@@ -1931,6 +1942,8 @@ export default function UserView({
                     src={club.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'} 
                     alt={club.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
+                    loading="lazy"
+                    decoding="async"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
@@ -2123,6 +2136,7 @@ export default function UserView({
         </div>
       </footer>
 
+      <Suspense fallback={null}>
       {selectedMember && (
         <MemberDetailModal 
           member={selectedMember} 
@@ -2142,6 +2156,7 @@ export default function UserView({
           onSelectAchievement={onSelectAchievement}
         />
       )}
+      </Suspense>
 
       {zoomedPhoto && (
         <div 

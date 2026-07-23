@@ -38,6 +38,9 @@ export default function Header({
   });
 
   useEffect(() => {
+    // Vietnamese is the native UI, so do not download the large Google
+    // Translate script unless English was explicitly selected.
+    if (language !== 'en') return;
     const initializeTranslate = () => {
       const googleTranslate = (window as any).google?.translate?.TranslateElement;
       if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
@@ -57,7 +60,7 @@ export default function Header({
       script.async = true;
       document.head.appendChild(script);
     }
-  }, []);
+  }, [language]);
 
   const handleLanguageChange = (nextLanguage: 'vi' | 'en') => {
     if (nextLanguage === language) return;
@@ -140,6 +143,8 @@ export default function Header({
                 src={webConfig.logo}
                 alt="Vovinam Logo" 
                 className="w-full h-full object-contain rounded-full"
+                decoding="async"
+                fetchPriority="high"
                 referrerPolicy="no-referrer"
                 onError={() => setLogoLoadFailed(true)}
               />

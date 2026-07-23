@@ -4,12 +4,13 @@ dotenv.config();
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { randomUUID } from "crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { MongoClient } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import { getStorage } from "firebase-admin/storage";
 
 // Seed data
 import {
@@ -29,14 +30,18 @@ const PORT = 3000;
 const MEDIA_COLLECTION = "vovinam_media";
 const MAX_STORED_IMAGE_BYTES = 650 * 1024;
 const FIREBASE_BACKUP_SLOT_COUNT = 5;
+const AUTO_BACKUP_MIN_INTERVAL_MS = 10 * 60 * 1000;
+const ADMIN_SESSION_COOKIE = "vovinam_admin_session";
 
 // Body parser
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+app.use(express.json({ limit: "8mb" }));
+app.use(express.urlencoded({ limit: "8mb", extended: true }));
 
 // Vercel Serverless routing normalization middleware
 app.use((req, res, next) => {
-  console.log(`[Request] Method: ${req.method} | Original URL: ${req.url}`);
+  if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+    console.log(`[Request] Method: ${req.method} | Original URL: ${req.url}`);
+  }
 
   // API responses represent live admin data and must never be served stale by a
   // browser, proxy, or Vercel CDN.
@@ -51,7 +56,9 @@ app.use((req, res, next) => {
   if (process.env.VERCEL && req.url && !req.url.startsWith("/api") && req.url !== "/") {
     const oldUrl = req.url;
     req.url = "/api" + req.url;
-    console.log(`[Route Normalization] Rewrote ${oldUrl} to ${req.url}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`[Route Normalization] Rewrote ${oldUrl} to ${req.url}`);
+    }
   }
   next();
 });
@@ -121,53 +128,55 @@ if (rawRedisUrl) {
 const hasRedis = !!redisUrl && !hasVercelKv;
 
 let redisFailed = false;
+let sharedRedisClient: any = null;
+let sharedRedisConnectPromise: Promise<any> | null = null;
 
-// Stateless, leak-proof connection manager for Redis TCP in serverless environments.
+// Reuse one Redis connection while a Vercel function instance is warm. Opening
+// and closing TLS for every 12-second metadata poll previously added close to a
+// second of latency to otherwise tiny requests.
 async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promise<T> {
   if (!redisUrl) throw new Error("Redis connection URL is not configured");
   if (redisFailed) throw new Error("Redis connection previously failed and is disabled");
-  
-  const isSecure = redisUrl.startsWith("rediss://");
-  const client = createRedisRawClient({
-    url: redisUrl,
-    socket: {
-      connectTimeout: 2000, // 2 seconds timeout
-      tls: isSecure, // Enforce TLS on rediss://
-    } as any,
-    reconnectStrategy: () => {
-      // Disable reconnect loops in serverless to prevent thread leaks
-      return new Error("Connection failed");
-    }
-  } as any);
-
-  client.on("error", (err) => {
-    console.error("[Redis TCP Client Error]:", err);
-  });
 
   try {
-    // 1. Establish connection with absolute timeout
-    await withTimeout(client.connect(), 2000, "Redis connection timeout after 2 seconds");
-    
-    // 2. Run the actual operation
-    const result = await commandFn(client);
-    
-    // 3. Gracefully disconnect
-    try {
-      await client.quit();
-    } catch {
-      try {
-        await client.disconnect();
-      } catch {}
+    if (!sharedRedisClient?.isReady) {
+      if (!sharedRedisConnectPromise) {
+        const isSecure = redisUrl.startsWith("rediss://");
+        const client = createRedisRawClient({
+          url: redisUrl,
+          socket: {
+            connectTimeout: 2500,
+            tls: isSecure,
+            keepAlive: 5000,
+            reconnectStrategy: false
+          } as any
+        } as any);
+        client.on("error", (error: any) => {
+          console.error("[Redis TCP Client Error]:", error?.message || error);
+        });
+        sharedRedisConnectPromise = withTimeout(
+          client.connect().then(() => client),
+          3000,
+          "Redis connection timeout after 3 seconds"
+        ).finally(() => {
+          sharedRedisConnectPromise = null;
+        });
+      }
+      sharedRedisClient = await sharedRedisConnectPromise;
     }
-    
-    return result;
+    return await withTimeout(
+      Promise.resolve(commandFn(sharedRedisClient)),
+      4000,
+      "Redis command timed out"
+    );
   } catch (err) {
     console.error("[Redis TCP] Failed, disabling Redis fallback:", err);
     redisFailed = true;
-    // Forcefully disconnect on failure to release the socket
     try {
-      await client.disconnect();
+      if (sharedRedisClient?.isOpen) await sharedRedisClient.disconnect();
     } catch {}
+    sharedRedisClient = null;
+    sharedRedisConnectPromise = null;
     throw err;
   }
 }
@@ -213,6 +222,70 @@ const hasFirebase = !!(
 );
 
 const hasPersistentStorage = hasFirebase || hasVercelKv || hasRedis || !!MONGODB_URI;
+const firebaseStorageBucketName = isValidEnvVar(process.env.FIREBASE_STORAGE_BUCKET)
+  ? process.env.FIREBASE_STORAGE_BUCKET!.trim()
+  : "";
+
+function getAdminSessionSecret() {
+  return (
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.FIREBASE_SERVICE_ACCOUNT ||
+    process.env.FIREBASE_PRIVATE_KEY ||
+    process.env.KV_REDIS_URL ||
+    "vovinam-local-development-session"
+  );
+}
+
+function signAdminSession(account: any, remember: boolean) {
+  const payload = Buffer.from(JSON.stringify({
+    id: String(account.id || ""),
+    username: String(account.username || ""),
+    role: account.role,
+    exp: Date.now() + (remember ? 30 * 24 * 60 * 60 * 1000 : 12 * 60 * 60 * 1000)
+  })).toString("base64url");
+  const signature = createHmac("sha256", getAdminSessionSecret())
+    .update(payload)
+    .digest("base64url");
+  return `${payload}.${signature}`;
+}
+
+function readAdminSession(req: any) {
+  const cookieHeader = String(req.headers?.cookie || "");
+  const token = cookieHeader
+    .split(";")
+    .map((part: string) => part.trim())
+    .find((part: string) => part.startsWith(`${ADMIN_SESSION_COOKIE}=`))
+    ?.substring(ADMIN_SESSION_COOKIE.length + 1);
+  if (!token) return null;
+  const [payload, signature] = token.split(".");
+  if (!payload || !signature) return null;
+  const expected = createHmac("sha256", getAdminSessionSecret())
+    .update(payload)
+    .digest("base64url");
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (
+    actualBuffer.length !== expectedBuffer.length ||
+    !timingSafeEqual(actualBuffer, expectedBuffer)
+  ) return null;
+  try {
+    const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    return Number(session.exp || 0) > Date.now() ? session : null;
+  } catch {
+    return null;
+  }
+}
+
+function requireAdminSession(req: any, res: any, next: any) {
+  const session = readAdminSession(req);
+  if (!session) {
+    return res.status(401).json({
+      error: "Phiên đăng nhập Admin đã hết hạn. Vui lòng đăng nhập lại."
+    });
+  }
+  req.adminSession = session;
+  next();
+}
 
 async function getFirebaseFirestore() {
   if (firestore) return firestore;
@@ -295,6 +368,7 @@ async function getFirebaseFirestore() {
       if (credential) {
         initializeApp({
           credential,
+          ...(firebaseStorageBucketName ? { storageBucket: firebaseStorageBucketName } : {})
         });
       } else {
         throw new Error("No valid credential could be initialized. Check service account or individual variables.");
@@ -311,6 +385,61 @@ async function getFirebaseFirestore() {
   }
 }
 
+const DEFAULT_ADMIN_ACCOUNTS = [{
+  id: "admin",
+  username: "admin",
+  password: "123",
+  role: "super",
+  name: "HLV Trưởng (Admin chính)",
+  permissions: [
+    "articles", "categories", "coaches", "members", "achievements",
+    "tournaments", "clubs", "highlights", "webConfig"
+  ]
+}];
+
+async function mirrorAdminAccountsToRedis(accounts: any[]) {
+  if (!hasRedis || redisFailed) return;
+  try {
+    await runRedisCommand(client =>
+      client.set("vovinam_admin_accounts", JSON.stringify(accounts))
+    );
+  } catch (error) {
+    console.error("[Admin accounts] Redis mirror failed:", error);
+  }
+}
+
+async function readAdminAccounts() {
+  const dbInstance = await getFirebaseFirestore();
+  if (dbInstance) {
+    try {
+      const snapshot: any = await withTimeout(
+        dbInstance.collection("vovinam_private").doc("admin_accounts").get(),
+        5000,
+        "Firebase admin accounts GET timed out"
+      );
+      const accounts = snapshot.exists && Array.isArray(snapshot.data()?.accounts)
+        ? snapshot.data()!.accounts
+        : DEFAULT_ADMIN_ACCOUNTS;
+      await mirrorAdminAccountsToRedis(accounts);
+      return { accounts, exists: snapshot.exists, dbInstance };
+    } catch (error) {
+      console.error("[Admin accounts] Firebase read failed, trying Redis:", error);
+    }
+  }
+
+  if (hasRedis && !redisFailed) {
+    let accounts: any[] | null = null;
+    await runRedisCommand(async client => {
+      const value = await client.get("vovinam_admin_accounts");
+      if (value) accounts = JSON.parse(value);
+    });
+    if (accounts && Array.isArray(accounts) && accounts.length > 0) {
+      return { accounts, exists: true, dbInstance };
+    }
+  }
+  throw new Error("Admin account storage is unavailable");
+}
+
 // Global in-memory fallback to avoid crashes on read-only environments like Vercel Serverless
 let memoryDb: any = null;
 
@@ -325,7 +454,8 @@ function getInitialDbState() {
     clubs: initialClubs,
     highlights: initialHighlights,
     webConfig: initialWebConfig,
-    lastUpdated: 0
+    lastUpdated: 0,
+    keyVersions: {}
   };
 }
 
@@ -381,6 +511,32 @@ function detectImageContentType(buffer: Buffer): string | null {
     return "image/gif";
   }
   return null;
+}
+
+async function storeImageInFirebaseStorage(
+  id: string,
+  imageBuffer: Buffer,
+  contentType: string
+) {
+  if (!firebaseStorageBucketName) return null;
+  const bucket = getStorage().bucket(firebaseStorageBucketName);
+  const objectPath = `vovinam-media/${id}`;
+  const downloadToken = randomUUID();
+  await withTimeout(
+    bucket.file(objectPath).save(imageBuffer, {
+      resumable: false,
+      metadata: {
+        contentType,
+        cacheControl: "public,max-age=31536000,immutable",
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken
+        }
+      }
+    }),
+    15000,
+    "Firebase Storage image upload timed out"
+  );
+  return `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket.name)}/o/${encodeURIComponent(objectPath)}?alt=media&token=${downloadToken}`;
 }
 
 function mergeWebConfigPreservingMedia(existing: any, incoming: any) {
@@ -462,7 +618,8 @@ async function mirrorFirebaseDataToRedis(data: any, changedKey?: string) {
   try {
     await runRedisCommand(async client => {
       const metadataText = await client.get("vovinam_metadata");
-      const cachedTimestamp = metadataText ? Number(JSON.parse(metadataText).lastUpdated || 0) : 0;
+      const cachedMetadata = metadataText ? JSON.parse(metadataText) : {};
+      const cachedTimestamp = Number(cachedMetadata.lastUpdated || 0);
       const sourceTimestamp = Number(data.lastUpdated || 0);
       if (!changedKey && sourceTimestamp > 0 && cachedTimestamp === sourceTimestamp) return;
 
@@ -476,7 +633,13 @@ async function mirrorFirebaseDataToRedis(data: any, changedKey?: string) {
         ),
         client.set("vovinam_metadata", JSON.stringify({
           lastUpdated: sourceTimestamp || Date.now(),
-          changedKey: changedKey || null
+          changedKey: changedKey || null,
+          keyVersions: changedKey
+            ? {
+                ...(cachedMetadata.keyVersions || {}),
+                [changedKey]: Number(data.keyVersions?.[changedKey] || sourceTimestamp || Date.now())
+              }
+            : data.keyVersions || {}
         }))
       ]);
     });
@@ -505,7 +668,10 @@ async function getValidRedisMirror() {
       );
       if (results.some(value => value === null)) return;
 
-      mirroredData = { lastUpdated };
+      mirroredData = {
+        lastUpdated,
+        keyVersions: metadata?.keyVersions || {}
+      };
       EXPECTED_KEYS.forEach((key, index) => {
         mirroredData[key] = JSON.parse(results[index] as string);
       });
@@ -513,6 +679,30 @@ async function getValidRedisMirror() {
     return mirroredData;
   } catch (err) {
     console.error("[Redis mirror] Failed to read validated cache:", err);
+    return null;
+  }
+}
+
+async function getRedisKeyData(key: string) {
+  if (!hasRedis || redisFailed) return null;
+  try {
+    let result: any = null;
+    await runRedisCommand(async client => {
+      const [dataText, metadataText] = await Promise.all([
+        client.get(`vovinam_${key}`),
+        client.get("vovinam_metadata")
+      ]);
+      if (!dataText || !metadataText) return;
+      const metadata = JSON.parse(metadataText);
+      if (Number(metadata?.lastUpdated || 0) <= 0) return;
+      result = {
+        data: JSON.parse(dataText),
+        keyVersion: Number(metadata?.keyVersions?.[key] || metadata.lastUpdated || 0)
+      };
+    });
+    return result;
+  } catch (error) {
+    console.error(`[Redis mirror] Failed to read ${key}:`, error);
     return null;
   }
 }
@@ -619,7 +809,8 @@ async function getDbChangeStatus() {
       if (Number(cachedStatus?.lastUpdated || 0) > 0) {
         return {
           lastUpdated: Number(cachedStatus.lastUpdated),
-          changedKey: cachedStatus.changedKey || null
+          changedKey: cachedStatus.changedKey || null,
+          keyVersions: cachedStatus.keyVersions || {}
         };
       }
     } catch (err) {
@@ -638,17 +829,24 @@ async function getDbChangeStatus() {
         );
         if (snapshot.exists) {
           const metadata = snapshot.data() || {};
-          return { lastUpdated: metadata.lastUpdated || 0, changedKey: metadata.changedKey || null };
+          return {
+            lastUpdated: metadata.lastUpdated || 0,
+            changedKey: metadata.changedKey || null,
+            keyVersions: metadata.keyVersions || {}
+          };
         }
       } catch (err) {
         console.error("[Firebase] Change status error:", err);
       }
     }
   }
-  return { lastUpdated: await getDbTimestamp(), changedKey: null };
+  return { lastUpdated: await getDbTimestamp(), changedKey: null, keyVersions: {} };
 }
 
 async function getDbKeyData(key: string) {
+  const redisResult = await getRedisKeyData(key);
+  if (redisResult) return redisResult.data;
+
   if (hasFirebase && !firebaseFailed) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
@@ -728,6 +926,7 @@ async function getDbData() {
               legacyData = docData;
             } else if (id === "metadata") {
               db.lastUpdated = docData.lastUpdated || 0;
+              db.keyVersions = docData.keyVersions || {};
             } else if (id === "webConfig") {
               const { bannerCount: _bannerCount, ...webConfig } = docData;
               db.webConfig = webConfig;
@@ -780,6 +979,7 @@ async function getDbData() {
             if (db.lastUpdated === undefined) {
               db.lastUpdated = 0;
             }
+            if (!db.keyVersions) db.keyVersions = {};
             memoryDb = db;
             await mirrorFirebaseDataToRedis(db);
             return db;
@@ -816,6 +1016,7 @@ async function getDbData() {
           hasData = true;
           if (k === "metadata") {
             db.lastUpdated = (val as any).lastUpdated || 0;
+            db.keyVersions = (val as any).keyVersions || {};
           } else {
             db[k] = val;
           }
@@ -871,6 +1072,7 @@ async function getDbData() {
             const parsed = JSON.parse(valStr);
             if (k === "metadata") {
               db.lastUpdated = parsed.lastUpdated || 0;
+              db.keyVersions = parsed.keyVersions || {};
             } else {
               db[k] = parsed;
             }
@@ -990,6 +1192,7 @@ async function readFirebaseCurrentForBackup(dbInstance: any) {
       legacy = value;
     } else if (id === "metadata") {
       current.lastUpdated = value.lastUpdated || 0;
+      current.keyVersions = value.keyVersions || {};
     } else if (id === "webConfig") {
       const { bannerCount: _bannerCount, ...config } = value;
       current.webConfig = config;
@@ -1036,10 +1239,15 @@ async function readFirebaseCurrentForBackup(dbInstance: any) {
   return legacy;
 }
 
-async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) {
-  // Read only the live collection. Do not scan the recovery collection on
-  // every save, otherwise backup retention itself would consume read quota.
-  const previous = await readFirebaseCurrentForBackup(dbInstance);
+async function createFirebaseSafetyBackup(
+  dbInstance: any,
+  changedKey?: string,
+  previousData?: any,
+  force = false
+) {
+  // CRUD already loaded the current state. Reusing it avoids a full Firestore
+  // collection scan before every save.
+  const previous = previousData || await readFirebaseCurrentForBackup(dbInstance);
   if (!previous) return null;
 
   const recoveryCollection = dbInstance.collection("vovinam_recovery");
@@ -1051,6 +1259,14 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
   );
   const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
   const slots = { ...(state.slots || {}) };
+  const lastBackupAtByKey = { ...(state.lastBackupAtByKey || {}) };
+  if (
+    changedKey &&
+    !force &&
+    Date.now() - Number(lastBackupAtByKey[changedKey] || 0) < AUTO_BACKUP_MIN_INTERVAL_MS
+  ) {
+    return Number(lastBackupAtByKey[changedKey] || 0);
+  }
   const keysToBackup = changedKey ? [changedKey] : EXPECTED_KEYS;
   const batch = dbInstance.batch();
   const backupAt = Date.now();
@@ -1061,6 +1277,7 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
       : -1;
     const slot = (previousSlot + 1) % FIREBASE_BACKUP_SLOT_COUNT;
     slots[key] = slot;
+    lastBackupAtByKey[key] = backupAt;
     const baseId = `${key}_slot_${slot}`;
 
     if (key === "webConfig") {
@@ -1114,6 +1331,7 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
 
   batch.set(stateRef, {
     slots,
+    lastBackupAtByKey,
     updatedAt: backupAt,
     retentionSlots: FIREBASE_BACKUP_SLOT_COUNT,
     ...(changedKey ? {} : { lastFullBackupAt: backupAt })
@@ -1127,20 +1345,33 @@ async function createFirebaseSafetyBackup(dbInstance: any, changedKey?: string) 
 }
 
 // Helper to save DB data (async)
-async function saveDbData(data: any, changedKey?: string) {
+async function saveDbData(
+  data: any,
+  changedKey?: string,
+  previousData?: any,
+  forceBackup = false
+) {
   const { _id, ...dataToSave } = data;
-  
-  // Always update in-memory representation so current process stays up to date
-  memoryDb = dataToSave;
 
   // 1. Try Firebase Firestore if enabled (Highest priority)
   if (hasFirebase && !firebaseFailed) {
     const dbInstance = await getFirebaseFirestore();
     if (dbInstance) {
       try {
-        await createFirebaseSafetyBackup(dbInstance, changedKey);
+        try {
+          await createFirebaseSafetyBackup(dbInstance, changedKey, previousData, forceBackup);
+        } catch (backupError) {
+          console.error("[Firebase] Automatic safety backup failed:", backupError);
+          if (forceBackup) throw backupError;
+        }
         const batch = dbInstance.batch();
         const splitWebConfig = splitWebConfigForFirestore(dataToSave.webConfig);
+        const previousAchievements = Array.isArray(previousData?.achievements)
+          ? previousData.achievements
+          : [];
+        const previousBanners = Array.isArray(previousData?.webConfig?.banners)
+          ? previousData.webConfig.banners
+          : [];
 
         if (splitWebConfig.banners.length > MAX_BANNERS) {
           throw new Error(`A maximum of ${MAX_BANNERS} banners is supported`);
@@ -1164,23 +1395,40 @@ async function saveDbData(data: any, changedKey?: string) {
 
         if (!changedKey || changedKey === "achievements") {
           const achievementList = Array.isArray(dataToSave.achievements) ? dataToSave.achievements : [];
+          const previousById = new Map(
+            previousAchievements.map((item: any) => [String(item?.id), item])
+          );
+          const nextIds = new Set(achievementList.map((item: any) => String(item?.id)));
           achievementList.forEach((item: any) => {
-            batch.set(
-              dbInstance.collection("vovinam").doc(getAchievementDocId(item.id)),
-              { item }
-            );
+            const previousItem = previousById.get(String(item?.id));
+            if (JSON.stringify(previousItem) !== JSON.stringify(item)) {
+              batch.set(
+                dbInstance.collection("vovinam").doc(getAchievementDocId(item.id)),
+                { item }
+              );
+            }
+          });
+          previousAchievements.forEach((item: any) => {
+            if (!nextIds.has(String(item?.id))) {
+              batch.delete(
+                dbInstance.collection("vovinam").doc(getAchievementDocId(item.id))
+              );
+            }
           });
         }
 
         if (!changedKey || changedKey === "webConfig") {
-          // Set current banner documents and delete obsolete ones in the same
-          // atomic batch, so visitors never receive a partially updated carousel.
-          for (let index = 0; index < MAX_BANNERS; index += 1) {
+          // Write only changed banners. The previous implementation issued 50
+          // writes for every web setting save, even when one title changed.
+          const bannerSlots = Math.max(previousBanners.length, splitWebConfig.banners.length);
+          for (let index = 0; index < bannerSlots; index += 1) {
             const bannerRef = dbInstance
               .collection("vovinam")
               .doc(`${BANNER_DOC_PREFIX}${index}`);
             if (index < splitWebConfig.banners.length) {
-              batch.set(bannerRef, { banner: splitWebConfig.banners[index] });
+              if (JSON.stringify(previousBanners[index]) !== JSON.stringify(splitWebConfig.banners[index])) {
+                batch.set(bannerRef, { banner: splitWebConfig.banners[index] });
+              }
             } else {
               batch.delete(bannerRef);
             }
@@ -1188,7 +1436,31 @@ async function saveDbData(data: any, changedKey?: string) {
         }
         
         const metaRef = dbInstance.collection("vovinam").doc("metadata");
-        batch.set(metaRef, { lastUpdated: dataToSave.lastUpdated || Date.now(), changedKey: changedKey || null });
+        if (changedKey && Number(previousData?.lastUpdated || 0) > 0) {
+          batch.update(metaRef, {
+            lastUpdated: dataToSave.lastUpdated || Date.now(),
+            changedKey,
+            [`keyVersions.${changedKey}`]: Number(
+              dataToSave.keyVersions?.[changedKey] || dataToSave.lastUpdated || Date.now()
+            )
+          });
+        } else if (changedKey) {
+          batch.set(metaRef, {
+            lastUpdated: dataToSave.lastUpdated || Date.now(),
+            changedKey,
+            keyVersions: {
+              [changedKey]: Number(
+                dataToSave.keyVersions?.[changedKey] || dataToSave.lastUpdated || Date.now()
+              )
+            }
+          }, { merge: true });
+        } else {
+          batch.set(metaRef, {
+            lastUpdated: dataToSave.lastUpdated || Date.now(),
+            changedKey: null,
+            keyVersions: dataToSave.keyVersions || {}
+          });
+        }
         
         // Never delete the legacy main_state document automatically. Older
         // deployments may still contain the only complete copy of the club's
@@ -1200,6 +1472,7 @@ async function saveDbData(data: any, changedKey?: string) {
           "Firebase Firestore SET batch commit timed out"
         );
         await mirrorFirebaseDataToRedis(dataToSave, changedKey);
+        memoryDb = dataToSave;
         return true;
       } catch (err) {
         console.error("[Firebase] Write batch error:", err);
@@ -1213,19 +1486,25 @@ async function saveDbData(data: any, changedKey?: string) {
   // 1.5 Try Vercel KV (REST) first as specified by the user for fast serverless performance
   if (hasVercelKv && !vercelKvFailed) {
     try {
+      const keysToPersist = changedKey ? [changedKey] : EXPECTED_KEYS;
       await Promise.all([
-        ...EXPECTED_KEYS.map(k => withTimeout(
+        ...keysToPersist.map(k => withTimeout(
           kv.set(`vovinam_${k}`, dataToSave[k] || (k === "webConfig" ? {} : [])),
           1500,
           `Vercel KV SET ${k} timed out`
         )),
         withTimeout(
-          kv.set("vovinam_metadata", { lastUpdated: dataToSave.lastUpdated || Date.now() }),
+          kv.set("vovinam_metadata", {
+            lastUpdated: dataToSave.lastUpdated || Date.now(),
+            changedKey: changedKey || null,
+            keyVersions: dataToSave.keyVersions || {}
+          }),
           1500,
           "Vercel KV SET metadata timed out"
         ),
         kv.del("vovinam_db_state")
       ]);
+      memoryDb = dataToSave;
       return true;
     } catch (err) {
       console.error("[Vercel KV REST] Write error, disabling Vercel KV REST fallback:", err);
@@ -1237,12 +1516,18 @@ async function saveDbData(data: any, changedKey?: string) {
   if (hasRedis && !redisFailed) {
     try {
       await runRedisCommand(async (client) => {
+        const keysToPersist = changedKey ? [changedKey] : EXPECTED_KEYS;
         await Promise.all([
-          ...EXPECTED_KEYS.map(k => client.set(`vovinam_${k}`, JSON.stringify(dataToSave[k] || (k === "webConfig" ? {} : [])))),
-          client.set("vovinam_metadata", JSON.stringify({ lastUpdated: dataToSave.lastUpdated || Date.now() })),
+          ...keysToPersist.map(k => client.set(`vovinam_${k}`, JSON.stringify(dataToSave[k] || (k === "webConfig" ? {} : [])))),
+          client.set("vovinam_metadata", JSON.stringify({
+            lastUpdated: dataToSave.lastUpdated || Date.now(),
+            changedKey: changedKey || null,
+            keyVersions: dataToSave.keyVersions || {}
+          })),
           client.del("vovinam_db_state")
         ]);
       });
+      memoryDb = dataToSave;
       return true;
     } catch (err) {
       console.error("[Redis via TCP] Write error, disabling TCP Redis fallback:", err);
@@ -1266,6 +1551,7 @@ async function saveDbData(data: any, changedKey?: string) {
           2000,
           "MongoDB replaceOne operation timed out"
         );
+        memoryDb = dataToSave;
         return true;
       } catch (e) {
         console.error("[MongoDB] Write error, disabling MongoDB fallback:", e);
@@ -1283,10 +1569,12 @@ async function saveDbData(data: any, changedKey?: string) {
 
   try {
     fs.writeFileSync(DB_PATH, JSON.stringify(dataToSave, null, 2), "utf-8");
+    memoryDb = dataToSave;
     return true;
   } catch (e) {
     console.warn("[Local File] Error saving database file (Expected on read-only file systems):", e);
     // Return true since we successfully persisted in-memory for this serverless instance session
+    memoryDb = dataToSave;
     return true;
   }
 }
@@ -1769,13 +2057,16 @@ app.get("/api/backup-status", async (_req, res) => {
     const state = stateSnapshot.exists ? stateSnapshot.data() || {} : {};
     const lastUpdated = Number(changeStatus?.lastUpdated || 0);
     const lastFullBackupAt = Number(state.lastFullBackupAt || 0);
+    const latestSafetyBackupAt = Number(state.updatedAt || 0);
     res.json({
       available: true,
       lastUpdated,
-      latestSafetyBackupAt: Number(state.updatedAt || 0),
+      latestSafetyBackupAt,
       lastFullBackupAt,
       retentionSlots: Number(state.retentionSlots || FIREBASE_BACKUP_SLOT_COUNT),
-      needsBackup: lastFullBackupAt <= 0 || lastFullBackupAt < lastUpdated
+      needsBackup:
+        latestSafetyBackupAt <= 0 ||
+        Date.now() - latestSafetyBackupAt > 24 * 60 * 60 * 1000
     });
   } catch (err: any) {
     console.error("[backup-status]", err);
@@ -1786,7 +2077,7 @@ app.get("/api/backup-status", async (_req, res) => {
   }
 });
 
-app.post("/api/backup-now", async (_req, res) => {
+app.post("/api/backup-now", requireAdminSession, async (_req, res) => {
   try {
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
@@ -1853,6 +2144,16 @@ app.get("/api/db-status", async (req, res) => {
         test: "not_run",
         error: null
       },
+      mediaStorage: {
+        backend: firebaseStorageBucketName ? "Firebase Storage" : "Firestore media documents",
+        hasBucket: !!firebaseStorageBucketName,
+        bucket: firebaseStorageBucketName || null,
+        test: firebaseStorageBucketName ? "not_run" : "not_configured",
+        error: null,
+        recommendation: firebaseStorageBucketName
+          ? "Ảnh mới được tách khỏi dữ liệu JSON và lưu trong Firebase Storage."
+          : "Nên cấu hình FIREBASE_STORAGE_BUCKET khi số lượng ảnh tăng cao."
+      },
       vercelKvRest: {
         hasUrl: !!kvUrl,
         hasToken: !!kvToken,
@@ -1893,6 +2194,23 @@ app.get("/api/db-status", async (req, res) => {
         } catch (err: any) {
           status.firebase.test = "failed";
           status.firebase.error = err.message || err;
+        }
+      })());
+    }
+
+    if (firebaseStorageBucketName && dbInstance) {
+      tests.push((async () => {
+        try {
+          const start = Date.now();
+          await withTimeout(
+            getStorage().bucket(firebaseStorageBucketName).getMetadata(),
+            3000,
+            "Firebase Storage bucket test timed out"
+          );
+          status.mediaStorage.test = `success (took ${Date.now() - start}ms)`;
+        } catch (error: any) {
+          status.mediaStorage.test = "failed";
+          status.mediaStorage.error = error?.message || String(error);
         }
       })());
     }
@@ -1967,28 +2285,75 @@ app.get("/api/db-status", async (req, res) => {
   }
 });
 
+app.post("/api/admin-login", async (req, res) => {
+  try {
+    const username = String(req.body?.username || "").trim().toLowerCase();
+    const password = String(req.body?.password || "");
+    const remember = req.body?.remember === true;
+    if (!username || !password) {
+      return res.status(400).json({ error: "Vui lòng nhập tài khoản và mật khẩu." });
+    }
+
+    const { accounts, exists, dbInstance } = await readAdminAccounts();
+    const account = accounts.find((item: any) =>
+      String(item.username || "").trim().toLowerCase() === username &&
+      String(item.password || "") === password
+    );
+    if (!account) {
+      return res.status(401).json({ error: "Tài khoản hoặc mật khẩu không chính xác!" });
+    }
+    if (!exists && dbInstance) {
+      await dbInstance
+        .collection("vovinam_private")
+        .doc("admin_accounts")
+        .set({ accounts, updatedAt: Date.now() });
+    }
+
+    const token = signAdminSession(account, remember);
+    const cookieParts = [
+      `${ADMIN_SESSION_COOKIE}=${token}`,
+      "Path=/",
+      "HttpOnly",
+      "SameSite=Lax",
+      remember ? `Max-Age=${30 * 24 * 60 * 60}` : "",
+      process.env.VERCEL || process.env.NODE_ENV === "production" ? "Secure" : ""
+    ].filter(Boolean);
+    res.setHeader("Set-Cookie", cookieParts.join("; "));
+    const { password: _password, ...safeAccount } = account;
+    res.json({ success: true, account: safeAccount });
+  } catch (error: any) {
+    console.error("[admin-login]", error);
+    res.status(500).json({ error: "Không thể đăng nhập Admin.", message: error?.message || String(error) });
+  }
+});
+
+app.get("/api/admin-session", (req, res) => {
+  const session = readAdminSession(req);
+  if (!session) return res.status(401).json({ authenticated: false });
+  res.json({ authenticated: true, session });
+});
+
+app.post("/api/admin-logout", (_req, res) => {
+  res.setHeader(
+    "Set-Cookie",
+    `${ADMIN_SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${process.env.VERCEL ? "; Secure" : ""}`
+  );
+  res.json({ success: true });
+});
+
 // Admin accounts live in a private Firestore document and are deliberately kept
 // out of /api/data, so public website visitors never receive them with site data.
-app.get("/api/admin-accounts", async (_req, res) => {
+app.get("/api/admin-accounts", requireAdminSession, async (_req, res) => {
   try {
-    const dbInstance = await getFirebaseFirestore();
-    if (!dbInstance) return res.status(503).json({ error: "Firebase is unavailable" });
-    const snapshot: any = await withTimeout(
-      dbInstance.collection("vovinam_private").doc("admin_accounts").get(),
-      5000,
-      "Firebase admin accounts GET timed out"
-    );
-    const accounts = snapshot.exists && Array.isArray(snapshot.data()?.accounts)
-      ? snapshot.data()!.accounts
-      : [];
-    res.json({ accounts, exists: snapshot.exists });
+    const { accounts, exists } = await readAdminAccounts();
+    res.json({ accounts, exists });
   } catch (err: any) {
     console.error("[admin-accounts GET]", err);
     res.status(500).json({ error: "Cannot load admin accounts" });
   }
 });
 
-app.put("/api/admin-accounts", async (req, res) => {
+app.put("/api/admin-accounts", requireAdminSession, async (req, res) => {
   try {
     const accounts = req.body?.accounts;
     if (!Array.isArray(accounts) || accounts.length === 0) {
@@ -2008,6 +2373,7 @@ app.put("/api/admin-accounts", async (req, res) => {
       5000,
       "Firebase admin accounts SET timed out"
     );
+    await mirrorAdminAccountsToRedis(accounts);
     res.json({ success: true });
   } catch (err: any) {
     console.error("[admin-accounts PUT]", err);
@@ -2015,7 +2381,7 @@ app.put("/api/admin-accounts", async (req, res) => {
   }
 });
 
-app.post("/api/media/image", async (req, res) => {
+app.post("/api/media/image", requireAdminSession, async (req, res) => {
   try {
     const dataUrl = typeof req.body?.dataUrl === "string" ? req.body.dataUrl.trim() : "";
     const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(dataUrl);
@@ -2043,6 +2409,30 @@ app.post("/api/media/image", async (req, res) => {
     }
 
     const id = `${Date.now()}_${randomUUID()}`;
+    if (firebaseStorageBucketName) {
+      try {
+        const storageUrl = await storeImageInFirebaseStorage(
+          id,
+          imageBuffer,
+          detectedContentType
+        );
+        if (storageUrl) {
+          return res.status(201).json({
+            success: true,
+            id,
+            url: storageUrl,
+            byteSize: imageBuffer.length,
+            storageBackend: "firebase-storage"
+          });
+        }
+      } catch (storageError) {
+        // Preserve the Admin workflow if a bucket was recently configured but
+        // billing/rules are not ready yet. Firestore remains a compatible,
+        // size-limited fallback and the status endpoint exposes this condition.
+        console.error("[Firebase Storage] Image upload failed; using Firestore media fallback:", storageError);
+      }
+    }
+
     await withTimeout(
       dbInstance.collection(MEDIA_COLLECTION).doc(id).set({
         base64: encoded,
@@ -2058,7 +2448,8 @@ app.post("/api/media/image", async (req, res) => {
       success: true,
       id,
       url: `/api/media/image/${id}`,
-      byteSize: imageBuffer.length
+      byteSize: imageBuffer.length,
+      storageBackend: firebaseStorageBucketName ? "firestore-fallback" : "firestore"
     });
   } catch (err: any) {
     console.error("[media/image POST]", err);
@@ -2124,7 +2515,23 @@ app.get("/api/key/:key", async (req, res) => {
   try {
     const key = req.params.key;
     if (!EXPECTED_KEYS.includes(key)) return res.status(400).json({ error: "Invalid data key" });
-    res.json({ key, data: await getDbKeyData(key) });
+    const redisResult = await getRedisKeyData(key);
+    if (redisResult) {
+      return res.json({
+        key,
+        data: redisResult.data,
+        keyVersion: redisResult.keyVersion
+      });
+    }
+    const [data, status] = await Promise.all([
+      getDbKeyData(key),
+      getDbChangeStatus()
+    ]);
+    res.json({
+      key,
+      data,
+      keyVersion: Number(status?.keyVersions?.[key] || status?.lastUpdated || 0)
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch requested data key" });
   }
@@ -2222,9 +2629,9 @@ app.get("/api/webConfig", async (req, res) => {
 });
 
 // Sync any specific state key
-app.post("/api/save-key", async (req, res) => {
+app.post("/api/save-key", requireAdminSession, async (req, res) => {
   try {
-    const { key, data } = req.body;
+    const { key, data, baseVersion } = req.body;
     if (!key || !EXPECTED_KEYS.includes(key)) {
       return res.status(400).json({ error: "Invalid state key" });
     }
@@ -2233,6 +2640,21 @@ app.post("/api/save-key", async (req, res) => {
     }
     
     const db = await getDbData();
+    const previousDb = { ...db };
+    const currentVersion = Number(db.keyVersions?.[key] || 0);
+    const requestedBaseVersion = Number(baseVersion || 0);
+    if (
+      requestedBaseVersion > 0 &&
+      currentVersion > 0 &&
+      requestedBaseVersion !== currentVersion
+    ) {
+      return res.status(409).json({
+        error: "Dữ liệu đã được một quản trị viên khác cập nhật.",
+        key,
+        currentVersion,
+        message: "Hãy tải dữ liệu mới nhất trước khi lưu lại để tránh ghi đè thay đổi của người khác."
+      });
+    }
     if (isSuspiciousCollectionReplacement(db[key], data)) {
       return res.status(409).json({
         error: "Đã chặn thao tác có nguy cơ làm mất hàng loạt dữ liệu.",
@@ -2249,9 +2671,24 @@ app.post("/api/save-key", async (req, res) => {
         : data;
     const now = Date.now();
     db.lastUpdated = now;
+    db.keyVersions = {
+      ...(db.keyVersions || {}),
+      [key]: now
+    };
+    const forceBackup = Array.isArray(previousDb[key]) && Array.isArray(db[key])
+      ? db[key].length < previousDb[key].length
+      : key === "webConfig" &&
+        Array.isArray(previousDb.webConfig?.banners) &&
+        Array.isArray(db.webConfig?.banners) &&
+        db.webConfig.banners.length < previousDb.webConfig.banners.length;
     
-    if (await saveDbData(db, key)) {
-      res.json({ success: true, lastUpdated: now });
+    if (await saveDbData(db, key, previousDb, forceBackup)) {
+      res.json({
+        success: true,
+        lastUpdated: now,
+        keyVersion: now,
+        data: db[key]
+      });
     } else {
       res.status(500).json({ error: "Failed to write database changes" });
     }
@@ -2262,9 +2699,9 @@ app.post("/api/save-key", async (req, res) => {
 });
 
 // Sync entire database at once
-app.post("/api/save-all", async (req, res) => {
+app.post("/api/save-all", requireAdminSession, async (req, res) => {
   try {
-    const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig, lastUpdated } = req.body;
+    const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig } = req.body;
     const existing = await getDbData();
     const incomingByKey: Record<string, any> = {
       categories, articles, members, coaches, achievements, tournaments, clubs, highlights
@@ -2281,7 +2718,8 @@ app.post("/api/save-all", async (req, res) => {
       });
     }
 
-    const now = lastUpdated || Date.now();
+    const now = Date.now();
+    const keyVersions = Object.fromEntries(EXPECTED_KEYS.map(key => [key, now]));
     const db = {
       categories: Array.isArray(categories) ? categories : (existing.categories || []),
       articles: mergeCollectionPreservingMedia(existing.articles, articles),
@@ -2292,10 +2730,11 @@ app.post("/api/save-all", async (req, res) => {
       clubs: mergeCollectionPreservingMedia(existing.clubs, clubs),
       highlights: mergeCollectionPreservingMedia(existing.highlights, highlights),
       webConfig: mergeWebConfigPreservingMedia(existing.webConfig, webConfig),
-      lastUpdated: now
+      lastUpdated: now,
+      keyVersions
     };
     
-    if (await saveDbData(db)) {
+    if (await saveDbData(db, undefined, existing, true)) {
       res.json({ success: true, lastUpdated: now });
     } else {
       res.status(500).json({ error: "Failed to save entire database" });

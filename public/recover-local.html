@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cứu dữ liệu Vovinam Xóm Chiếu</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #f1f5f9;
+        color: #0f172a;
+        font-family: "Times New Roman", Times, serif;
+      }
+      main {
+        width: min(860px, 100%);
+        margin: 0 auto;
+        padding: 28px;
+        background: #fff;
+        border: 2px solid #0b5cab;
+        border-radius: 18px;
+        box-shadow: 0 12px 32px rgb(15 23 42 / 12%);
+      }
+      h1 { margin-top: 0; color: #0758a6; }
+      .warning {
+        padding: 14px 16px;
+        border: 1px solid #f59e0b;
+        border-radius: 10px;
+        background: #fffbeb;
+      }
+      table {
+        width: 100%;
+        margin: 20px 0;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 10px 12px;
+        border: 1px solid #cbd5e1;
+        text-align: left;
+      }
+      th { background: #eaf3ff; }
+      button {
+        padding: 12px 18px;
+        border: 0;
+        border-radius: 10px;
+        background: #0758a6;
+        color: #fff;
+        font: 700 17px "Times New Roman", Times, serif;
+        cursor: pointer;
+      }
+      button:disabled { cursor: not-allowed; opacity: .5; }
+      #message { margin-top: 16px; font-weight: 700; }
+      .good { color: #047857; }
+      .bad { color: #b91c1c; }
+      code { overflow-wrap: anywhere; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Cứu dữ liệu đang lưu trong trình duyệt</h1>
+      <p class="warning">
+        Trang này chỉ đọc dữ liệu cục bộ của trình duyệt hiện tại. Trang không gọi API,
+        không thay đổi Firebase và không ghi đè dữ liệu.
+      </p>
+      <p>
+        Hãy mở trang này trên từng máy tính, điện thoại hoặc hồ sơ trình duyệt đã từng
+        truy cập trang quản trị trước khi dữ liệu bị mất.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Mục dữ liệu</th>
+            <th>Số bản ghi</th>
+            <th>Dung lượng</th>
+          </tr>
+        </thead>
+        <tbody id="results"></tbody>
+      </table>
+      <button id="download" type="button">Tải bản sao lưu JSON</button>
+      <p id="message"></p>
+    </main>
+    <script>
+      (() => {
+        const dataKeys = [
+          "categories",
+          "articles",
+          "members",
+          "coaches",
+          "achievements",
+          "tournaments",
+          "clubs",
+          "highlights",
+          "webConfig"
+        ];
+        const backup = {
+          vovinam_last_updated: Number(localStorage.getItem("vovinam_last_updated") || 0)
+        };
+        const tbody = document.getElementById("results");
+        const message = document.getElementById("message");
+        const button = document.getElementById("download");
+        let found = 0;
+        let recordCount = 0;
+
+        dataKeys.forEach((key) => {
+          const raw = localStorage.getItem(`vovinam_${key}`);
+          const row = document.createElement("tr");
+          let count = "Không có";
+          let size = "0 B";
+
+          if (raw) {
+            try {
+              const parsed = JSON.parse(raw);
+              backup[`vovinam_${key}`] = parsed;
+              found += 1;
+              if (Array.isArray(parsed)) {
+                count = String(parsed.length);
+                recordCount += parsed.length;
+              } else {
+                count = "Cấu hình web";
+              }
+              size = `${new Blob([raw]).size.toLocaleString("vi-VN")} B`;
+            } catch {
+              count = "Dữ liệu lỗi";
+              size = `${new Blob([raw]).size.toLocaleString("vi-VN")} B`;
+            }
+          }
+
+          row.innerHTML = `<td>${key}</td><td>${count}</td><td>${size}</td>`;
+          tbody.appendChild(row);
+        });
+
+        if (found === 0) {
+          button.disabled = true;
+          message.className = "bad";
+          message.textContent = "Trình duyệt này không còn dữ liệu Vovinam cục bộ.";
+        } else {
+          message.className = recordCount > 30 ? "good" : "bad";
+          message.textContent =
+            recordCount > 30
+              ? `Đã tìm thấy ${recordCount} bản ghi. Hãy tải bản sao lưu ngay.`
+              : `Chỉ tìm thấy ${recordCount} bản ghi; có thể đây là dữ liệu mẫu. Vẫn nên tải về để kiểm tra.`;
+        }
+
+        button.addEventListener("click", () => {
+          const blob = new Blob([JSON.stringify(backup, null, 2)], {
+            type: "application/json;charset=utf-8"
+          });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = `vovinam-local-backup-${new Date()
+            .toISOString()
+            .replace(/[:.]/g, "-")}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -24,63 +24,75 @@ import {
 
 // Types
 import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types';
+import { externalizeInlineImages } from './mediaSync';
+
+type SyncKey =
+  | 'categories'
+  | 'articles'
+  | 'members'
+  | 'coaches'
+  | 'achievements'
+  | 'tournaments'
+  | 'clubs'
+  | 'highlights'
+  | 'webConfig';
+
+const SYNC_KEYS: SyncKey[] = [
+  'categories',
+  'articles',
+  'members',
+  'coaches',
+  'achievements',
+  'tournaments',
+  'clubs',
+  'highlights',
+  'webConfig'
+];
+
+const readCachedValue = <T,>(key: string, fallback: T): T => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) as T : fallback;
+  } catch (error) {
+    console.warn(`Dữ liệu tạm ${key} bị lỗi và đã được bỏ qua.`, error);
+    localStorage.removeItem(key);
+    return fallback;
+  }
+};
 
 export default function App() {
   // Load state from localStorage if exists, otherwise fall back to initialData
-  const [categories, setCategories] = useState<Category[]>(() => {
-    const saved = localStorage.getItem('vovinam_categories');
-    return saved ? JSON.parse(saved) : initialCategories;
-  });
-
-  const [articles, setArticles] = useState<Article[]>(() => {
-    const saved = localStorage.getItem('vovinam_articles');
-    return saved ? JSON.parse(saved) : initialArticles;
-  });
-
-  const [members, setMembers] = useState<Member[]>(() => {
-    const saved = localStorage.getItem('vovinam_members');
-    return saved ? JSON.parse(saved) : initialMembers;
-  });
-
-  const [coaches, setCoaches] = useState<Coach[]>(() => {
-    const saved = localStorage.getItem('vovinam_coaches');
-    return saved ? JSON.parse(saved) : initialCoaches;
-  });
-
-  const [achievements, setAchievements] = useState<Achievement[]>(() => {
-    const saved = localStorage.getItem('vovinam_achievements');
-    return saved ? JSON.parse(saved) : initialAchievements;
-  });
-
-  const [tournaments, setTournaments] = useState<Tournament[]>(() => {
-    const saved = localStorage.getItem('vovinam_tournaments');
-    return saved ? JSON.parse(saved) : initialTournaments;
-  });
-
-  const [clubs, setClubs] = useState<Club[]>(() => {
-    const saved = localStorage.getItem('vovinam_clubs');
-    return saved ? JSON.parse(saved) : initialClubs;
-  });
-
-  const [highlights, setHighlights] = useState<Highlight[]>(() => {
-    const saved = localStorage.getItem('vovinam_highlights');
-    return saved ? JSON.parse(saved) : initialHighlights;
-  });
+  const [categories, setCategories] = useState<Category[]>(() =>
+    readCachedValue('vovinam_categories', initialCategories)
+  );
+  const [articles, setArticles] = useState<Article[]>(() =>
+    readCachedValue('vovinam_articles', initialArticles)
+  );
+  const [members, setMembers] = useState<Member[]>(() =>
+    readCachedValue('vovinam_members', initialMembers)
+  );
+  const [coaches, setCoaches] = useState<Coach[]>(() =>
+    readCachedValue('vovinam_coaches', initialCoaches)
+  );
+  const [achievements, setAchievements] = useState<Achievement[]>(() =>
+    readCachedValue('vovinam_achievements', initialAchievements)
+  );
+  const [tournaments, setTournaments] = useState<Tournament[]>(() =>
+    readCachedValue('vovinam_tournaments', initialTournaments)
+  );
+  const [clubs, setClubs] = useState<Club[]>(() =>
+    readCachedValue('vovinam_clubs', initialClubs)
+  );
+  const [highlights, setHighlights] = useState<Highlight[]>(() =>
+    readCachedValue('vovinam_highlights', initialHighlights)
+  );
 
   const [webConfig, setWebConfig] = useState<WebConfig>(() => {
-    const saved = localStorage.getItem('vovinam_webConfig');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed.logo === '/src/assets/images/h.jpg' || parsed.logo === '/src/assets/images/logo.jpg' || parsed.logo === '/logo_1784192552510.jpg') {
-          parsed.logo = '/logo.jpg';
-        }
-        return parsed;
-      } catch (e) {
-        return initialWebConfig;
-      }
+    const parsed = readCachedValue<WebConfig>('vovinam_webConfig', initialWebConfig);
+    if (parsed.logo === '/src/assets/images/h.jpg' || parsed.logo === '/src/assets/images/logo.jpg' || parsed.logo === '/logo_1784192552510.jpg') {
+      return { ...parsed, logo: '/logo.jpg' };
     }
-    return initialWebConfig;
+    return parsed;
   });
 
   // Mode & navigation
@@ -112,17 +124,13 @@ export default function App() {
   const hasLoadedServerDataRef = useRef(false);
 
   // Keep track of the last fetched server data to prevent infinite syncing loops
-  const lastServerDataRef = useRef<{
-    categories?: any;
-    articles?: any;
-    members?: any;
-    coaches?: any;
-    achievements?: any;
-    tournaments?: any;
-    clubs?: any;
-    highlights?: any;
-    webConfig?: any;
-  }>({});
+  const lastServerDataRef = useRef<Partial<Record<SyncKey, any>>>({});
+  const latestStateRef = useRef<Partial<Record<SyncKey, any>>>({});
+  const serverKeyVersionsRef = useRef<Record<string, number>>({});
+  const syncQueuesRef = useRef<Record<string, {
+    running: boolean;
+    queuedData?: any;
+  }>>({});
 
   // Track timestamps of the last local write of each key to prevent overwriting with older server polling replies
   const pendingSyncsRef = useRef<Record<string, number>>({});
@@ -132,6 +140,49 @@ export default function App() {
   // dirty. Server polling, initial bundled data, and ordinary visitors must
   // never write anything back to Firebase.
   const adminDirtyKeysRef = useRef<Set<string>>(new Set());
+
+  const applyServerKeyData = (key: SyncKey, incomingData: any, force = false) => {
+    lastServerDataRef.current[key] = incomingData;
+    const updateIfChanged = <T,>(
+      setter: React.Dispatch<React.SetStateAction<T>>,
+      nextValue: T
+    ) => {
+      setter(previous => force || JSON.stringify(previous) !== JSON.stringify(nextValue) ? nextValue : previous);
+    };
+
+    switch (key) {
+      case 'categories': updateIfChanged(setCategories, incomingData || []); break;
+      case 'articles': updateIfChanged(setArticles, incomingData || []); break;
+      case 'members': updateIfChanged(setMembers, incomingData || []); break;
+      case 'coaches': updateIfChanged(setCoaches, incomingData || []); break;
+      case 'achievements': updateIfChanged(setAchievements, incomingData || []); break;
+      case 'tournaments': updateIfChanged(setTournaments, incomingData || []); break;
+      case 'clubs': updateIfChanged(setClubs, incomingData || []); break;
+      case 'highlights': updateIfChanged(setHighlights, incomingData || []); break;
+      case 'webConfig':
+        setWebConfig(previous => {
+          const defaultLogoPaths = new Set([
+            '',
+            '/logo.jpg',
+            '/logo_1784192552510.jpg',
+            '/src/assets/images/h.jpg',
+            '/src/assets/images/logo.jpg'
+          ]);
+          const serverLogo = String(incomingData?.logo || '').trim();
+          const currentLogo = String(previous.logo || '').trim();
+          const shouldKeepCurrentLogo =
+            defaultLogoPaths.has(serverLogo) &&
+            currentLogo.length > 0 &&
+            !defaultLogoPaths.has(currentLogo);
+          const nextValue = shouldKeepCurrentLogo
+            ? { ...(incomingData || {}), logo: currentLogo }
+            : incomingData || {};
+          lastServerDataRef.current.webConfig = nextValue;
+          return force || JSON.stringify(previous) !== JSON.stringify(nextValue) ? nextValue : previous;
+        });
+        break;
+    }
+  };
 
   // Load and poll state from central server API for real-time updates
   useEffect(() => {
@@ -151,159 +202,69 @@ export default function App() {
           if (!res.ok) throw new Error("Timestamp endpoint not available");
           return res.json();
         })
-        .then(statusOrData => {
+        .then(async statusOrData => {
           if (!isMounted || !statusOrData) return;
 
-          const prefetchedData = isInitialLoad ? statusOrData : null;
-          
-          const serverUpdated = statusOrData.lastUpdated || 0;
-          const savedTimestampStr = localStorage.getItem('vovinam_last_updated');
-          const localUpdated = savedTimestampStr ? parseInt(savedTimestampStr, 10) : 0;
+          const serverUpdated = Number(statusOrData.lastUpdated || 0);
+          const remoteVersions = statusOrData.keyVersions && typeof statusOrData.keyVersions === 'object'
+            ? statusOrData.keyVersions as Record<string, number>
+            : {};
+          let data: any = statusOrData;
 
-          // If the server data hasn't changed since our last update, and we have already
-          // loaded server data at least once in this session, skip the heavy fetch!
-          if (hasLoadedServerDataRef.current && localUpdated === serverUpdated && serverUpdated > 0) {
-            return;
+          if (!isInitialLoad) {
+            const changedKeys = SYNC_KEYS.filter(key =>
+              Number(remoteVersions[key] || 0) > Number(serverKeyVersionsRef.current[key] || 0)
+            );
+
+            if (changedKeys.length === 0) {
+              const localUpdated = Number(localStorage.getItem('vovinam_last_updated') || 0);
+              if (localUpdated === serverUpdated && serverUpdated > 0) return;
+              const changedKey = typeof statusOrData.changedKey === 'string'
+                ? statusOrData.changedKey as SyncKey
+                : null;
+              if (changedKey && SYNC_KEYS.includes(changedKey)) changedKeys.push(changedKey);
+            }
+
+            if (changedKeys.length > 0) {
+              const payloads = await Promise.all(changedKeys.map(async key => {
+                const response = await fetch(`/api/key/${encodeURIComponent(key)}`, { cache: 'no-store' });
+                if (!response.ok) throw new Error(`Changed resource ${key} response not OK`);
+                return response.json();
+              }));
+              data = { lastUpdated: serverUpdated, keyVersions: remoteVersions };
+              payloads.forEach(payload => {
+                if (SYNC_KEYS.includes(payload.key)) {
+                  data[payload.key] = payload.data;
+                  if (payload.keyVersion) data.keyVersions[payload.key] = payload.keyVersion;
+                }
+              });
+            } else {
+              const response = await fetch('/api/data', { cache: 'no-store' });
+              if (!response.ok) throw new Error('Full server response not OK');
+              data = await response.json();
+            }
           }
 
-          // 2. Fetch the full heavy data only if there's a mismatch or it's the initial fetch
-          const changedKey = !isInitialLoad && typeof statusOrData.changedKey === 'string'
-            ? statusOrData.changedKey
-            : '';
-          return (prefetchedData
-            ? Promise.resolve(prefetchedData)
-            : changedKey
-              ? fetch(`/api/key/${encodeURIComponent(changedKey)}`, { cache: 'no-store' }).then(res => {
-                  if (!res.ok) throw new Error("Changed resource response not OK");
-                  return res.json().then(payload => ({ [payload.key]: payload.data, lastUpdated: serverUpdated }));
-                })
-              : fetch('/api/data', { cache: 'no-store' }).then(res => {
-                  if (!res.ok) throw new Error("Full server response not OK");
-                  return res.json();
-                }))
-            .then(data => {
-              if (!isMounted || !data) return;
+          if (!isMounted || !data) return;
+          const isKeyPending = (key: string) => {
+            const lastWrite = pendingSyncsRef.current[key] || 0;
+            return Date.now() - lastWrite < 15000;
+          };
 
-              // The shared cloud database is authoritative. Stale localStorage in a
-              // visitor's browser must never overwrite data created by an admin.
+          SYNC_KEYS.forEach(key => {
+            if (data[key] !== undefined && !isKeyPending(key)) {
+              applyServerKeyData(key, data[key], isInitialLoad);
+            }
+          });
 
-              // Update the reference before setting React state to block write loops
-              lastServerDataRef.current = {
-                ...lastServerDataRef.current,
-                ...(data.categories !== undefined ? { categories: data.categories } : {}),
-                ...(data.articles !== undefined ? { articles: data.articles } : {}),
-                ...(data.members !== undefined ? { members: data.members } : {}),
-                ...(data.coaches !== undefined ? { coaches: data.coaches } : {}),
-                ...(data.achievements !== undefined ? { achievements: data.achievements } : {}),
-                ...(data.tournaments !== undefined ? { tournaments: data.tournaments } : {}),
-                ...(data.clubs !== undefined ? { clubs: data.clubs } : {}),
-                ...(data.highlights !== undefined ? { highlights: data.highlights } : {}),
-                ...(data.webConfig !== undefined ? { webConfig: data.webConfig } : {}),
-              };
-
-              const isKeyPending = (key: string) => {
-                const lastWrite = pendingSyncsRef.current[key] || 0;
-                return Date.now() - lastWrite < 5000; // Ignore server updates for 5 seconds after a local write
-              };
-
-              // Use functional state updates to compare against the absolute latest state
-              if (data.categories && !isKeyPending('categories')) {
-                setCategories(prev => {
-                  if (JSON.stringify(data.categories) !== JSON.stringify(prev)) {
-                    return data.categories;
-                  }
-                  return prev;
-                });
-              }
-              if (data.articles && !isKeyPending('articles')) {
-                setArticles(prev => {
-                  if (JSON.stringify(data.articles) !== JSON.stringify(prev)) {
-                    return data.articles;
-                  }
-                  return prev;
-                });
-              }
-              if (data.members && !isKeyPending('members')) {
-                setMembers(prev => {
-                  if (JSON.stringify(data.members) !== JSON.stringify(prev)) {
-                    return data.members;
-                  }
-                  return prev;
-                });
-              }
-              if (data.coaches && !isKeyPending('coaches')) {
-                setCoaches(prev => {
-                  if (JSON.stringify(data.coaches) !== JSON.stringify(prev)) {
-                    return data.coaches;
-                  }
-                  return prev;
-                });
-              }
-              if (data.achievements && !isKeyPending('achievements')) {
-                setAchievements(prev => {
-                  if (JSON.stringify(data.achievements) !== JSON.stringify(prev)) {
-                    return data.achievements;
-                  }
-                  return prev;
-                });
-              }
-              if (data.tournaments && !isKeyPending('tournaments')) {
-                setTournaments(prev => {
-                  if (JSON.stringify(data.tournaments) !== JSON.stringify(prev)) {
-                    return data.tournaments;
-                  }
-                  return prev;
-                });
-              }
-              if (data.clubs && !isKeyPending('clubs')) {
-                setClubs(prev => {
-                  if (JSON.stringify(data.clubs) !== JSON.stringify(prev)) {
-                    return data.clubs;
-                  }
-                  return prev;
-                });
-              }
-              if (data.highlights && !isKeyPending('highlights')) {
-                setHighlights(prev => {
-                  if (JSON.stringify(data.highlights) !== JSON.stringify(prev)) {
-                    return data.highlights;
-                  }
-                  return prev;
-                });
-              }
-              if (data.webConfig && !isKeyPending('webConfig')) {
-                setWebConfig(prev => {
-                  const defaultLogoPaths = new Set([
-                    '',
-                    '/logo.jpg',
-                    '/logo_1784192552510.jpg',
-                    '/src/assets/images/h.jpg',
-                    '/src/assets/images/logo.jpg'
-                  ]);
-                  const serverLogo = String(data.webConfig.logo || '').trim();
-                  const currentLogo = String(prev.logo || '').trim();
-                  const serverHasOnlyDefaultLogo = defaultLogoPaths.has(serverLogo);
-                  const currentHasCustomLogo = currentLogo.length > 0 && !defaultLogoPaths.has(currentLogo);
-
-                  // A deploy or an older frontend must not replace an uploaded logo
-                  // with the bundled placeholder. Keep the last real logo and the
-                  // normal sync effect will persist it back to the cloud.
-                  const nextWebConfig = serverHasOnlyDefaultLogo && currentHasCustomLogo
-                    ? { ...data.webConfig, logo: currentLogo }
-                    : data.webConfig;
-
-                  if (JSON.stringify(nextWebConfig) !== JSON.stringify(prev)) {
-                    return nextWebConfig;
-                  }
-                  return prev;
-                });
-              }
-
-              localStorage.setItem('vovinam_last_updated', serverUpdated.toString());
-              initialSyncCompletedRef.current = true;
-              setHasLoadedServerData(true);
-              hasLoadedServerDataRef.current = true;
-            });
+          serverKeyVersionsRef.current = {
+            ...serverKeyVersionsRef.current,
+            ...(data.keyVersions || remoteVersions)
+          };
+          localStorage.setItem('vovinam_last_updated', String(data.lastUpdated || serverUpdated));
+          initialSyncCompletedRef.current = true;
+          setHasLoadedServerData(true);
+          hasLoadedServerDataRef.current = true;
         })
         .catch(err => {
           if (!isMounted) return;
@@ -323,29 +284,33 @@ export default function App() {
     // Initial load
     fetchServerData();
 
-    // Keep the free Firestore quota safe. The previous 1.5-second loop could use
-    // more than 50,000 reads/day from one long-running tab. Admin saves are
-    // optimistic, while visitors receive updates within at most one minute.
+    // Poll only the tiny Redis/Firebase metadata document. Actual collections
+    // are fetched only when their version changed.
     const scheduleNextPoll = () => {
       pollTimer = setTimeout(async () => {
         await fetchServerData();
         if (isMounted) scheduleNextPoll();
-      }, document.hidden ? 300000 : 60000);
+      }, document.hidden ? 120000 : 12000);
     };
 
     const handleVisibilityChange = () => {
       if (!document.hidden) fetchServerData();
     };
+    const handleCrossTabSync = (event: StorageEvent) => {
+      if (event.key === 'vovinam_sync_broadcast') fetchServerData();
+    };
 
     scheduleNextPoll();
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', fetchServerData);
+    window.addEventListener('storage', handleCrossTabSync);
 
     return () => {
       isMounted = false;
       if (pollTimer) clearTimeout(pollTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', fetchServerData);
+      window.removeEventListener('storage', handleCrossTabSync);
     };
   }, []); // Run exactly once on mount to establish a single stable polling interval
 
@@ -364,6 +329,7 @@ export default function App() {
     if (localStorageTimersRef.current[key]) {
       clearTimeout(localStorageTimersRef.current[key]);
     }
+    const staggerDelay = 250 + Object.keys(localStorageTimersRef.current).length * 80;
     localStorageTimersRef.current[key] = setTimeout(() => {
       try {
         localStorage.setItem(key, JSON.stringify(value));
@@ -372,47 +338,83 @@ export default function App() {
       } finally {
         delete localStorageTimersRef.current[key];
       }
-    }, 100);
+    }, staggerDelay);
   };
 
   // Helper to sync state changes to production API
-  const syncKeyWithServer = (key: string, data: any) => {
+  const syncKeyWithServer = (key: SyncKey, data: any) => {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
-    pendingSyncsRef.current[key] = Date.now();
-    lastServerDataRef.current[key] = data;
+    latestStateRef.current[key] = data;
+    const queue = syncQueuesRef.current[key] || { running: false };
+    queue.queuedData = data;
+    syncQueuesRef.current[key] = queue;
+    if (queue.running) return;
 
-    const now = Date.now();
-    localStorage.setItem('vovinam_last_updated', now.toString());
+    queue.running = true;
+    void (async () => {
+      try {
+        while (queue.queuedData !== undefined) {
+          const dataToSave = queue.queuedData;
+          queue.queuedData = undefined;
+          pendingSyncsRef.current[key] = Date.now();
 
-    fetch('/api/save-key', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ key, data })
-    })
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`Failed to sync ${key} with server API (${res.status})`);
-      } else {
-        return res.json();
+          // Upload inline images first. The following JSON save then contains
+          // short URLs instead of megabytes of base64 data.
+          const normalizedData = await externalizeInlineImages(dataToSave);
+          const response = await fetch('/api/save-key', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              key,
+              data: normalizedData,
+              baseVersion: Number(serverKeyVersionsRef.current[key] || 0)
+            })
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const message = payload.message || payload.error || `Không thể đồng bộ ${key} (${response.status})`;
+            throw new Error(message);
+          }
+
+          const savedData = payload.data ?? normalizedData;
+          lastServerDataRef.current[key] = savedData;
+          serverKeyVersionsRef.current[key] = Number(payload.keyVersion || payload.lastUpdated || Date.now());
+          localStorage.setItem('vovinam_last_updated', String(payload.lastUpdated || Date.now()));
+          localStorage.setItem('vovinam_sync_broadcast', JSON.stringify({
+            key,
+            lastUpdated: payload.lastUpdated || Date.now()
+          }));
+
+          // Do not replace a newer edit that was queued while an image upload or
+          // network request was still running.
+          if (queue.queuedData === undefined && latestStateRef.current[key] === dataToSave) {
+            adminDirtyKeysRef.current.delete(key);
+            if (savedData !== dataToSave) applyServerKeyData(key, savedData);
+          }
+          window.dispatchEvent(new CustomEvent('vovinam-sync-success', {
+            detail: { key, lastUpdated: payload.lastUpdated || Date.now() }
+          }));
+        }
+      } catch (error) {
+        console.error(`Network error syncing ${key} to server API:`, error);
+        localStorage.setItem('vovinam_last_updated', '0');
+        window.dispatchEvent(new CustomEvent('vovinam-sync-error', {
+          detail: {
+            key,
+            message: error instanceof Error ? error.message : String(error)
+          }
+        }));
+      } finally {
+        queue.running = false;
+        delete pendingSyncsRef.current[key];
+        // An edit may have arrived between the final loop check and cleanup.
+        if (queue.queuedData !== undefined) {
+          const pendingData = queue.queuedData;
+          queue.queuedData = undefined;
+          syncKeyWithServer(key, pendingData);
+        }
       }
-    })
-    .then(payload => {
-      if (payload && payload.lastUpdated) {
-        localStorage.setItem('vovinam_last_updated', payload.lastUpdated.toString());
-      }
-      adminDirtyKeysRef.current.delete(key);
-      window.dispatchEvent(new CustomEvent('vovinam-sync-success', {
-        detail: { key, lastUpdated: payload?.lastUpdated || Date.now() }
-      }));
-    })
-    .catch(err => {
-      console.error(`Network error syncing ${key} to server API:`, err);
-      delete pendingSyncsRef.current[key];
-      localStorage.setItem('vovinam_last_updated', '0');
-      window.dispatchEvent(new CustomEvent('vovinam-sync-error', { detail: { key } }));
-    });
+    })();
   };
 
   // Synchronize with server and localStorage on change (only if changed locally)
@@ -605,6 +607,16 @@ export default function App() {
             setWebConfig={update => {
               adminDirtyKeysRef.current.add('webConfig');
               setWebConfig(update);
+            }}
+            applyCloudSnapshot={data => {
+              SYNC_KEYS.forEach(key => {
+                if (data[key] !== undefined) {
+                  adminDirtyKeysRef.current.delete(key);
+                  applyServerKeyData(key, data[key]);
+                }
+              });
+              serverKeyVersionsRef.current = data.keyVersions || {};
+              localStorage.setItem('vovinam_last_updated', String(data.lastUpdated || 0));
             }}
             onBackToWebsite={() => setIsAdmin(false)}
           />
