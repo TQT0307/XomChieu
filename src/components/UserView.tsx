@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
@@ -7,15 +7,14 @@ import {
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, getBeltStyle, getNormalizedTournamentStatus 
 } from '../types';
+import MemberDetailModal from './MemberDetailModal';
+import CoachDetailModal from './CoachDetailModal';
 import PersonAvatar from './PersonAvatar';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
-
-const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
-const CoachDetailModal = lazy(() => import('./CoachDetailModal'));
 
 const bundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -27,12 +26,6 @@ const bundledBannerImages: Record<string, string> = {
 
 const resolveBannerImage = (image?: string) =>
   (image && bundledBannerImages[image]) || image || defaultBanner1;
-
-const getBannerObjectPosition = (position?: string) => {
-  const match = position?.match(/object-\[center_(\d+)%\]/);
-  const verticalPercent = match ? Math.min(100, Math.max(0, Number(match[1]))) : 50;
-  return `center ${verticalPercent}%`;
-};
 
 type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'tiktok';
 
@@ -216,6 +209,7 @@ export default function UserView({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // News category filter tab selection state
+  const [activeNewsTab, setActiveNewsTab] = useState<string>('ALL');
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
   const rowScrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const achievementsScrollRef = React.useRef<HTMLDivElement>(null);
@@ -262,15 +256,12 @@ export default function UserView({
   };
 
   // Filter visible items based on status
-  const visibleArticles = useMemo(
-    () => articles.filter(a => a.status !== false),
-    [articles]
-  );
+  const visibleArticles = articles.filter(a => a.status !== false);
   
   const [searchCoachQuery, setSearchCoachQuery] = useState<string>('');
   const [searchMemberQuery, setSearchMemberQuery] = useState<string>('');
 
-  const visibleCoaches = useMemo(() => coaches.filter(c => {
+  const visibleCoaches = coaches.filter(c => {
     if (c.status === false) return false;
     const q = searchCoachQuery.toLowerCase().trim();
     if (!q) return true;
@@ -281,9 +272,9 @@ export default function UserView({
       (c.experience && c.experience.toLowerCase().includes(q)) ||
       (c.birthYear && String(c.birthYear).includes(q))
     );
-  }), [coaches, searchCoachQuery]);
+  });
 
-  const visibleMembers = useMemo(() => members
+  const visibleMembers = members
     .filter(m => {
       if (m.status === false) return false;
       const q = searchMemberQuery.toLowerCase().trim();
@@ -301,13 +292,13 @@ export default function UserView({
       return orderDifference !== 0
         ? orderDifference
         : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
-    }), [members, searchMemberQuery]);
+    });
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
-  const visibleTournaments = useMemo(() => tournaments.filter(t => {
+  const visibleTournaments = tournaments.filter(t => {
     const norm = getNormalizedTournamentStatus(t.status);
     return tournamentStatusFilter === 'all' || norm === tournamentStatusFilter;
-  }), [tournamentStatusFilter, tournaments]);
+  });
 
   // Filter state for achievements section
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('');
@@ -315,7 +306,6 @@ export default function UserView({
   const [searchAchievementQuery, setSearchAchievementQuery] = useState<string>('');
   const [searchAthleteQuery, setSearchAthleteQuery] = useState<string>(''); // For filtering by athlete name (e.g., "Thiện")
   const [searchHighlightQuery, setSearchHighlightQuery] = useState<string>('');
-  const [selectedHighlightTournament, setSelectedHighlightTournament] = useState<string>('');
   const [showAllCoaches, setShowAllCoaches] = useState<boolean>(false);
   const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
 
@@ -330,15 +320,15 @@ export default function UserView({
     return '';
   };
 
-  const uniqueYears = useMemo(() => Array.from(
+  const uniqueYears = Array.from(
     new Set(
       achievements
         .map(a => getYearFromAchievement(a))
         .filter(Boolean)
     )
-  ).sort((a, b) => b.localeCompare(a)), [achievements]);
+  ).sort((a, b) => b.localeCompare(a));
 
-  const uniqueTournaments = useMemo(() => Array.from(
+  const uniqueTournaments = Array.from(
     new Set(
       achievements
         .map(a => {
@@ -351,20 +341,7 @@ export default function UserView({
         })
         .filter(Boolean)
     )
-  ).sort((a, b) => a.localeCompare(b)), [achievements, tournaments]);
-
-  const highlightTournamentOptions = useMemo(() => Array.from(
-    new Set(
-      [
-        ...achievements.map(achievement => achievement.tournamentName?.trim() ||
-          (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : '')),
-        ...tournaments.map(tournament => tournament.name?.trim()),
-        ...highlights.map(highlight => highlight.tournamentName?.trim() ||
-          (highlight.tournamentId ? tournaments.find(t => t.id === highlight.tournamentId)?.name?.trim() : ''))
-      ]
-        .filter((name): name is string => Boolean(name))
-    )
-  ).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
+  ).sort((a, b) => a.localeCompare(b));
 
   // Use the achievement image consistently in both the card and detail modal.
   // Mixing profile photos here with achievement photos in the modal made one
@@ -373,7 +350,7 @@ export default function UserView({
     return ach.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
   };
 
-  const visibleAchievements = useMemo(() => achievements.filter(a => {
+  const visibleAchievements = achievements.filter(a => {
     if (a.status === false) return false;
     
     // Search query match (achievement title or unit)
@@ -404,31 +381,37 @@ export default function UserView({
     }
     
     return true;
-  }), [
-    achievements,
-    searchAchievementQuery,
-    searchAthleteQuery,
-    selectedTournamentFilter,
-    selectedYearFilter,
-    tournaments
-  ]);
-  const visibleHighlights = useMemo(() => highlights.filter(h => {
+  });
+  const visibleHighlights = highlights.filter(h => {
     if (h.status === false) return false;
-    if (selectedHighlightTournament) {
-      const linkedTournamentName = h.tournamentName ||
-        (h.tournamentId ? tournaments.find(t => t.id === h.tournamentId)?.name : '');
-      if (!linkedTournamentName?.toLowerCase().includes(selectedHighlightTournament.trim().toLowerCase())) return false;
-    }
     if (searchHighlightQuery.trim()) {
       const q = searchHighlightQuery.toLowerCase();
+      const idMatch = h.id.toLowerCase().includes(q);
       const titleMatch = h.title.toLowerCase().includes(q);
       const athleteMatch = h.athleteName.toLowerCase().includes(q);
-      const tournamentMatch = (h.tournamentName || '').toLowerCase().includes(q);
-      return titleMatch || athleteMatch || tournamentMatch;
+      return idMatch || titleMatch || athleteMatch;
     }
     return true;
-  }), [highlights, searchHighlightQuery, selectedHighlightTournament, tournaments]);
+  });
   const visibleClubs = clubs;
+
+  // Filter articles based on activeNewsTab (Latest vs specific Category)
+  const displayedArticles = visibleArticles.filter(article => {
+    if (activeNewsTab === 'ALL') {
+      return true; // Hiển thị toàn bộ bài viết
+    } else if (activeNewsTab === 'LATEST') {
+      if (!article.showInNews) return false;
+      const itemDate = new Date(article.date);
+      const now = new Date();
+      const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+      const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffTime = d2.getTime() - d1.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 2;
+    } else {
+      return article.categoryId === activeNewsTab;
+    }
+  });
 
   const configHeight = webConfig.bannerHeight || 'medium';
   const zaloPhoneMatch = String(webConfig.phone || '').match(/(?:\+?84|0)(?:[\s.-]?\d){8,9}(?![\s.-]?\d)/);
@@ -437,12 +420,10 @@ export default function UserView({
   const instagramUrl = normalizeSocialUrl('instagram', webConfig.instagram);
   const threadsUrl = normalizeSocialUrl('threads', webConfig.threads);
   const tiktokUrl = normalizeSocialUrl('tiktok', webConfig.tiktok);
-  // A fixed aspect ratio gives the banner the exact same crop on phone, tablet
-  // and desktop. These ratios are also used by the admin preview.
-  const carouselAspectClass =
-    configHeight === 'short' ? 'aspect-[18/5]' :
-    configHeight === 'large' ? 'aspect-[72/31]' :
-    'aspect-[72/25]'; // medium (default)
+  const carouselHeightClass = 
+    configHeight === 'short' ? 'h-[280px] sm:h-[400px]' :
+    configHeight === 'large' ? 'h-[440px] sm:h-[620px]' :
+    'h-[365px] sm:h-[500px]'; // medium (default)
 
   return (
     <div className="bg-[#f8fafc] min-h-screen text-slate-800 font-sans selection:bg-[#0054A6]/20" id="vovinam-user-root">
@@ -453,34 +434,28 @@ export default function UserView({
       {/* Vovinam Watermark Background Logo */}
       <div className="fixed inset-0 flex items-center justify-center opacity-[0.09] pointer-events-none z-0 select-none overflow-hidden">
         <img 
-          src={webConfig.logo || "/logo-sharp.png"} 
+          src={webConfig.logo || "/logo.jpg"} 
           alt="Vovinam Watermark Logo" 
           className="w-[85vw] max-w-[550px] aspect-square object-cover rounded-full scale-[1.08] [clip-path:circle(49%_at_50%_50%)] animate-[spin_120s_linear_infinite] saturate-125 contrast-110"
-          loading="lazy"
-          decoding="async"
           referrerPolicy="no-referrer"
         />
       </div>
 
       {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
-      <section className={`relative w-full ${carouselAspectClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
+      <section className={`relative ${carouselHeightClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
           <img 
             src={resolveBannerImage(banners[safeCurrentBanner]?.image)} 
             alt="Vovinam Slide" 
-            className="w-full h-full object-cover opacity-100 transition-opacity duration-1000"
-            style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position) }}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
+            className={`w-full h-full object-cover opacity-100 scale-105 transition-all duration-1000 ${banners[safeCurrentBanner]?.position || 'object-center'}`}
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
         </div>
 
         {/* Content Box - Centered horizontally and positioned closer to the top */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-[clamp(0.5rem,3.3vw,3rem)] items-center text-white">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-8 sm:pt-12 items-center text-white">
           <div className="max-w-xl flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/25">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FFF200] animate-ping"></span>
@@ -514,19 +489,19 @@ export default function UserView({
         {/* Manual navigation buttons */}
         <button 
           onClick={prevBanner}
-          className="absolute left-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          className="absolute left-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <button 
           onClick={nextBanner}
-          className="absolute right-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          className="absolute right-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
 
         {/* Carousel indicators */}
-        <div className="absolute bottom-[clamp(0.5rem,2.2vw,2rem)] left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-2.5">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2.5">
           {banners.map((_, idx) => (
             <button
               key={idx}
@@ -618,73 +593,43 @@ export default function UserView({
                 <ul className="space-y-3 text-blue-50 font-medium leading-relaxed">
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện đạt tới cao độ của nghệ thuật để phục vụ dân tộc và nhân loại.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 1: Hoài bão và mục đích học võ.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện đạt tới cao độ của Võ thuật để phục vụ dân tộc và nhân loại.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện trung kiên phát huy môn phái, xây dựng thế hệ thanh niên dấn thân hiến ích.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 2: Nghĩa vụ đối với môn phái và dân tộc.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tích cực xây dựng đại gia đình Vovinam, cùng nhau đoàn kết thương yêu giúp đỡ lẫn nhau.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Đồng tâm nhất trí, tôn kính người trên, thương mến đồng đạo.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 3: Tình đoàn kết trong môn phái.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tôn trọng kỷ luật võ phái, tôn kính sư trưởng, mến yêu đồng môn.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tuyệt đối tôn trọng kỷ luật, nêu cao danh dự võ sĩ.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 4: Võ kỷ và danh dự võ sĩ.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tôn trọng pháp luật, bảo vệ danh dự võ phái, giữ gìn thanh danh môn sinh.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bênh vực lẽ phải.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 5: Ý thức dụng võ.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bảo vệ lẽ phải.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Chuyên cần học tập, rèn luyện tinh thần, trau dồi đạo hạnh.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 6: Ý hướng học tập và đời sống tinh thần.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện rèn luyện tâm trí, giữ gìn nề nếp sống trong sạch, giản dị, thành thật và cao thượng.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">7</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sống trong sạch, trung thực, giản dị và cao thượng.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 7: Tâm nguyện sống.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện kiên trì, vượt qua khó khăn, không kiêu căng, không nản chí trước thử thách.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">8</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Kiện toàn một ý chí đanh thép, nỗ lực tự thân cầu tiến.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 8: Rèn luyện ý chí.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện thận trọng, suy xét kỹ càng trước khi hành động, luôn sáng suốt quyết định.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">9</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sáng suốt nhận định, bền gan tranh đấu, tháo vát hành động.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 9: Nếp suy cảm, nghị lực và tính thực tế.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện sống vị tha, khoan dung, biết giúp người khác sống và cùng sống lành mạnh.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">10</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tự tin, tự thắng, khiêm cung, độ lượng, luôn luôn kiểm điểm để tiến bộ.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 10: Đức sống và tinh thần cầu tiến.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện bền bỉ rèn luyện, nâng cao ý chí tiến thủ, quyết tâm xây dựng bản thân thành võ đạo sinh gương mẫu.</span>
                   </li>
                 </ul>
               </div>
@@ -812,8 +757,6 @@ export default function UserView({
                                 src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                loading="lazy"
-                                decoding="async"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
@@ -830,6 +773,7 @@ export default function UserView({
                                     {article.date}
                                   </span>
                                   <span>•</span>
+                                  <span>Mã: #{article.id}</span>
                                 </div>
                                 <h3 className="font-bold text-slate-800 text-sm leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
                                   {article.title}
@@ -918,8 +862,6 @@ export default function UserView({
                                 src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
-                                loading="lazy"
-                                decoding="async"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
@@ -934,6 +876,7 @@ export default function UserView({
                                     {article.date}
                                   </span>
                                   <span>•</span>
+                                  <span>Mã: #{article.id}</span>
                                 </div>
 
                                 <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase tracking-tight group-hover/card:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
@@ -1061,8 +1004,6 @@ export default function UserView({
                       src={t.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80'} 
                       alt={t.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"
-                      loading="lazy"
-                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
@@ -1096,6 +1037,7 @@ export default function UserView({
                     </div>
 
                     <div className="pt-4 border-t border-slate-100/80 flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-wider">
+                      <span>Mã sự kiện: #{t.id}</span>
                       <span className="text-[#0054A6] group-hover:translate-x-1 transition-transform flex items-center gap-1 font-extrabold">
                         Xem chi tiết <span className="text-sm">→</span>
                       </span>
@@ -1129,14 +1071,14 @@ export default function UserView({
         </div>
 
         {/* Search input for Highlights */}
-        <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="max-w-lg mx-auto mb-12 relative z-10 px-4 sm:px-0">
           <div className="relative group/search flex items-center bg-slate-900 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all duration-300 shadow-xl shadow-slate-950/40">
             <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#FFF200] transition-colors" />
             </span>
             <input
               type="text"
-              placeholder="Tìm theo tên VĐV, giải đấu hoặc tiêu đề..."
+              placeholder="Tìm theo ID môn sinh, tên VĐV hoặc tiêu đề..."
               value={searchHighlightQuery}
               onChange={(e) => setSearchHighlightQuery(e.target.value)}
               className="w-full text-xs sm:text-sm pl-11 pr-16 py-3.5 bg-transparent text-slate-100 rounded-2xl outline-none transition-all placeholder:text-slate-500"
@@ -1158,34 +1100,9 @@ export default function UserView({
               </span>
             </div>
           </div>
-          <div className="relative group/tournament-search">
-            <input
-              type="text"
-              list="highlight-achievement-tournament-names"
-              value={selectedHighlightTournament}
-              onChange={(e) => setSelectedHighlightTournament(e.target.value)}
-              placeholder={`Chọn hoặc nhập tên giải (${highlightTournamentOptions.length} gợi ý)`}
-              className="w-full h-full min-h-12 text-xs sm:text-sm pl-4 pr-10 py-3.5 bg-slate-900 text-slate-100 border border-slate-800 hover:border-slate-700 focus:border-[#FFF200] focus:ring-4 focus:ring-[#FFF200]/10 rounded-2xl outline-none transition-all shadow-xl shadow-slate-950/40"
-              aria-label="Lọc Highlights theo giải đấu"
-            />
-            <datalist id="highlight-achievement-tournament-names">
-              {highlightTournamentOptions.map(name => <option key={name} value={name} />)}
-            </datalist>
-            {selectedHighlightTournament && (
-              <button
-                type="button"
-                onClick={() => setSelectedHighlightTournament('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
-                title="Xóa lọc giải đấu"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          {(searchHighlightQuery || selectedHighlightTournament) && (
-            <p className="sm:col-span-2 text-center text-[10px] text-slate-500 mt-1">
-              Đang hiển thị {visibleHighlights.length} highlight
-              {selectedHighlightTournament ? ` khớp tên giải “${selectedHighlightTournament}”` : ''}
+          {searchHighlightQuery && (
+            <p className="text-center text-[10px] text-slate-400 mt-2 font-mono">
+              Đang lọc theo từ khóa: <span className="text-[#FFF200] font-bold">"{searchHighlightQuery}"</span>
             </p>
           )}
         </div>
@@ -1205,29 +1122,30 @@ export default function UserView({
             <div 
               key={hl.id}
               onClick={() => onSelectHighlight(hl)}
-              className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-900 text-white rounded-[2rem] p-4 border border-slate-700 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/10 hover:-translate-y-1"
+              className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-950 text-white rounded-[2rem] p-4 border border-slate-800 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1"
             >
               {/* Thumbnail Container */}
-              <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-800 shadow-inner">
+              <div className="relative h-48 rounded-2xl overflow-hidden bg-black shadow-inner">
                 <img 
                   src={hl.thumbnail} 
                   alt={hl.title} 
-                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 brightness-105 saturate-110 group-hover:brightness-110"
-                  loading="lazy"
-                  decoding="async"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100"
                   referrerPolicy="no-referrer"
                 />
                 
-                {/* Video overlay is kept light so the thumbnail remains clear. */}
-                <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
-                  hl.mediaType === 'video' ? 'bg-slate-950/20 group-hover:bg-transparent' : 'bg-transparent'
-                }`}>
+                {/* Dark overlay & play button if video */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/10 transition-colors">
                   {hl.mediaType === 'video' && (
                     <div className="w-14 h-14 bg-gradient-to-br from-[#FFF200] to-yellow-400 text-slate-900 rounded-full flex items-center justify-center pl-1 shadow-xl transform group-hover:scale-110 transition-transform">
                       <Play className="w-6 h-6 text-slate-950 fill-current" />
                     </div>
                   )}
                 </div>
+
+                {/* Media type badge */}
+                <span className="absolute top-3.5 left-3.5 bg-black/75 border border-slate-800 text-[9px] px-2.5 py-1 rounded-xl uppercase font-extrabold tracking-wider text-white">
+                  {hl.mediaType} ({hl.mediaUrls?.length || 1})
+                </span>
               </div>
 
               {/* Text Title details */}
@@ -1240,12 +1158,10 @@ export default function UserView({
                     <User className="w-3.5 h-3.5 text-[#FFF200]" />
                     <span className="text-[10px] text-slate-300 font-bold">Biểu diễn: {hl.athleteName}</span>
                   </div>
-                  {hl.tournamentName && (
-                    <p className="mt-2 text-[10px] text-slate-400 truncate">🏆 {hl.tournamentName}</p>
-                  )}
                 </div>
                 
                 <div className="text-right text-[10px] text-[#FFF200] font-black uppercase tracking-wider pt-3 border-t border-slate-900 mt-2 flex items-center justify-between">
+                  <span className="text-slate-500 font-medium font-mono">#{hl.id}</span>
                   <span>Xem Chi Tiết &gt;</span>
                 </div>
               </div>
@@ -1412,8 +1328,6 @@ export default function UserView({
                       src={getMemberPhotoForAchievement(ach)} 
                       alt={ach.athleteName || 'Môn sinh'} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="lazy"
-                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     {/* Medal overlay at bottom-right */}
@@ -1942,8 +1856,6 @@ export default function UserView({
                     src={club.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'} 
                     alt={club.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
-                    loading="lazy"
-                    decoding="async"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
@@ -2136,7 +2048,6 @@ export default function UserView({
         </div>
       </footer>
 
-      <Suspense fallback={null}>
       {selectedMember && (
         <MemberDetailModal 
           member={selectedMember} 
@@ -2156,7 +2067,6 @@ export default function UserView({
           onSelectAchievement={onSelectAchievement}
         />
       )}
-      </Suspense>
 
       {zoomedPhoto && (
         <div 
