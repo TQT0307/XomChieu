@@ -27,7 +27,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
   });
 
   return (
-    <div className="detail-scrollbar fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200 my-8">
         
         {/* Header Block */}
@@ -189,6 +189,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
                     {coach.experience && (
                       <p className="text-[10px] text-slate-500 mt-0.5 truncate italic">KN: {coach.experience}</p>
                     )}
+                    <p className="text-[10px] text-slate-400 mt-0.5">Mã: #{coach.id}</p>
                   </div>
                   <span className="ml-auto shrink-0 text-[10px] font-bold text-[#0054A6]">Xem chi tiết</span>
                 </button>
@@ -198,11 +199,17 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
         )}
 
         {/* Footer Area */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-center text-center text-xs text-slate-500">
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             Thông tin đã được xác minh bởi Tổng Đàn Xóm Chiếu
           </span>
+          <button 
+            onClick={onClose}
+            className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-xl font-bold transition-all cursor-pointer"
+          >
+            Đóng
+          </button>
         </div>
 
       </div>
