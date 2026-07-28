@@ -60,6 +60,62 @@ export interface Achievement {
   honorAttribution?: string; // Người/đơn vị ghi nhận (để trống sẽ dùng mặc định)
 }
 
+export interface LegacyAchievementHonorContent {
+  title: string;
+  quote: string;
+  attribution: string;
+  remainingJourney: string;
+}
+
+/**
+ * Older records stored the honor box as three numbered journey lines. Detect
+ * that legacy block so it can be displayed and edited in the correct fields
+ * without forcing the administrator to re-enter existing content.
+ */
+export function extractLegacyAchievementHonor(journey?: string): LegacyAchievementHonorContent {
+  const lines = (journey || '')
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean);
+  const normalizedLines = lines.map(line =>
+    line
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+  );
+  const honorIndex = normalizedLines.findIndex(line => line.includes('vinh danh bang vang'));
+
+  if (honorIndex < 0) {
+    return {
+      title: '',
+      quote: '',
+      attribution: '',
+      remainingJourney: lines.join('\n')
+    };
+  }
+
+  const cleanTitle = (lines[honorIndex] || '')
+    .replace(/^[\s💬🏆⭐✨"'“”‘’—–\-:;,.!?]+/u, '')
+    .trim();
+  const cleanQuote = (lines[honorIndex + 1] || '')
+    .replace(/^[\s"'“”‘’]+/u, '')
+    .replace(/[\s"'“”‘’]+$/u, '')
+    .trim();
+  const cleanAttribution = (lines[honorIndex + 2] || '')
+    .replace(/^[\s—–\-]+/u, '')
+    .trim();
+  const remainingJourney = lines
+    .filter((_, index) => index < honorIndex || index > honorIndex + 2)
+    .join('\n');
+
+  return {
+    title: cleanTitle,
+    quote: cleanQuote,
+    attribution: cleanAttribution,
+    remainingJourney
+  };
+}
+
 export interface Tournament {
   id: string; // ID tự chọn
   image: string;

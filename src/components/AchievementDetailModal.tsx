@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Award, Calendar, User, ShieldCheck, Trophy, Sparkles } from 'lucide-react';
-import { Achievement } from '../types';
+import { Achievement, extractLegacyAchievementHonor } from '../types';
 import DetailHeroImage from './DetailHeroImage';
 
 interface AchievementDetailModalProps {
@@ -89,17 +89,22 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
 
   const details = getAchievementDetails(achievement.title, achievement.unit);
   const displayedMeaning = achievement.meaning?.trim() || details.about;
-  const customJourney = achievement.journey
+  const legacyHonor = extractLegacyAchievementHonor(achievement.journey);
+  const customJourney = legacyHonor.remainingJourney
     ?.split(/\r?\n/)
     .map(item => item.trim())
     .filter(Boolean);
   const displayedJourney = customJourney && customJourney.length > 0
     ? customJourney
     : details.journey;
-  const displayedHonorTitle = achievement.honorTitle?.trim() || 'Vinh danh bảng vàng';
-  const displayedHonorQuote = achievement.honorQuote?.trim() || details.quote;
+  const displayedHonorTitle =
+    achievement.honorTitle?.trim() || legacyHonor.title || 'Vinh danh bảng vàng';
+  const displayedHonorQuote =
+    achievement.honorQuote?.trim() || legacyHonor.quote || details.quote;
   const displayedHonorAttribution =
-    achievement.honorAttribution?.trim() || 'Ban huấn luyện Vovinam Xóm Chiếu';
+    achievement.honorAttribution?.trim() ||
+    legacyHonor.attribution ||
+    'Ban huấn luyện Vovinam Xóm Chiếu';
   const achievementImage = achievement.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
 
   return (

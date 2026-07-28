@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig,
-  AdminAccount, EditHistory
+  AdminAccount, EditHistory, extractLegacyAchievementHonor
 } from '../types';
 import AdminItemDetailModal from './AdminItemDetailModal';
 import RichTextEditor from './RichTextEditor';
@@ -1433,12 +1433,17 @@ export default function AdminPanel({
         }
         break;
       case 'achievements':
+        const legacyHonor = extractLegacyAchievementHonor(item.journey);
         setAchievementForm({
           memberIds: [],
           tournamentId: '',
           tournamentName: '',
           year: item.date ? new Date(item.date).getFullYear().toString() : new Date().getFullYear().toString(),
-          ...item
+          ...item,
+          journey: legacyHonor.remainingJourney,
+          honorTitle: item.honorTitle?.trim() || legacyHonor.title,
+          honorQuote: item.honorQuote?.trim() || legacyHonor.quote,
+          honorAttribution: item.honorAttribution?.trim() || legacyHonor.attribution
         });
         break;
       case 'tournaments':
