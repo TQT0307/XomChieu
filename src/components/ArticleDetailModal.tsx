@@ -69,7 +69,7 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
             </span>
             <span className="flex items-center gap-1.5">
               <Eye className="w-4 h-4 text-[#0054A6]" />
-              {article.views + 1} lượt xem
+              {Math.max(0, Number(article.views) || 0)} lượt xem
             </span>
           </div>
 

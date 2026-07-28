@@ -3,6 +3,8 @@ import React from 'react';
 interface DetailHeroImageProps {
   src: string;
   alt: string;
+  onClick?: () => void;
+  clickTitle?: string;
 }
 
 /**
@@ -10,7 +12,12 @@ interface DetailHeroImageProps {
  * fills the surrounding wide banner, so portrait and 4:3 images never leave
  * an empty area and are never enlarged with object-cover until content is cut.
  */
-export default function DetailHeroImage({ src, alt }: DetailHeroImageProps) {
+export default function DetailHeroImage({
+  src,
+  alt,
+  onClick,
+  clickTitle
+}: DetailHeroImageProps) {
   return (
     <>
       <img
@@ -28,7 +35,11 @@ export default function DetailHeroImage({ src, alt }: DetailHeroImageProps) {
       <img
         src={src}
         alt={alt}
-        className="pointer-events-none relative h-full w-full object-contain"
+        onClick={onClick}
+        title={clickTitle}
+        className={`relative h-full w-full object-contain ${
+          onClick ? 'cursor-zoom-in transition-transform duration-300 hover:scale-[1.015]' : 'pointer-events-none'
+        }`}
         referrerPolicy="no-referrer"
         decoding="async"
         draggable={false}
