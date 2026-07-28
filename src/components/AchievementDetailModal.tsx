@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Award, Calendar, User, ShieldCheck, Trophy, Sparkles } from 'lucide-react';
 import { Achievement } from '../types';
 import DetailHeroImage from './DetailHeroImage';
@@ -9,6 +9,8 @@ interface AchievementDetailModalProps {
 }
 
 export default function AchievementDetailModal({ achievement, onClose }: AchievementDetailModalProps) {
+  const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+
   if (!achievement) return null;
 
   // Render Medal emoji
@@ -94,8 +96,10 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
   const displayedJourney = customJourney && customJourney.length > 0
     ? customJourney
     : details.journey;
+  const achievementImage = achievement.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
 
   return (
+    <>
     <div
       className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
       id={`modal-achievement-${achievement.id}`}
@@ -112,10 +116,12 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
       <div className="relative z-10 bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header Banner */}
-        <div className="relative h-48 sm:h-56 w-full overflow-hidden">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-950">
           <DetailHeroImage
-            src={achievement.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80'}
+            src={achievementImage}
             alt={achievement.title}
+            onClick={() => setIsImageViewerOpen(true)}
+            clickTitle="Bấm để xem ảnh thành tích toàn màn hình"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
           
@@ -228,5 +234,48 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
 
       </div>
     </div>
+    {isImageViewerOpen && (
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-3 sm:p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Ảnh chi tiết ${achievement.title}`}
+      >
+        <button
+          type="button"
+          className="absolute inset-0 h-full w-full cursor-zoom-out"
+          onClick={() => setIsImageViewerOpen(false)}
+          aria-label="Đóng ảnh chi tiết"
+        />
+        <div
+          className="relative z-10 flex h-full w-full items-center justify-center"
+          onClick={event => {
+            if (event.target === event.currentTarget) setIsImageViewerOpen(false);
+          }}
+        >
+          <img
+            src={achievementImage}
+            alt={`Ảnh chi tiết ${achievement.title}`}
+            className="max-h-full max-w-full object-contain"
+            referrerPolicy="no-referrer"
+            decoding="async"
+            draggable={false}
+          />
+          <button
+            type="button"
+            onClick={() => setIsImageViewerOpen(false)}
+            className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-slate-900/90 text-white shadow-xl transition hover:bg-rose-600 sm:right-3 sm:top-3"
+            aria-label="Đóng ảnh chi tiết"
+            title="Đóng"
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-black/70 px-3 py-1.5 text-center text-[10px] font-bold text-white backdrop-blur-sm sm:bottom-4 sm:text-xs">
+            Bấm ra ngoài ảnh hoặc dấu × để đóng
+          </span>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

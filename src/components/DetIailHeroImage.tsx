@@ -1,0 +1,49 @@
+import React from 'react';
+
+interface DetailHeroImageProps {
+  src: string;
+  alt: string;
+  onClick?: () => void;
+  clickTitle?: string;
+}
+
+/**
+ * Keeps the complete saved image visible in detail headers. A blurred copy
+ * fills the surrounding wide banner, so portrait and 4:3 images never leave
+ * an empty area and are never enlarged with object-cover until content is cut.
+ */
+export default function DetailHeroImage({
+  src,
+  alt,
+  onClick,
+  clickTitle
+}: DetailHeroImageProps) {
+  return (
+    <>
+      <img
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-70 blur-xl saturate-125"
+        referrerPolicy="no-referrer"
+        draggable={false}
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-slate-950/35"
+        aria-hidden="true"
+      />
+      <img
+        src={src}
+        alt={alt}
+        onClick={onClick}
+        title={clickTitle}
+        className={`relative h-full w-full object-contain ${
+          onClick ? 'cursor-zoom-in transition-transform duration-300 hover:scale-[1.015]' : 'pointer-events-none'
+        }`}
+        referrerPolicy="no-referrer"
+        decoding="async"
+        draggable={false}
+      />
+    </>
+  );
+}
