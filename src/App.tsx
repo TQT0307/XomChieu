@@ -548,6 +548,65 @@ export default function App() {
     }
   };
 
+  const handleSelectArticle = (article: Article) => {
+    const articleId = String(article.id);
+    const optimisticViews = Math.max(0, Number(article.views) || 0) + 1;
+
+    // Show the new count immediately. This visitor-side update is deliberately
+    // not marked as an Admin edit; only the dedicated atomic API persists it.
+    setSelectedArticle({ ...article, views: optimisticViews });
+    setArticles(current => current.map(item =>
+      String(item.id) === articleId
+        ? { ...item, views: Math.max(0, Number(item.views) || 0) + 1 }
+        : item
+    ));
+
+    void fetch('/api/article-view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ articleId: article.id })
+    })
+      .then(async response => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.message || payload.error || 'Không thể ghi nhận lượt xem');
+        }
+
+        const confirmedViews = Math.max(0, Number(payload.views) || 0);
+        setArticles(current => current.map(item =>
+          String(item.id) === articleId
+            ? { ...item, views: Math.max(Number(item.views) || 0, confirmedViews) }
+            : item
+        ));
+        setSelectedArticle(current =>
+          current && String(current.id) === articleId
+            ? { ...current, views: Math.max(Number(current.views) || 0, confirmedViews) }
+            : current
+        );
+
+        if (payload.keyVersion) {
+          serverKeyVersionsRef.current.articles = Math.max(
+            Number(serverKeyVersionsRef.current.articles || 0),
+            Number(payload.keyVersion)
+          );
+        }
+        if (payload.lastUpdated) {
+          localStorage.setItem(
+            'vovinam_last_updated',
+            String(Math.max(
+              Number(localStorage.getItem('vovinam_last_updated') || 0),
+              Number(payload.lastUpdated)
+            ))
+          );
+        }
+      })
+      .catch(error => {
+        // Keep the article readable if the counter service is temporarily
+        // unavailable; normal polling will reconcile the displayed count.
+        console.warn('Không thể đồng bộ lượt xem bài viết:', error);
+      });
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       
@@ -636,7 +695,7 @@ export default function App() {
             clubs={clubs}
             highlights={highlights}
             webConfig={webConfig}
-            onSelectArticle={setSelectedArticle}
+            onSelectArticle={handleSelectArticle}
             onSelectHighlight={setSelectedHighlight}
             onSelectClub={setSelectedClub}
             onSelectTournament={setSelectedTournament}

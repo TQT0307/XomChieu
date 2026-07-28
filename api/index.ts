@@ -2986,6 +2986,112 @@ app.get("/api/webConfig", async (req, res) => {
   }
 });
 
+// Count every explicit article open. Firestore transactions prevent two
+// visitors clicking at the same time from overwriting each other's increment.
+// This endpoint changes only `views` on the selected article.
+app.post("/api/article-view", requireSameOrigin, async (req, res) => {
+  try {
+    const articleId = req.body?.articleId;
+    if (
+      articleId === undefined ||
+      articleId === null ||
+      String(articleId).trim() === "" ||
+      String(articleId).length > 160
+    ) {
+      return res.status(400).json({ error: "Mã bài viết không hợp lệ." });
+    }
+
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) {
+      return res.status(503).json({
+        error: "Firebase Firestore chưa sẵn sàng để ghi nhận lượt xem."
+      });
+    }
+
+    const articlesRef = dbInstance.collection("vovinam").doc("articles");
+    const metadataRef = dbInstance.collection("vovinam").doc("metadata");
+    const result: any = await withTimeout(
+      dbInstance.runTransaction(async (transaction: any) => {
+        // Recomputed if Firestore retries the transaction, so metadata versions
+        // can never move backwards after a concurrent click or Admin save.
+        const committedAt = Date.now();
+        const [articlesSnapshot, metadataSnapshot]: any[] = await Promise.all([
+          transaction.get(articlesRef),
+          transaction.get(metadataRef)
+        ]);
+        const currentArticles = articlesSnapshot.exists && Array.isArray(articlesSnapshot.data()?.list)
+          ? articlesSnapshot.data().list
+          : [];
+        const articleIndex = currentArticles.findIndex(
+          (item: any) => String(item?.id) === String(articleId)
+        );
+
+        if (articleIndex < 0) {
+          const error: any = new Error("Không tìm thấy bài viết.");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        const currentArticle = currentArticles[articleIndex] || {};
+        const currentViews = Math.max(0, Number(currentArticle.views) || 0);
+        const updatedArticle = { ...currentArticle, views: currentViews + 1 };
+        const updatedArticles = currentArticles.slice();
+        updatedArticles[articleIndex] = updatedArticle;
+
+        const currentMetadata = metadataSnapshot.exists
+          ? metadataSnapshot.data() || {}
+          : {};
+        const keyVersions = {
+          ...(currentMetadata.keyVersions || {}),
+          articles: committedAt
+        };
+
+        transaction.set(articlesRef, { list: updatedArticles });
+        transaction.set(metadataRef, {
+          lastUpdated: committedAt,
+          changedKey: "articles",
+          keyVersions
+        }, { merge: true });
+
+        return {
+          articles: updatedArticles,
+          views: updatedArticle.views,
+          keyVersions,
+          committedAt
+        };
+      }),
+      10000,
+      "Firebase article view transaction timed out"
+    );
+
+    const updatedDb = {
+      ...(memoryDb || {}),
+      articles: result.articles,
+      lastUpdated: result.committedAt,
+      keyVersions: result.keyVersions
+    };
+    memoryDb = updatedDb;
+    await mirrorFirebaseDataToRedis(updatedDb, "articles");
+
+    return res.json({
+      success: true,
+      articleId,
+      views: result.views,
+      lastUpdated: result.committedAt,
+      keyVersion: result.committedAt
+    });
+  } catch (err: any) {
+    const statusCode = Number(err?.statusCode || 500);
+    console.error("[article-view]", err);
+    return res.status(statusCode).json({
+      error: statusCode === 404
+        ? "Không tìm thấy bài viết."
+        : "Không thể ghi nhận lượt xem bài viết.",
+      message: err?.message || String(err)
+    });
+  }
+});
+
 // Sync any specific state key
 app.post(
   "/api/save-key",
