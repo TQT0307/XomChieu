@@ -96,6 +96,10 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
   const displayedJourney = customJourney && customJourney.length > 0
     ? customJourney
     : details.journey;
+  const displayedHonorTitle = achievement.honorTitle?.trim() || 'Vinh danh bảng vàng';
+  const displayedHonorQuote = achievement.honorQuote?.trim() || details.quote;
+  const displayedHonorAttribution =
+    achievement.honorAttribution?.trim() || 'Ban huấn luyện Vovinam Xóm Chiếu';
   const achievementImage = achievement.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
 
   return (
@@ -123,7 +127,6 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             onClick={() => setIsImageViewerOpen(true)}
             clickTitle="Bấm để xem ảnh thành tích toàn màn hình"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
           
           <button 
             onClick={onClose}
@@ -133,7 +136,8 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             <X className="w-5 h-5" />
           </button>
 
-          <div className="absolute bottom-6 left-6 right-6 text-white">
+          <div className="pointer-events-none absolute bottom-4 left-4 right-16 text-white sm:bottom-6 sm:left-6">
+            <div className="inline-block max-w-full rounded-2xl border border-white/15 bg-black/60 px-3.5 py-3 shadow-xl backdrop-blur-sm sm:px-4">
             <div className="flex items-center gap-2 mb-2">
               <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded border uppercase tracking-wider ${getMedalColorClass(achievement.medalType)}`}>
                 {getMedalEmoji(achievement.medalType)} Huy Chương {achievement.medalType}
@@ -143,6 +147,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             <h3 className="text-lg sm:text-xl font-black text-[#FFF200] uppercase italic tracking-tight drop-shadow-md leading-tight">
               {achievement.title}
             </h3>
+            </div>
           </div>
         </div>
 
@@ -190,12 +195,14 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             <div className="bg-blue-50/50 p-4 rounded-2xl border border-blue-100 flex flex-col justify-between">
               <span className="text-[10px] text-blue-800 font-bold uppercase tracking-wider flex items-center gap-1">
                 <Trophy className="w-3.5 h-3.5" />
-                Vinh danh bảng vàng
+                {displayedHonorTitle}
               </span>
               <p className="text-xs text-slate-600 italic leading-relaxed mt-2 font-sans font-medium">
-                "{details.quote}"
+                "{displayedHonorQuote}"
               </p>
-              <span className="text-[9px] text-[#0054A6] font-bold block mt-2 text-right">— Ban huấn luyện Vovinam Xóm Chiếu</span>
+              <span className="text-[9px] text-[#0054A6] font-bold block mt-2 text-right">
+                — {displayedHonorAttribution}
+              </span>
             </div>
           </div>
 

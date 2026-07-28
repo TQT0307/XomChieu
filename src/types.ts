@@ -55,6 +55,9 @@ export interface Achievement {
   year?: string; // Năm đạt thành tích
   meaning?: string; // Ý nghĩa thành tích do admin nhập (để trống sẽ dùng mặc định)
   journey?: string; // Các chặng hành trình, mỗi dòng là một mục (để trống sẽ dùng mặc định)
+  honorTitle?: string; // Tiêu đề khung vinh danh (để trống sẽ dùng mặc định)
+  honorQuote?: string; // Nội dung vinh danh (để trống sẽ dùng mặc định)
+  honorAttribution?: string; // Người/đơn vị ghi nhận (để trống sẽ dùng mặc định)
 }
 
 export interface Tournament {

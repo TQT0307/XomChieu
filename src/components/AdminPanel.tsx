@@ -1334,7 +1334,7 @@ export default function AdminPanel({
       status: true,
       photo: ''
     });
-    setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '' });
+    setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '', honorTitle: '', honorQuote: '', honorAttribution: '' });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '', googleMapPlaceName: '', googleMapUrl: '' });
     setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapPlaceName: '', googleMapUrl: '' });
     setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], mediaNotes: [''], tournamentId: '', tournamentName: '' });
@@ -4639,6 +4639,52 @@ export default function AdminPanel({
                           placeholder={'Nhập mỗi giai đoạn trên một dòng.\nVí dụ: Giai đoạn chuẩn bị: ...\nQuá trình tập luyện: ...\nPhút tỏa sáng: ...'}
                         />
                         <p className="text-[10px] text-slate-400 mt-1">Mỗi dòng sẽ được hiển thị thành một bước được đánh số ngoài trang người dùng.</p>
+                      </div>
+                      <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-4">
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-wider text-[#0054A6]">
+                            Nội dung khung Vinh danh bảng vàng
+                          </h4>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            Có thể sửa riêng cho từng thành tích. Để trống, website sẽ dùng nội dung mặc định.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold uppercase text-slate-500">
+                            Tiêu đề khung
+                          </label>
+                          <input
+                            type="text"
+                            value={achievementForm.honorTitle || ''}
+                            onChange={e => setAchievementForm({ ...achievementForm, honorTitle: e.target.value })}
+                            className="w-full rounded-lg border p-2 text-sm outline-none focus:ring-2 focus:ring-[#0054A6]"
+                            placeholder="Mặc định: Vinh danh bảng vàng"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold uppercase text-slate-500">
+                            Nội dung vinh danh
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={achievementForm.honorQuote || ''}
+                            onChange={e => setAchievementForm({ ...achievementForm, honorQuote: e.target.value })}
+                            className="w-full resize-y rounded-lg border p-3 text-sm outline-none focus:ring-2 focus:ring-[#0054A6]"
+                            placeholder="Nhập câu trích dẫn hoặc lời vinh danh..."
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-bold uppercase text-slate-500">
+                            Người hoặc đơn vị ghi nhận
+                          </label>
+                          <input
+                            type="text"
+                            value={achievementForm.honorAttribution || ''}
+                            onChange={e => setAchievementForm({ ...achievementForm, honorAttribution: e.target.value })}
+                            className="w-full rounded-lg border p-2 text-sm outline-none focus:ring-2 focus:ring-[#0054A6]"
+                            placeholder="Mặc định: Ban huấn luyện Vovinam Xóm Chiếu"
+                          />
+                        </div>
                       </div>
                     </div>
 
