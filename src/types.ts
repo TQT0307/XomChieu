@@ -256,6 +256,24 @@ export function getNormalizedTournamentStatus(status: any): 'đang diễn ra' | 
   return 'sắp diễn ra'; // Default fallback
 }
 
+const TOURNAMENT_STATUS_PRIORITY: Record<ReturnType<typeof getNormalizedTournamentStatus>, number> = {
+  'đang diễn ra': 0,
+  'sắp diễn ra': 1,
+  'đã kết thúc': 2
+};
+
+/**
+ * Public tournament order: ongoing first, upcoming second, completed last.
+ * Returning 0 inside the same group preserves the order set by Admin.
+ */
+export function compareTournamentsByStatus(
+  first: Pick<Tournament, 'status'>,
+  second: Pick<Tournament, 'status'>
+) {
+  return TOURNAMENT_STATUS_PRIORITY[getNormalizedTournamentStatus(first.status)] -
+    TOURNAMENT_STATUS_PRIORITY[getNormalizedTournamentStatus(second.status)];
+}
+
 export interface BeltRankDetails {
   beltColor: 'blue' | 'yellow' | 'red' | 'white' | 'default';
   beltName: string;

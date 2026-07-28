@@ -5,7 +5,7 @@ import {
   Info, Newspaper, X, Search
 } from 'lucide-react';
 import { 
-  Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, getBeltStyle, getNormalizedTournamentStatus 
+  Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, compareTournamentsByStatus, getBeltStyle, getNormalizedTournamentStatus
 } from '../types';
 import PersonAvatar from './PersonAvatar';
 import defaultBanner1 from '../assets/images/banner1.jpg';
@@ -357,10 +357,12 @@ export default function UserView({
     }), [members, searchMemberQuery]);
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
-  const visibleTournaments = useMemo(() => tournaments.filter(t => {
-    const norm = getNormalizedTournamentStatus(t.status);
-    return tournamentStatusFilter === 'all' || norm === tournamentStatusFilter;
-  }), [tournamentStatusFilter, tournaments]);
+  const visibleTournaments = useMemo(() => tournaments
+    .filter(t => {
+      const norm = getNormalizedTournamentStatus(t.status);
+      return tournamentStatusFilter === 'all' || norm === tournamentStatusFilter;
+    })
+    .sort(compareTournamentsByStatus), [tournamentStatusFilter, tournaments]);
 
   // Filter state for achievements section
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('');
