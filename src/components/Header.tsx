@@ -33,18 +33,16 @@ const readPublicLanguage = (): PublicLanguage => {
 
 const writeGoogleTranslateCookie = (language: PublicLanguage) => {
   const hostname = window.location.hostname;
-  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  const cookieOptions = `path=/; SameSite=Lax${secure}`;
-  const expiredCookieOptions = `expires=Thu, 01 Jan 1970 00:00:00 GMT; ${cookieOptions}`;
+  const expires = 'Thu, 01 Jan 1970 00:00:00 GMT';
 
   if (language === 'en') {
-    document.cookie = `googtrans=/vi/en; ${cookieOptions}`;
-    document.cookie = `googtrans=/vi/en; domain=${hostname}; ${cookieOptions}`;
+    document.cookie = 'googtrans=/vi/en; path=/; SameSite=Lax';
+    document.cookie = `googtrans=/vi/en; domain=${hostname}; path=/; SameSite=Lax`;
     return;
   }
 
-  document.cookie = `googtrans=; ${expiredCookieOptions}`;
-  document.cookie = `googtrans=; domain=${hostname}; ${expiredCookieOptions}`;
+  document.cookie = `googtrans=; expires=${expires}; path=/; SameSite=Lax`;
+  document.cookie = `googtrans=; expires=${expires}; domain=${hostname}; path=/; SameSite=Lax`;
 };
 
 interface HeaderProps {
@@ -76,36 +74,14 @@ export default function Header({
 
   useEffect(() => {
     document.documentElement.lang = language;
-    if (language !== 'en') return undefined;
-
-    let cancelled = false;
-    let applyTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const applyEnglishToTranslateSelector = (attempt = 0) => {
-      if (cancelled) return;
-      const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
-      if (selector) {
-        if (selector.value !== 'en') {
-          selector.value = 'en';
-          selector.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        return;
-      }
-      if (attempt < 50) {
-        applyTimer = setTimeout(() => applyEnglishToTranslateSelector(attempt + 1), 120);
-      }
-    };
 
     const initializeTranslate = () => {
       const googleTranslate = (window as any).google?.translate?.TranslateElement;
-      if (!googleTranslate) return;
-      if (!document.querySelector('.goog-te-combo')) {
-        new googleTranslate(
-          { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
-          'google_translate_element'
-        );
-      }
-      applyEnglishToTranslateSelector();
+      if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
+      new googleTranslate(
+        { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
+        'google_translate_element'
+      );
     };
 
     (window as any).vovinamGoogleTranslateInit = initializeTranslate;
@@ -121,12 +97,7 @@ export default function Header({
       };
       document.head.appendChild(script);
     }
-
-    return () => {
-      cancelled = true;
-      if (applyTimer) clearTimeout(applyTimer);
-    };
-  }, [language]);
+  }, []);
 
   const handleLanguageChange = (nextLanguage: PublicLanguage) => {
     if (nextLanguage === language) return;
@@ -134,17 +105,10 @@ export default function Header({
     localStorage.setItem('vovinam_language', nextLanguage);
     document.documentElement.lang = nextLanguage;
     writeGoogleTranslateCookie(nextLanguage);
-
-    if (nextLanguage === 'vi') {
-      const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
-      if (selector) {
-        selector.value = 'vi';
-        selector.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-      // Google Translate edits DOM text nodes directly. Reloading after the
-      // selector restores Vietnamese prevents translated fragments lingering.
-      window.setTimeout(() => window.location.reload(), 250);
-    }
+    // The previously working implementation reloads once after writing the
+    // Google Translate cookie. This lets Google translate the complete React
+    // tree, including API data and detail modals, from a clean document.
+    window.location.reload();
   };
 
   useEffect(() => {

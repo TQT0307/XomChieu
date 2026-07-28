@@ -179,6 +179,42 @@ const getBannerPreviewAspectClass = (height?: 'short' | 'medium' | 'large') =>
   height === 'large' ? 'aspect-[72/31]' :
   'aspect-[72/25]';
 
+type ImageEditorRatio = '1:1' | '16:9' | '4:3';
+
+const IMAGE_EDITOR_PREVIEW_SIZE: Record<ImageEditorRatio, { width: number; height: number }> = {
+  '1:1': { width: 280, height: 280 },
+  '16:9': { width: 400, height: 225 },
+  '4:3': { width: 360, height: 270 }
+};
+
+const clampNumber = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const getImageEditorGeometry = (
+  ratio: ImageEditorRatio,
+  zoom: number,
+  rotation: number
+) => {
+  const frame = IMAGE_EDITOR_PREVIEW_SIZE[ratio];
+  const isSwapped = Math.abs(rotation % 180) === 90;
+  const rotatedBaseWidth = isSwapped ? frame.height : frame.width;
+  const rotatedBaseHeight = isSwapped ? frame.width : frame.height;
+  const rotationCoverScale = Math.max(
+    frame.width / rotatedBaseWidth,
+    frame.height / rotatedBaseHeight
+  );
+  const scale = rotationCoverScale * Math.max(1, zoom / 100);
+  const renderedWidth = rotatedBaseWidth * scale;
+  const renderedHeight = rotatedBaseHeight * scale;
+
+  return {
+    frame,
+    scale,
+    maxPanX: Math.max(0, (renderedWidth - frame.width) / 2),
+    maxPanY: Math.max(0, (renderedHeight - frame.height) / 2)
+  };
+};
+
 function ImageInput({ 
   label, 
   value, 
@@ -196,7 +232,7 @@ function ImageInput({
 
   // Alignment workspace states
   const [rawImage, setRawImage] = useState<string | null>(null);
-  const [selectedRatio, setSelectedRatio] = useState<'1:1' | '16:9' | '4:3'>(aspectRatio);
+  const [selectedRatio, setSelectedRatio] = useState<ImageEditorRatio>(aspectRatio);
   const [zoom, setZoom] = useState<number>(100);
   const [panX, setPanX] = useState<number>(0);
   const [panY, setPanY] = useState<number>(0);
@@ -206,6 +242,20 @@ function ImageInput({
   useEffect(() => {
     setSelectedRatio(aspectRatio);
   }, [aspectRatio]);
+
+  const clampPan = (
+    nextPanX: number,
+    nextPanY: number,
+    nextZoom = zoom,
+    nextRotation = rotation,
+    nextRatio = selectedRatio
+  ) => {
+    const { maxPanX, maxPanY } = getImageEditorGeometry(nextRatio, nextZoom, nextRotation);
+    return {
+      x: Math.round(clampNumber(nextPanX, -maxPanX, maxPanX)),
+      y: Math.round(clampNumber(nextPanY, -maxPanY, maxPanY))
+    };
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -217,8 +267,9 @@ function ImageInput({
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = moveEvent.clientX - startX;
       const deltaY = moveEvent.clientY - startY;
-      setPanX(initialPanX + deltaX);
-      setPanY(initialPanY + deltaY);
+      const nextPan = clampPan(initialPanX + deltaX, initialPanY + deltaY);
+      setPanX(nextPan.x);
+      setPanY(nextPan.y);
     };
 
     const handleMouseUp = () => {
@@ -241,8 +292,9 @@ function ImageInput({
       if (moveEvent.touches.length !== 1) return;
       const deltaX = moveEvent.touches[0].clientX - startX;
       const deltaY = moveEvent.touches[0].clientY - startY;
-      setPanX(initialPanX + deltaX);
-      setPanY(initialPanY + deltaY);
+      const nextPan = clampPan(initialPanX + deltaX, initialPanY + deltaY);
+      setPanX(nextPan.x);
+      setPanY(nextPan.y);
     };
 
     const handleTouchEnd = () => {
@@ -321,8 +373,25 @@ function ImageInput({
       const scaleFactorX = targetWidth / previewWidth;
       const scaleFactorY = targetHeight / (previewWidth * (targetHeight / targetWidth));
       
-      const canvasPanX = panX * scaleFactorX;
-      const canvasPanY = panY * scaleFactorY;
+      const rotationRadians = (rotation * Math.PI) / 180;
+      const rotatedWidth =
+        Math.abs(finalWidth * Math.cos(rotationRadians)) +
+        Math.abs(finalHeight * Math.sin(rotationRadians));
+      const rotatedHeight =
+        Math.abs(finalWidth * Math.sin(rotationRadians)) +
+        Math.abs(finalHeight * Math.cos(rotationRadians));
+      const maxCanvasPanX = Math.max(0, (rotatedWidth - targetWidth) / 2);
+      const maxCanvasPanY = Math.max(0, (rotatedHeight - targetHeight) / 2);
+      const canvasPanX = clampNumber(
+        panX * scaleFactorX,
+        -maxCanvasPanX,
+        maxCanvasPanX
+      );
+      const canvasPanY = clampNumber(
+        panY * scaleFactorY,
+        -maxCanvasPanY,
+        maxCanvasPanY
+      );
 
       ctx.drawImage(
         img,
@@ -352,6 +421,8 @@ function ImageInput({
     };
     img.src = rawImage;
   };
+
+  const previewGeometry = getImageEditorGeometry(selectedRatio, zoom, rotation);
 
   return (
     <div className="space-y-1.5">
@@ -485,7 +556,7 @@ function ImageInput({
                       style={{
                         top: '50%',
                         left: '50%',
-                        transform: `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${zoom / 100}) rotate(${rotation}deg)`,
+                        transform: `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${previewGeometry.scale}) rotate(${rotation}deg)`,
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover'
@@ -510,7 +581,7 @@ function ImageInput({
                   💡 MẸO: Nhấn giữ và KÉO THẢ chuột/tay trực tiếp lên ảnh để di chuyển vừa khung hình
                 </p>
                 <p className="text-[9px] text-slate-500 italic text-center">
-                  Khoảng trắng bên ngoài viền nét đứt vàng sẽ được tự động cắt bỏ
+                    Ảnh luôn được khóa phủ kín khung; hệ thống không cho kéo hoặc thu nhỏ tạo khoảng trống
                 </p>
               </div>
 
@@ -524,7 +595,11 @@ function ImageInput({
                       <button
                         key={ratio}
                         type="button"
-                        onClick={() => setSelectedRatio(ratio)}
+                        onClick={() => {
+                          setSelectedRatio(ratio);
+                          setPanX(0);
+                          setPanY(0);
+                        }}
                         className={`text-xs py-2 px-1.5 rounded-xl font-bold border transition-all cursor-pointer ${
                           selectedRatio === ratio
                             ? 'bg-[#0054A6] text-white border-[#0054A6] shadow-md shadow-[#0054A6]/20'
@@ -543,7 +618,11 @@ function ImageInput({
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">2. Thu phóng (Zoom: {zoom}%)</span>
                     <button
                       type="button"
-                      onClick={() => setZoom(100)}
+                      onClick={() => {
+                        setZoom(100);
+                        setPanX(0);
+                        setPanY(0);
+                      }}
                       className="text-[9px] font-black text-[#FFF200] uppercase hover:underline"
                     >
                       Mặc định
@@ -551,10 +630,16 @@ function ImageInput({
                   </div>
                   <input
                     type="range"
-                    min="50"
+                    min="100"
                     max="300"
                     value={zoom}
-                    onChange={e => setZoom(parseInt(e.target.value))}
+                    onChange={e => {
+                      const nextZoom = Math.max(100, parseInt(e.target.value));
+                      const nextPan = clampPan(panX, panY, nextZoom);
+                      setZoom(nextZoom);
+                      setPanX(nextPan.x);
+                      setPanY(nextPan.y);
+                    }}
                     className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FFF200]"
                   />
                 </div>
@@ -573,10 +658,14 @@ function ImageInput({
                   </div>
                   <input
                     type="range"
-                    min="-250"
-                    max="250"
+                    min={-Math.ceil(previewGeometry.maxPanX)}
+                    max={Math.ceil(previewGeometry.maxPanX)}
                     value={panX}
-                    onChange={e => setPanX(parseInt(e.target.value))}
+                    onChange={e => {
+                      const nextPan = clampPan(parseInt(e.target.value), panY);
+                      setPanX(nextPan.x);
+                      setPanY(nextPan.y);
+                    }}
                     className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                   />
                 </div>
@@ -595,10 +684,14 @@ function ImageInput({
                   </div>
                   <input
                     type="range"
-                    min="-250"
-                    max="250"
+                    min={-Math.ceil(previewGeometry.maxPanY)}
+                    max={Math.ceil(previewGeometry.maxPanY)}
                     value={panY}
-                    onChange={e => setPanY(parseInt(e.target.value))}
+                    onChange={e => {
+                      const nextPan = clampPan(panX, parseInt(e.target.value));
+                      setPanX(nextPan.x);
+                      setPanY(nextPan.y);
+                    }}
                     className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                   />
                 </div>
@@ -609,14 +702,22 @@ function ImageInput({
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setRotation(prev => (prev - 90 + 360) % 360)}
+                      onClick={() => {
+                        setRotation(prev => (prev - 90 + 360) % 360);
+                        setPanX(0);
+                        setPanY(0);
+                      }}
                       className="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 py-1.5 px-3 rounded-lg border border-white/5 font-semibold flex-1 cursor-pointer"
                     >
                       ↺ Xoay trái 90°
                     </button>
                     <button
                       type="button"
-                      onClick={() => setRotation(prev => (prev + 90) % 360)}
+                      onClick={() => {
+                        setRotation(prev => (prev + 90) % 360);
+                        setPanX(0);
+                        setPanY(0);
+                      }}
                       className="text-xs bg-slate-800 text-slate-300 hover:bg-slate-700 py-1.5 px-3 rounded-lg border border-white/5 font-semibold flex-1 cursor-pointer"
                     >
                       ↻ Xoay phải 90°
