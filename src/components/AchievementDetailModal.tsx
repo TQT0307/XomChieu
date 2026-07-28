@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Award, Calendar, User, ShieldCheck, Trophy, Sparkles } from 'lucide-react';
 import { Achievement, extractLegacyAchievementHonor } from '../types';
 import DetailHeroImage from './DetailHeroImage';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface AchievementDetailModalProps {
   achievement: Achievement | null;
@@ -10,6 +11,7 @@ interface AchievementDetailModalProps {
 
 export default function AchievementDetailModal({ achievement, onClose }: AchievementDetailModalProps) {
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
+  useModalScrollLock(Boolean(achievement));
 
   if (!achievement) return null;
 
@@ -110,7 +112,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
   return (
     <>
     <div
-      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+      className="modal-scroll-lock fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden"
       id={`modal-achievement-${achievement.id}`}
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
@@ -157,7 +159,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
         </div>
 
         {/* Modal Content */}
-        <div className="detail-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6 sm:p-8">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6 sm:p-8">
           
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

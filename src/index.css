@@ -48,6 +48,18 @@ html {
   background-clip: padding-box;
 }
 
+/* A detail dialog owns the wheel/touch gesture while it is open. This avoids
+   scroll chaining from the dialog to the page behind it at either boundary. */
+.modal-scroll-lock {
+  overscroll-behavior: none;
+}
+
+.modal-scroll-region {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
 body {
   font-family: var(--font-sans);
 }

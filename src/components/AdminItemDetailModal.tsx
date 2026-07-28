@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight } from '../types';
 import { sanitizeArticleHtml } from '../utils/articleContent';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface AdminItemDetailModalProps {
   tab: string | null;
@@ -24,6 +25,8 @@ export default function AdminItemDetailModal({
   members = [], 
   onClose 
 }: AdminItemDetailModalProps) {
+  useModalScrollLock(Boolean(tab && item));
+
   if (!tab || !item) return null;
 
   const renderStatus = (status: any) => {
@@ -67,8 +70,8 @@ export default function AdminItemDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" id="admin-detail-modal">
-      <div className="bg-white rounded-[2rem] max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 flex flex-col">
+    <div className="modal-scroll-lock fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden" id="admin-detail-modal">
+      <div className="bg-white rounded-[2rem] max-w-2xl w-full max-h-[calc(100dvh-2rem)] overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200 flex flex-col">
         
         {/* Header bar */}
         <div className="bg-[#0054A6] text-white px-6 py-4 flex items-center justify-between border-b-4 border-[#FFF200] sticky top-0 z-10">
@@ -87,7 +90,7 @@ export default function AdminItemDetailModal({
         </div>
 
         {/* Content body */}
-        <div className="p-6 sm:p-8 flex-1 overflow-y-auto space-y-6">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 p-6 sm:p-8 flex-1 overflow-y-auto space-y-6">
           
           {/* 1. ARTICLE DETAIL VIEW */}
           {tab === 'articles' && (

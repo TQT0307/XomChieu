@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
 import { Member, Achievement, Club, getBeltStyle, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface MemberDetailModalProps {
   member: Member | null;
@@ -20,6 +21,8 @@ export default function MemberDetailModal({
   onSelectAchievement,
   onZoomPhoto
 }: MemberDetailModalProps) {
+  useModalScrollLock(Boolean(member));
+
   if (!member) return null;
 
   // Resolve Club Name
@@ -61,7 +64,7 @@ export default function MemberDetailModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      className="modal-scroll-lock fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       id={`modal-member-${member.id}`}
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
@@ -185,7 +188,7 @@ export default function MemberDetailModal({
         </div>
 
         {/* Modal Body */}
-        <div className="detail-scrollbar p-5 sm:p-8 overflow-y-auto overscroll-contain space-y-6">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 overflow-y-auto space-y-6">
           
           {/* Quick Profile Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

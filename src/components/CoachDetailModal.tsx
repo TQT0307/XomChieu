@@ -2,6 +2,7 @@ import React from 'react';
 import { X, MapPin, Award, Star, Quote, Trophy } from 'lucide-react';
 import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface CoachDetailModalProps {
   coach: Coach | null;
@@ -18,6 +19,8 @@ export default function CoachDetailModal({
   onClose,
   onSelectAchievement
 }: CoachDetailModalProps) {
+  useModalScrollLock(Boolean(coach));
+
   if (!coach) return null;
 
   // Resolve Club Name
@@ -81,7 +84,7 @@ export default function CoachDetailModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      className="modal-scroll-lock fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       id={`modal-coach-${coach.id}`}
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
@@ -199,7 +202,7 @@ export default function CoachDetailModal({
         </div>
 
         {/* Modal Body */}
-        <div className="detail-scrollbar p-5 sm:p-8 space-y-6 overflow-y-auto overscroll-contain">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 space-y-6 overflow-y-auto">
           
           {/* Quick Specifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -3,6 +3,7 @@ import { X, Calendar, Clock, MapPin, User, ShieldCheck } from 'lucide-react';
 import { Club, Coach, getBeltStyle } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface ClubDetailModalProps {
   club: Club | null;
@@ -12,6 +13,8 @@ interface ClubDetailModalProps {
 }
 
 export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach }: ClubDetailModalProps) {
+  useModalScrollLock(Boolean(club));
+
   if (!club) return null;
 
   // Elegant embed maps search query
@@ -34,7 +37,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden"
+      className="modal-scroll-lock fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden"
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -56,7 +59,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
           <X className="w-6 h-6" strokeWidth={2.5} />
         </button>
 
-        <div className="detail-scrollbar min-h-0 flex-1 overflow-y-auto">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 overflow-y-auto">
         {/* Header Block */}
         <div className="relative h-48 sm:h-60 w-full overflow-hidden">
           <DetailHeroImage

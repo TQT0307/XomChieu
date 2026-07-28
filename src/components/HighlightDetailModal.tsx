@@ -4,6 +4,7 @@ import {
   ZoomIn, ZoomOut, RotateCcw, Move
 } from 'lucide-react';
 import { Highlight } from '../types';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface HighlightDetailModalProps {
   highlight: Highlight | null;
@@ -19,6 +20,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   const mediaViewportRef = useRef<HTMLDivElement>(null);
   const imageBaseSizeRef = useRef({ width: 0, height: 0 });
   const dragStartRef = useRef({ pointerX: 0, pointerY: 0, imageX: 0, imageY: 0 });
+  useModalScrollLock(Boolean(highlight));
 
   useEffect(() => {
     setActiveMediaIndex(0);
@@ -95,7 +97,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
 
   return (
     <div
-      className="detail-scrollbar fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="modal-scroll-lock modal-scroll-region detail-scrollbar fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
       }}

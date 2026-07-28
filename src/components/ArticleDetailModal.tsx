@@ -3,6 +3,7 @@ import { X, Calendar, Eye } from 'lucide-react';
 import { Article, Category } from '../types';
 import { sanitizeArticleHtml } from '../utils/articleContent';
 import DetailHeroImage from './DetailHeroImage';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface ArticleDetailModalProps {
   article: Article | null;
@@ -11,6 +12,8 @@ interface ArticleDetailModalProps {
 }
 
 export default function ArticleDetailModal({ article, categories, onClose }: ArticleDetailModalProps) {
+  useModalScrollLock(Boolean(article));
+
   if (!article) return null;
 
   const categoryName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
@@ -18,7 +21,7 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="modal-scroll-lock fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden"
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -29,7 +32,7 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
         onClick={onClose}
         aria-label="Đóng cửa sổ chi tiết bài viết"
       />
-      <div className="detail-scrollbar relative z-10 bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+      <div className="modal-scroll-region detail-scrollbar relative z-10 bg-white rounded-3xl max-w-3xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
         <div className="relative h-64 sm:h-80 w-full overflow-hidden">

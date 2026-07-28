@@ -3,6 +3,7 @@ import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen } from 'lucide-
 import { Tournament, getNormalizedTournamentStatus } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -10,6 +11,8 @@ interface TournamentDetailModalProps {
 }
 
 export default function TournamentDetailModal({ tournament, onClose }: TournamentDetailModalProps) {
+  useModalScrollLock(Boolean(tournament));
+
   if (!tournament) return null;
 
   // Google Maps search query based on location
@@ -75,7 +78,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="modal-scroll-lock fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden"
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -86,7 +89,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         onClick={onClose}
         aria-label="Đóng cửa sổ chi tiết giải đấu"
       />
-      <div className="relative z-10 bg-white text-slate-800 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white text-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
         <div className="relative h-48 sm:h-64 w-full overflow-hidden">
@@ -115,7 +118,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         </div>
 
         {/* Content Tabs/Details */}
-        <div className="detail-scrollbar p-6 sm:p-8 max-h-[60vh] overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 p-6 sm:p-8 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Side: Information details (8 cols) */}
           <div className="lg:col-span-7 space-y-6">
