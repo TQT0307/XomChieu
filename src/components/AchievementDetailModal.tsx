@@ -85,10 +85,30 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
   };
 
   const details = getAchievementDetails(achievement.title, achievement.unit);
+  const displayedMeaning = achievement.meaning?.trim() || details.about;
+  const customJourney = achievement.journey
+    ?.split(/\r?\n/)
+    .map(item => item.trim())
+    .filter(Boolean);
+  const displayedJourney = customJourney && customJourney.length > 0
+    ? customJourney
+    : details.journey;
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" id={`modal-achievement-${achievement.id}`}>
-      <div className="bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      id={`modal-achievement-${achievement.id}`}
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default"
+        onClick={onClose}
+        aria-label="Đóng cửa sổ chi tiết thành tích"
+      />
+      <div className="relative z-10 bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header Banner */}
         <div className="relative h-48 sm:h-56 w-full overflow-hidden">
@@ -113,7 +133,6 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
               <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded border uppercase tracking-wider ${getMedalColorClass(achievement.medalType)}`}>
                 {getMedalEmoji(achievement.medalType)} Huy Chương {achievement.medalType}
               </span>
-              <span className="text-slate-300 text-xs">| Mã số: {achievement.id}</span>
             </div>
             
             <h3 className="text-lg sm:text-xl font-black text-[#FFF200] uppercase italic tracking-tight drop-shadow-md leading-tight">
@@ -123,7 +142,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
         </div>
 
         {/* Modal Content */}
-        <div className="p-6 sm:p-8 max-h-[60vh] overflow-y-auto space-y-6">
+        <div className="detail-scrollbar p-6 sm:p-8 max-h-[60vh] overflow-y-auto space-y-6">
           
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -182,7 +201,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
               Ý nghĩa thành tích
             </h4>
             <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans">
-              {details.about}
+              {displayedMeaning}
             </p>
           </div>
 
@@ -193,7 +212,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
               Hành trình chinh phục vinh quang
             </h4>
             <div className="space-y-3 pt-1">
-              {details.journey.map((item, index) => (
+              {displayedJourney.map((item, index) => (
                 <div key={index} className="flex gap-3">
                   <div className="w-5 h-5 rounded-full bg-blue-100 text-[#0054A6] flex items-center justify-center font-bold text-[10px] flex-shrink-0 mt-0.5">
                     {index + 1}
@@ -206,16 +225,6 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             </div>
           </div>
 
-        </div>
-
-        {/* Modal Footer */}
-        <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end">
-          <button 
-            onClick={onClose}
-            className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-6 py-2.5 rounded-xl cursor-pointer shadow transition-all"
-          >
-            Đóng cửa sổ
-          </button>
         </div>
 
       </div>

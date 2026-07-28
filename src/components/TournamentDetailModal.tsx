@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen } from 'lucide-react';
 import { Tournament, getNormalizedTournamentStatus } from '../types';
+import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -11,8 +12,12 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
   if (!tournament) return null;
 
   // Google Maps search query based on location
-  const mapSearchQuery = encodeURIComponent(tournament.location || tournament.name);
-  const mapIframeUrl = `https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  const mapIframeUrl = buildGoogleMapsEmbedUrl(
+    tournament.googleMapUrl,
+    [tournament.googleMapPlaceName || tournament.name, tournament.location, 'Việt Nam']
+      .filter(Boolean)
+      .join(', ')
+  );
 
   // Status-specific styles
   const statusStyles = {
@@ -68,8 +73,19 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
   const details = getTournamentDetails(tournament.name);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white text-slate-800 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default"
+        onClick={onClose}
+        aria-label="Đóng cửa sổ chi tiết giải đấu"
+      />
+      <div className="relative z-10 bg-white text-slate-800 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
         <div className="relative h-48 sm:h-64 w-full overflow-hidden">
@@ -100,7 +116,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         </div>
 
         {/* Content Tabs/Details */}
-        <div className="p-6 sm:p-8 max-h-[60vh] overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="detail-scrollbar p-6 sm:p-8 max-h-[60vh] overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Side: Information details (8 cols) */}
           <div className="lg:col-span-7 space-y-6">
@@ -213,17 +229,11 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         </div>
 
         {/* Footer actions */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-center text-center text-xs text-slate-500">
           <span className="flex items-center gap-1.5 font-bold">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             Thông tin Giải đấu được cung cấp chính thức bởi võ đường Vovinam Xóm Chiếu
           </span>
-          <button 
-            onClick={onClose}
-            className="bg-[#0054A6] hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl font-bold transition-all cursor-pointer text-xs"
-          >
-            Đóng
-          </button>
         </div>
 
       </div>

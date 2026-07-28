@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, Calendar, Eye, Share2, Award, ArrowLeft } from 'lucide-react';
+import { X, Calendar, Eye } from 'lucide-react';
 import { Article, Category } from '../types';
+import { sanitizeArticleHtml } from '../utils/articleContent';
 
 interface ArticleDetailModalProps {
   article: Article | null;
@@ -12,10 +13,22 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
   if (!article) return null;
 
   const categoryName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
+  const safeArticleContent = sanitizeArticleHtml(article.content);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default"
+        onClick={onClose}
+        aria-label="Đóng cửa sổ chi tiết bài viết"
+      />
+      <div className="detail-scrollbar relative z-10 bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
         <div className="relative h-64 sm:h-80 w-full overflow-hidden">
@@ -51,9 +64,6 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
         {/* Article Metadata & Content */}
         <div className="p-6 sm:p-8">
           <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 pb-4 mb-6 border-b border-slate-100">
-            <span className="flex items-center gap-1.5 font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded">
-              ID: #{article.id}
-            </span>
             <span className="flex items-center gap-1.5">
               <Calendar className="w-4 h-4 text-[#0054A6]" />
               {new Date(article.date).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
@@ -64,25 +74,11 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
             </span>
           </div>
 
-          {/* Newspaper Layout Content */}
-          <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base space-y-4 font-sans">
-            {article.content.split('\n\n').map((paragraph, index) => (
-              <p key={index} className="first-letter:text-4xl first-letter:font-black first-letter:text-[#0054A6] first-letter:mr-3 first-letter:float-left first-letter:h-12 first-letter:uppercase">
-                {index === 0 ? paragraph : paragraph}
-              </p>
-            ))}
-          </div>
+          <div
+            className="article-content max-w-none text-slate-700 text-sm sm:text-base font-sans"
+            dangerouslySetInnerHTML={{ __html: safeArticleContent }}
+          />
 
-          {/* Footer of the article */}
-          <div className="mt-8 pt-6 border-t border-slate-100 flex items-center justify-end">
-            <button 
-              onClick={onClose}
-              className="flex items-center gap-2 bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Quay lại trang tin</span>
-            </button>
-          </div>
         </div>
 
       </div>

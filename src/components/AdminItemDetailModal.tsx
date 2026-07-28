@@ -3,6 +3,7 @@ import {
   X, Calendar, MapPin, User, Clock, Shield, Award, Play, Image as ImageIcon, CheckCircle, XCircle, Tag, Eye 
 } from 'lucide-react';
 import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight } from '../types';
+import { sanitizeArticleHtml } from '../utils/articleContent';
 
 interface AdminItemDetailModalProps {
   tab: string | null;
@@ -138,9 +139,10 @@ export default function AdminItemDetailModal({
 
               <div className="space-y-1.5 pt-2">
                 <span className="block text-slate-400 font-bold uppercase text-[10px] tracking-wider">Nội dung bài viết</span>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-150 text-sm text-slate-700 leading-relaxed font-sans whitespace-pre-wrap max-h-80 overflow-y-auto">
-                  {item.content}
-                </div>
+                <div
+                  className="article-content detail-scrollbar bg-slate-50 p-4 rounded-2xl border border-slate-150 text-sm text-slate-700 font-sans max-h-80 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(item.content || '') }}
+                />
               </div>
             </div>
           )}

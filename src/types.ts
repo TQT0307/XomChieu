@@ -20,6 +20,7 @@ export interface Article {
 
 export interface Member {
   id: string; // ID tự chọn
+  displayOrder?: number; // Thứ tự hiển thị do admin tự chọn
   photo: string;
   fullName: string;
   birthYear: number;
@@ -52,6 +53,8 @@ export interface Achievement {
   tournamentId?: string; // FK to Tournament (Giải đấu)
   tournamentName?: string; // Tên giải đấu
   year?: string; // Năm đạt thành tích
+  meaning?: string; // Ý nghĩa thành tích do admin nhập (để trống sẽ dùng mặc định)
+  journey?: string; // Các chặng hành trình, mỗi dòng là một mục (để trống sẽ dùng mặc định)
 }
 
 export interface Tournament {
@@ -60,6 +63,8 @@ export interface Tournament {
   name: string;
   date: string;
   location: string;
+  googleMapPlaceName?: string; // Tên địa điểm đúng như trên Google Maps
+  googleMapUrl?: string; // HTML/URL nhúng chính xác từ Google Maps
   status: 'đang diễn ra' | 'sắp diễn ra' | 'đã kết thúc';
   introduction?: string; // Giới thiệu giải đấu
   schedule?: string; // Lịch trình giải đấu
@@ -76,6 +81,7 @@ export interface Club {
   trainingDays: string; // Ngày tập
   trainingHours: string; // Giờ tập
   status: boolean; // Trạng thái hoạt động
+  googleMapPlaceName?: string; // Tên địa điểm đúng như trên Google Maps
   googleMapUrl?: string; // Bản đồ vệ tinh / nhúng Google Maps
 }
 
@@ -87,6 +93,9 @@ export interface Highlight {
   mediaType: 'video' | 'ảnh'; // Loại video/ảnh
   status: boolean; // Trạng thái hiển thị
   mediaUrls: string[]; // Cho phép thêm nhiều ảnh và nhiều video trong 1 bài viết
+  mediaNotes?: string[]; // Ghi chú tương ứng theo thứ tự của từng ảnh/video
+  tournamentId?: string; // Giải đấu liên kết
+  tournamentName?: string; // Lưu tên giải để lọc và vẫn hiển thị nếu giải đổi ID
 }
 
 export interface BannerConfig {
@@ -117,7 +126,10 @@ export interface WebConfig {
 export interface AdminAccount {
   id: string;
   username: string;
+  // Only used transiently when creating or resetting an account. The server
+  // never returns either the plaintext password or its hash.
   password?: string;
+  hasPassword?: boolean;
   role: 'super' | 'assistant';
   name: string;
   permissions: string[]; // tabs they can access, e.g. ['articles', 'members']

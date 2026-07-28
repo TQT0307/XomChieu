@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   FileText, FolderOpen, Users, Award, Trophy, Film, Settings, 
   Plus, Edit2, Trash2, Save, X, Search, Map, CheckCircle2, ShieldAlert,
@@ -11,6 +11,128 @@ import {
   AdminAccount, EditHistory
 } from '../types';
 import AdminItemDetailModal from './AdminItemDetailModal';
+import RichTextEditor from './RichTextEditor';
+import defaultBanner1 from '../assets/images/banner1.jpg';
+import defaultBanner2 from '../assets/images/banner2.jpg';
+import defaultBanner3 from '../assets/images/banner3.jpg';
+import defaultBanner4 from '../assets/images/banner4.jpg';
+import defaultBanner5 from '../assets/images/banner5.jpg';
+import { externalizeInlineImages } from '../mediaSync';
+import {
+  articleContentToPlainText,
+  normalizeArticleContentForStorage,
+} from '../utils/articleContent';
+import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
+
+const adminBundledBannerImages: Record<string, string> = {
+  '/src/assets/images/banner1.jpg': defaultBanner1,
+  '/src/assets/images/banner2.jpg': defaultBanner2,
+  '/src/assets/images/banner3.jpg': defaultBanner3,
+  '/src/assets/images/banner4.jpg': defaultBanner4,
+  '/src/assets/images/banner5.jpg': defaultBanner5,
+};
+
+const resolveAdminBannerImage = (image?: string) =>
+  (image && adminBundledBannerImages[image]) || image || defaultBanner1;
+
+const MAX_HIGHLIGHT_IMAGES = 50;
+const MAX_SOURCE_IMAGE_BYTES = 5 * 1024 * 1024;
+const TARGET_STORED_IMAGE_BYTES = 560 * 1024;
+const HARD_STORED_IMAGE_BYTES = 650 * 1024;
+
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('Không thể đọc dữ liệu ảnh.'));
+  reader.readAsDataURL(blob);
+});
+
+const loadBrowserImage = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = () => reject(new Error('Không thể mở ảnh đã chọn.'));
+  image.src = url;
+});
+
+const canvasToWebpBlob = (canvas: HTMLCanvasElement, quality: number) =>
+  new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error('Trình duyệt không thể nén ảnh này.')),
+      'image/webp',
+      quality
+    );
+  });
+
+async function compressHighlightImage(file: File): Promise<string> {
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Chỉ được tải ảnh từ máy. Video hãy dùng đường dẫn URL/YouTube.');
+  }
+  if (file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error('Mỗi ảnh gốc tối đa 5 MB.');
+  }
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const source = await loadBrowserImage(objectUrl);
+    const sourceLongestSide = Math.max(source.naturalWidth, source.naturalHeight);
+    // Preserve more source pixels so the public gallery can zoom up to the
+    // original resolution without CSS upscaling or visible stretching.
+    const maxSides = [2200, 1920, 1600, 1280, 1024, 800, 640];
+    const qualities = [0.86, 0.8, 0.74, 0.68, 0.62, 0.56];
+    let smallestBlob: Blob | null = null;
+    let previousSize = '';
+
+    for (const maxSide of maxSides) {
+      const scale = Math.min(1, maxSide / sourceLongestSide);
+      const width = Math.max(1, Math.round(source.naturalWidth * scale));
+      const height = Math.max(1, Math.round(source.naturalHeight * scale));
+      const sizeKey = `${width}x${height}`;
+      if (sizeKey === previousSize) continue;
+      previousSize = sizeKey;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(source, 0, 0, width, height);
+
+      for (const quality of qualities) {
+        const blob = await canvasToWebpBlob(canvas, quality);
+        if (!smallestBlob || blob.size < smallestBlob.size) smallestBlob = blob;
+        if (blob.size <= TARGET_STORED_IMAGE_BYTES) {
+          return blobToDataUrl(blob);
+        }
+      }
+    }
+
+    if (!smallestBlob || smallestBlob.size > HARD_STORED_IMAGE_BYTES) {
+      throw new Error('Không thể nén ảnh xuống dưới 650 KB. Hãy chọn ảnh khác nhỏ hơn.');
+    }
+    return blobToDataUrl(smallestBlob);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function uploadHighlightImageDataUrl(dataUrl: string): Promise<string> {
+  const response = await fetch('/api/media/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || typeof result.url !== 'string') {
+    throw new Error(result.error || result.message || 'Không thể lưu ảnh vào Firebase.');
+  }
+  return result.url;
+}
+
+async function compressAndUploadHighlightImage(file: File): Promise<string> {
+  return uploadHighlightImageDataUrl(await compressHighlightImage(file));
+}
 
 interface AdminPanelProps {
   categories: Category[];
@@ -31,6 +153,7 @@ interface AdminPanelProps {
   setHighlights: React.Dispatch<React.SetStateAction<Highlight[]>>;
   webConfig: WebConfig;
   setWebConfig: React.Dispatch<React.SetStateAction<WebConfig>>;
+  applyCloudSnapshot?: (data: any) => void;
   onBackToWebsite?: () => void;
 }
 
@@ -48,6 +171,13 @@ type AdminTab =
   | 'history'
   | 'dbSync'
   | 'changePassword';
+
+// Match the public desktop carousel proportions (reference viewport: 1440px).
+// This makes object-position adjustments in admin line up with the live page.
+const getBannerPreviewAspectClass = (height?: 'short' | 'medium' | 'large') =>
+  height === 'short' ? 'aspect-[18/5]' :
+  height === 'large' ? 'aspect-[72/31]' :
+  'aspect-[72/25]';
 
 function ImageInput({ 
   label, 
@@ -546,6 +676,7 @@ export default function AdminPanel({
   clubs, setClubs,
   highlights, setHighlights,
   webConfig, setWebConfig,
+  applyCloudSnapshot,
   onBackToWebsite
 }: AdminPanelProps) {
   
@@ -564,29 +695,44 @@ export default function AdminPanel({
     }
   }, [toast]);
 
-  // Initialize Admin Accounts state from localStorage
-  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>(() => {
-    const saved = localStorage.getItem('vovinam_admin_accounts');
-    if (saved) {
+  useEffect(() => {
+    const handleSyncError = (event: Event) => {
+      const detail = (event as CustomEvent<{ key?: string; message?: string }>).detail;
+      showToast(
+        detail?.message || `Không thể lưu ${detail?.key || 'dữ liệu'} lên Firebase. Vui lòng thử lại!`,
+        'error'
+      );
+    };
+    window.addEventListener('vovinam-sync-error', handleSyncError);
+    return () => window.removeEventListener('vovinam-sync-error', handleSyncError);
+  }, []);
+
+  // Account credentials are kept only in the private server database. The
+  // browser receives safe account metadata after a Super Admin signs in.
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
+
+  useEffect(() => {
+    // Remove credentials cached by releases older than the secure Admin API.
+    localStorage.removeItem('vovinam_admin_accounts');
+    localStorage.removeItem('vovinam_remembered_password');
+    ([localStorage, sessionStorage] as Storage[]).forEach(storage => {
+      const raw = storage.getItem('vovinam_current_admin');
+      if (!raw) return;
       try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // Fallback below
+        const safeAccount = JSON.parse(raw);
+        delete safeAccount.password;
+        delete safeAccount.passwordHash;
+        storage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
+      } catch {
+        storage.removeItem('vovinam_current_admin');
       }
-    }
-    const defaultAccounts: AdminAccount[] = [
-      {
-        id: 'admin',
-        username: 'admin',
-        password: '123',
-        role: 'super',
-        name: 'HLV Trưởng (Admin chính)',
-        permissions: ['articles', 'categories', 'coaches', 'members', 'achievements', 'tournaments', 'clubs', 'highlights', 'webConfig']
-      }
-    ];
-    localStorage.setItem('vovinam_admin_accounts', JSON.stringify(defaultAccounts));
-    return defaultAccounts;
-  });
+    });
+    setCurrentAdmin(current => {
+      if (!current) return current;
+      const { password: _legacyPassword, ...safeAccount } = current;
+      return safeAccount;
+    });
+  }, []);
 
   // Initialize System Action Logs state from localStorage
   const [editHistories, setEditHistories] = useState<EditHistory[]>(() => {
@@ -629,14 +775,41 @@ export default function AdminPanel({
   const [loginUsername, setLoginUsername] = useState(() => {
     return localStorage.getItem('vovinam_remembered_username') || '';
   });
-  const [loginPassword, setLoginPassword] = useState(() => {
-    return localStorage.getItem('vovinam_remembered_password') || '';
-  });
+  const [loginPassword, setLoginPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(() => {
     return localStorage.getItem('vovinam_remember_me_checked') === 'true';
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
+
+  useEffect(() => {
+    if (!currentAdmin) return;
+    let active = true;
+    fetch('/api/admin-session', { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) throw new Error('Admin session expired');
+        return response.json();
+      })
+      .then(payload => {
+        if (!active || !payload?.session) return;
+        const safeAccount = payload.session as AdminAccount;
+        setCurrentAdmin(safeAccount);
+        if (payload.session.remember === true || rememberMe) {
+          localStorage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
+          sessionStorage.removeItem('vovinam_current_admin');
+        } else {
+          sessionStorage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
+          localStorage.removeItem('vovinam_current_admin');
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setCurrentAdmin(null);
+        localStorage.removeItem('vovinam_current_admin');
+        sessionStorage.removeItem('vovinam_current_admin');
+      });
+    return () => { active = false; };
+  }, [currentAdmin?.id]);
 
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<AdminTab>('articles');
@@ -658,8 +831,71 @@ export default function AdminPanel({
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [tournamentForm, setTournamentForm] = useState<Partial<Tournament>>({});
   const [clubForm, setClubForm] = useState<Partial<Club>>({});
-  const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [] });
+  const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [], mediaNotes: [] });
+  const [isUploadingHighlightMedia, setIsUploadingHighlightMedia] = useState(false);
+  const [highlightUploadProgress, setHighlightUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [webConfigForm, setWebConfigForm] = useState<WebConfig>(webConfig);
+  const savedAchievementTournamentNames = useMemo(() => Array.from(new Set(
+    [
+      ...achievements.map(achievement => achievement.tournamentName?.trim() ||
+        (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : '')),
+      ...tournaments.map(tournament => tournament.name?.trim()),
+      ...highlights.map(highlight => highlight.tournamentName?.trim() ||
+        (highlight.tournamentId ? tournaments.find(t => t.id === highlight.tournamentId)?.name?.trim() : ''))
+    ].filter((name): name is string => Boolean(name))
+  )).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
+
+  const handleHighlightImageUpload = async (files: File[], replaceIndex?: number) => {
+    if (isUploadingHighlightMedia || files.length === 0) return;
+
+    const selectedFiles = replaceIndex === undefined ? files : files.slice(0, 1);
+    const existingImageCount = (highlightForm.mediaUrls || []).filter(url => url.trim() !== '').length;
+    if (replaceIndex === undefined && existingImageCount + selectedFiles.length > MAX_HIGHLIGHT_IMAGES) {
+      showToast(`Mỗi Highlight được lưu tối đa ${MAX_HIGHLIGHT_IMAGES} ảnh.`, 'error');
+      return;
+    }
+
+    setIsUploadingHighlightMedia(true);
+    setHighlightUploadProgress({ current: 0, total: selectedFiles.length });
+    let uploadedCount = 0;
+
+    try {
+      for (let index = 0; index < selectedFiles.length; index += 1) {
+        const uploadedUrl = await compressAndUploadHighlightImage(selectedFiles[index]);
+        uploadedCount += 1;
+        setHighlightUploadProgress({ current: index + 1, total: selectedFiles.length });
+
+        setHighlightForm(previous => {
+          if (replaceIndex !== undefined) {
+            const urls = [...(previous.mediaUrls || [])];
+            const notes = [...(previous.mediaNotes || [])];
+            while (urls.length <= replaceIndex) urls.push('');
+            while (notes.length <= replaceIndex) notes.push('');
+            urls[replaceIndex] = uploadedUrl;
+            return { ...previous, mediaUrls: urls, mediaNotes: notes };
+          }
+
+          const existingPairs = (previous.mediaUrls || [])
+            .map((url, mediaIndex) => ({
+              url,
+              note: previous.mediaNotes?.[mediaIndex] || ''
+            }))
+            .filter(item => item.url.trim() !== '');
+          return {
+            ...previous,
+            mediaUrls: [...existingPairs.map(item => item.url), uploadedUrl],
+            mediaNotes: [...existingPairs.map(item => item.note), '']
+          };
+        });
+      }
+      showToast(`Đã nén và lưu ${uploadedCount} ảnh vào Firebase.`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không thể tải ảnh lên Firebase.', 'error');
+    } finally {
+      setIsUploadingHighlightMedia(false);
+      setHighlightUploadProgress(null);
+    }
+  };
 
   // Sync webConfig from props
   useEffect(() => {
@@ -715,10 +951,26 @@ export default function AdminPanel({
     }
   }, [activeTab, currentAdmin]);
 
-  // Synchronize admin accounts to localStorage on change
+  // Only the Super Admin can load account metadata. Passwords and hashes never
+  // leave the private server API.
   useEffect(() => {
-    localStorage.setItem('vovinam_admin_accounts', JSON.stringify(adminAccounts));
-  }, [adminAccounts]);
+    if (!currentAdmin || currentAdmin.role !== 'super') return;
+    let active = true;
+    fetch('/api/admin-accounts', { cache: 'no-store' })
+      .then(async response => {
+        if (!response.ok) throw new Error('Cannot load shared admin accounts');
+        return response.json();
+      })
+      .then(payload => {
+        if (!active) return;
+        const cloudAccounts = Array.isArray(payload.accounts) ? payload.accounts as AdminAccount[] : [];
+        setAdminAccounts(cloudAccounts);
+      })
+      .catch(error => {
+        console.warn('Không thể tải danh sách tài khoản Admin an toàn:', error);
+      });
+    return () => { active = false; };
+  }, [currentAdmin?.id, currentAdmin?.role]);
 
   // Clear search query when changing tabs
   useEffect(() => {
@@ -744,14 +996,39 @@ export default function AdminPanel({
   };
 
   // Login handler
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    
-    const account = adminAccounts.find(
-      acc => acc.username.trim().toLowerCase() === loginUsername.trim().toLowerCase() && 
-             acc.password === loginPassword
-    );
+
+    let account: AdminAccount | null = null;
+    try {
+      const response = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: loginUsername,
+          password: loginPassword,
+          remember: rememberMe
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.account) {
+        setLoginError(payload.error || 'Tài khoản hoặc mật khẩu không chính xác!');
+        return;
+      }
+      account = payload.account as AdminAccount;
+      if (account.role === 'super') {
+        const accountsResponse = await fetch('/api/admin-accounts', { cache: 'no-store' });
+        const accountsPayload = await accountsResponse.json().catch(() => ({}));
+        if (accountsResponse.ok && Array.isArray(accountsPayload.accounts)) {
+          setAdminAccounts(accountsPayload.accounts);
+        }
+      }
+    } catch (error) {
+      console.error('Không thể đăng nhập Admin:', error);
+      setLoginError('Không thể kết nối máy chủ đăng nhập. Vui lòng thử lại!');
+      return;
+    }
 
     if (account) {
       setCurrentAdmin(account);
@@ -759,7 +1036,7 @@ export default function AdminPanel({
       if (rememberMe) {
         localStorage.setItem('vovinam_current_admin', JSON.stringify(account));
         localStorage.setItem('vovinam_remembered_username', loginUsername);
-        localStorage.setItem('vovinam_remembered_password', loginPassword);
+        localStorage.removeItem('vovinam_remembered_password');
         localStorage.setItem('vovinam_remember_me_checked', 'true');
       } else {
         sessionStorage.setItem('vovinam_current_admin', JSON.stringify(account));
@@ -799,28 +1076,43 @@ export default function AdminPanel({
   // Logout handler
   const handleLogout = () => {
     addLog('Đăng xuất', 'auth', 'Đăng xuất khỏi hệ thống');
+    void fetch('/api/admin-logout', { method: 'POST' }).catch(() => undefined);
     setCurrentAdmin(null);
     localStorage.removeItem('vovinam_current_admin');
     sessionStorage.removeItem('vovinam_current_admin');
   };
 
+  const persistAdminAccountList = async (nextAccounts: AdminAccount[]) => {
+    try {
+      const response = await fetch('/api/admin-accounts', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts: nextAccounts })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showToast(payload.error || 'Không thể lưu danh sách tài khoản Admin.', 'error');
+        return false;
+      }
+      setAdminAccounts(Array.isArray(payload.accounts) ? payload.accounts : []);
+      return true;
+    } catch (error) {
+      console.error('Không thể lưu danh sách tài khoản Admin:', error);
+      showToast('Không thể kết nối máy chủ để lưu tài khoản Admin.', 'error');
+      return false;
+    }
+  };
+
   // Password Change Handler
-  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
 
     if (!currentAdmin) return;
 
-    // Retrieve active account state to read latest password
-    const activeAcc = adminAccounts.find(acc => acc.username === currentAdmin.username);
-    if (!activeAcc || activeAcc.password !== currentPassword) {
-      setPasswordError('Mật khẩu hiện tại không chính xác!');
-      return;
-    }
-
-    if (newPassword.length < 3) {
-      setPasswordError('Mật khẩu mới phải dài từ 3 ký tự trở lên!');
+    if (newPassword.length < 8 || !/[A-Za-zÀ-ỹ]/u.test(newPassword) || !/\d/.test(newPassword)) {
+      setPasswordError('Mật khẩu mới phải dài ít nhất 8 ký tự, có chữ và có số!');
       return;
     }
 
@@ -829,19 +1121,30 @@ export default function AdminPanel({
       return;
     }
 
-    // Update password (case-insensitive check for absolute safety)
-    setAdminAccounts(prev => 
-      prev.map(acc => acc.username.trim().toLowerCase() === currentAdmin.username.trim().toLowerCase() ? { ...acc, password: newPassword } : acc)
-    );
-
-    // Update currentAdmin state with new password
-    const updatedAdmin = { ...currentAdmin, password: newPassword };
-    setCurrentAdmin(updatedAdmin);
-    if (rememberMe) {
-      localStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
-      localStorage.setItem('vovinam_remembered_password', newPassword);
-    } else {
-      sessionStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
+    try {
+      const response = await fetch('/api/admin-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setPasswordError(payload.error || 'Không thể thay đổi mật khẩu.');
+        return;
+      }
+      const updatedAdmin = payload.account as AdminAccount;
+      setCurrentAdmin(updatedAdmin);
+      if (rememberMe) {
+        localStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
+        sessionStorage.removeItem('vovinam_current_admin');
+      } else {
+        sessionStorage.setItem('vovinam_current_admin', JSON.stringify(updatedAdmin));
+        localStorage.removeItem('vovinam_current_admin');
+      }
+    } catch (error) {
+      console.error('Không thể đổi mật khẩu:', error);
+      setPasswordError('Không thể kết nối máy chủ để đổi mật khẩu.');
+      return;
     }
 
     addLog('Đổi mật khẩu', 'security', `Người dùng '${currentAdmin.username}' đổi mật khẩu thành công`);
@@ -852,9 +1155,9 @@ export default function AdminPanel({
   };
 
   // Admin account add/edit save handler
-  const handleSaveAdminAccount = (e: React.FormEvent) => {
+  const handleSaveAdminAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!adminForm.username || !adminForm.password || !adminForm.name) {
+    if (!adminForm.username || !adminForm.name || (editAdminId === null && !adminForm.password)) {
       showToast('Vui lòng điền đầy đủ các thông tin bắt buộc!', 'error');
       return;
     }
@@ -874,14 +1177,21 @@ export default function AdminPanel({
         name: adminForm.name,
         permissions: adminForm.permissions || []
       };
-      setAdminAccounts(prev => [...prev, newAcc]);
+      if (!await persistAdminAccountList([...adminAccounts, newAcc])) return;
       addLog('Cấp tài khoản', 'admins', `Cấp tài khoản Admin phụ mới: ${newAcc.username} (${newAcc.name})`);
       showToast('Cấp tài khoản Admin phụ thành công!', 'success');
     } else {
-      // Edit
-      setAdminAccounts(prev => 
-        prev.map(acc => acc.id === editAdminId ? { ...acc, ...adminForm, username: uName } as AdminAccount : acc)
+      const nextAccounts = adminAccounts.map(acc =>
+        acc.id === editAdminId
+          ? {
+              ...acc,
+              ...adminForm,
+              username: uName,
+              password: adminForm.password || undefined
+            } as AdminAccount
+          : acc
       );
+      if (!await persistAdminAccountList(nextAccounts)) return;
       addLog('Sửa tài khoản', 'admins', `Cập nhật thông tin tài khoản: ${uName} (${adminForm.name})`);
       showToast('Cập nhật tài khoản Admin thành công!', 'success');
     }
@@ -892,14 +1202,14 @@ export default function AdminPanel({
   };
 
   // Admin delete handler
-  const handleDeleteAdmin = (id: string, username: string) => {
-    if (username === 'admin') {
-      showToast('Không thể xóa tài khoản Super Admin chính!', 'error');
+  const handleDeleteAdmin = async (id: string, username: string) => {
+    if (id === currentAdmin?.id) {
+      showToast('Không thể xóa tài khoản Admin đang đăng nhập!', 'error');
       return;
     }
     if (!window.confirm(`Bạn có chắc chắn muốn xóa tài khoản '${username}'?`)) return;
 
-    setAdminAccounts(prev => prev.filter(acc => acc.id !== id));
+    if (!await persistAdminAccountList(adminAccounts.filter(acc => acc.id !== id))) return;
     addLog('Xóa tài khoản', 'admins', `Đã xóa tài khoản: ${username}`);
     showToast('Xóa tài khoản Admin thành công!', 'success');
   };
@@ -913,11 +1223,20 @@ export default function AdminPanel({
     setArticleForm({ title: '', content: '', categoryId: categories[0]?.id || '', image: '', status: true, date: new Date().toISOString().split('T')[0], views: 0, showInNews: false });
     setCategoryForm({ id: '', name: '', order: categories.length + 1, status: true, description: '' });
     setCoachForm({ id: '', fullName: '', birthYear: 1990, rank: 'Hoàng Đai', clubId: clubs[0]?.id || '', experience: '', status: true, photo: '' });
-    setMemberForm({ id: '', fullName: '', birthYear: 2005, rank: 'Lam Đai', clubId: clubs[0]?.id || '', status: true, photo: '' });
-    setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString() });
-    setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '' });
-    setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapUrl: '' });
-    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''] });
+    setMemberForm({
+      id: '',
+      displayOrder: Math.max(0, ...members.map(member => member.displayOrder || 0)) + 1,
+      fullName: '',
+      birthYear: 2005,
+      rank: 'Lam Đai',
+      clubId: clubs[0]?.id || '',
+      status: true,
+      photo: ''
+    });
+    setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '' });
+    setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '', googleMapPlaceName: '', googleMapUrl: '' });
+    setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapPlaceName: '', googleMapUrl: '' });
+    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], mediaNotes: [''], tournamentId: '', tournamentName: '' });
   };
 
   // Delete Handlers
@@ -951,7 +1270,22 @@ export default function AdminPanel({
         setCoaches(prev => prev.filter(item => item.id !== id));
         break;
       case 'members':
-        setMembers(prev => prev.filter(item => item.id !== id));
+        setMembers(prev => {
+          const remainingMembers = prev
+            .filter(item => item.id !== id)
+            .sort((a, b) =>
+              (a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+              (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+            );
+
+          // Keep display IDs continuous after deletion: 1, 2, 3, ...
+          // Technical IDs (for example TV001) remain untouched so achievement
+          // and club references never break.
+          return remainingMembers.map((member, index) => ({
+            ...member,
+            displayOrder: index + 1
+          }));
+        });
         break;
       case 'achievements':
         setAchievements(prev => prev.filter(item => item.id !== id));
@@ -987,7 +1321,15 @@ export default function AdminPanel({
         setCoachForm(item);
         break;
       case 'members':
-        setMemberForm(item);
+        if (item.displayOrder) {
+          setMemberForm(item);
+        } else {
+          let suggestedOrder = Math.max(1, members.findIndex(member => member.id === item.id) + 1);
+          while (members.some(member => member.id !== item.id && member.displayOrder === suggestedOrder)) {
+            suggestedOrder += 1;
+          }
+          setMemberForm({ ...item, displayOrder: suggestedOrder });
+        }
         break;
       case 'achievements':
         setAchievementForm({
@@ -999,7 +1341,11 @@ export default function AdminPanel({
         });
         break;
       case 'tournaments':
-        setTournamentForm(item);
+        setTournamentForm({
+          googleMapPlaceName: item.googleMapPlaceName || '',
+          googleMapUrl: item.googleMapUrl || '',
+          ...item
+        });
         break;
       case 'clubs': {
         const associatedCoachIds = coaches.filter(c => c.clubId === item.id).map(c => c.id);
@@ -1015,7 +1361,9 @@ export default function AdminPanel({
       case 'highlights':
         setHighlightForm({
           ...item,
-          mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : ['']
+          mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''],
+          mediaNotes: (item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''])
+            .map((_, index) => item.mediaNotes?.[index] || '')
         });
         const matchedAthlete = coaches.find(c => c.id === item.athleteName || c.fullName === item.athleteName) ||
                                members.find(m => m.id === item.athleteName || m.fullName === item.athleteName);
@@ -1025,9 +1373,14 @@ export default function AdminPanel({
   };
 
   // Save Forms Handler
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'articles') {
+      const normalizedContent = normalizeArticleContentForStorage(articleForm.content || '');
+      if (!articleContentToPlainText(normalizedContent).trim()) {
+        showToast('Vui lòng nhập nội dung bài viết!', 'error');
+        return;
+      }
       let finalId: string | number = articleForm.id !== undefined ? articleForm.id : '';
       if (typeof finalId === 'string') finalId = finalId.trim();
       
@@ -1053,7 +1406,7 @@ export default function AdminPanel({
         const newArt: Article = {
           id: finalId,
           title: articleForm.title || 'Bài viết mới',
-          content: articleForm.content || '',
+          content: normalizedContent,
           categoryId: articleForm.categoryId || categories[0]?.id || 'TIN_CLB',
           image: articleForm.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80',
           date: articleForm.date || new Date().toISOString().split('T')[0],
@@ -1069,7 +1422,12 @@ export default function AdminPanel({
           showToast('ID bài viết này đã tồn tại!', 'error');
           return;
         }
-        setArticles(prev => prev.map(a => String(a.id) === String(editId) ? { ...a, ...articleForm, id: finalId } as Article : a));
+        setArticles(prev => prev.map(a => String(a.id) === String(editId) ? {
+          ...a,
+          ...articleForm,
+          id: finalId,
+          content: normalizedContent,
+        } as Article : a));
         addLog('Sửa', 'articles', `Đã cập nhật bài viết: "${articleForm.title}" (ID: ${finalId})`);
         showToast('Cập nhật bài viết thành công!', 'success');
       }
@@ -1110,19 +1468,61 @@ export default function AdminPanel({
     } else if (activeTab === 'members') {
       const id = memberForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
+      const displayOrder = Number(memberForm.displayOrder);
+      if (!Number.isInteger(displayOrder) || displayOrder < 1) {
+        showToast('ID thứ tự hiển thị phải là số nguyên từ 1 trở lên', 'error');
+        return;
+      }
+      const conflictingMember = members.find(m => m.id !== editId && Number(m.displayOrder) === displayOrder);
+      const finalMember = { ...memberForm, id, displayOrder } as Member;
       if (editId === null) {
+        if (conflictingMember) {
+          showToast('ID thứ tự hiển thị này đã được sử dụng!', 'error');
+          return;
+        }
         if (members.some(m => m.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setMembers(prev => [...prev, memberForm as Member]);
-        addLog('Thêm', 'members', `Đã thêm môn sinh mới: "${memberForm.fullName}" (ID: ${id})`);
-        showToast('Thêm môn sinh mới thành công!', 'success');
+        setMembers(prev => [...prev, finalMember].sort((a, b) =>
+          Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+        ));
+        addLog('Thêm', 'members', `Đã thêm thành viên CLB mới: "${memberForm.fullName}" (ID: ${id})`);
+        showToast('Thêm thành viên CLB mới thành công!', 'success');
       } else {
         if (id !== editId && members.some(m => m.id === id)) {
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
-        setMembers(prev => prev.map(m => m.id === editId ? { ...m, ...memberForm, id } as Member : m));
-        addLog('Sửa', 'members', `Đã cập nhật thông tin môn sinh: "${memberForm.fullName}" (ID: ${id})`);
-        showToast('Cập nhật thông tin môn sinh thành công!', 'success');
+        const originalMember = members.find(m => m.id === editId);
+        const originalDisplayOrder = Number(originalMember?.displayOrder);
+        if (conflictingMember) {
+          const shouldSwap = window.confirm(
+            `ID thứ tự ${displayOrder} đang thuộc về "${conflictingMember.fullName}".\n\n` +
+            `Bạn có muốn hoán đổi không?\n` +
+            `• ${memberForm.fullName}: ${originalDisplayOrder} → ${displayOrder}\n` +
+            `• ${conflictingMember.fullName}: ${displayOrder} → ${originalDisplayOrder}`
+          );
+          if (!shouldSwap) return;
+        }
+        setMembers(prev => prev
+          .map(m => {
+            if (m.id === editId) return finalMember;
+            if (conflictingMember && m.id === conflictingMember.id) {
+              return { ...m, displayOrder: originalDisplayOrder };
+            }
+            return m;
+          })
+          .sort((a, b) =>
+            Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) - Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+          ));
+        if (id !== editId) {
+          setAchievements(prev => prev.map(achievement => ({
+            ...achievement,
+            memberIds: achievement.memberIds?.map(memberId => memberId === editId ? id : memberId)
+          })));
+        }
+        addLog('Sửa', 'members', conflictingMember
+          ? `Đã hoán đổi thứ tự hiển thị ${originalDisplayOrder} ↔ ${displayOrder} giữa "${memberForm.fullName}" và "${conflictingMember.fullName}"`
+          : `Đã cập nhật thành viên CLB: "${memberForm.fullName}" (ID: ${id})`);
+        showToast(conflictingMember ? 'Hoán đổi ID thứ tự thành công!' : 'Cập nhật thành viên CLB thành công!', 'success');
       }
     } else if (activeTab === 'achievements') {
       const id = achievementForm.id?.trim() || '';
@@ -1144,9 +1544,23 @@ export default function AdminPanel({
     } else if (activeTab === 'tournaments') {
       const id = tournamentForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
+      const tournamentLocation = tournamentForm.location?.trim() || '';
+      const tournamentPlaceName = tournamentForm.googleMapPlaceName?.trim() || '';
+      const tournamentMapQuery = [
+        tournamentPlaceName || tournamentForm.name,
+        tournamentLocation,
+        'Việt Nam'
+      ].filter(Boolean).join(', ');
+      const finalTournamentForm = {
+        ...tournamentForm,
+        id,
+        location: tournamentLocation,
+        googleMapPlaceName: tournamentPlaceName,
+        googleMapUrl: buildGoogleMapsEmbedUrl(tournamentForm.googleMapUrl, tournamentMapQuery)
+      } as Tournament;
       if (editId === null) {
         if (tournaments.some(t => t.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setTournaments(prev => [...prev, tournamentForm as Tournament]);
+        setTournaments(prev => [...prev, finalTournamentForm]);
         addLog('Thêm', 'tournaments', `Đã thêm giải đấu mới: "${tournamentForm.name}" (ID: ${id})`);
         showToast('Thêm giải đấu mới thành công!', 'success');
       } else {
@@ -1154,15 +1568,38 @@ export default function AdminPanel({
           showToast('ID này đã tồn tại ở giải đấu khác!', 'error');
           return;
         }
-        setTournaments(prev => prev.map(t => t.id === editId ? { ...t, ...tournamentForm, id } as Tournament : t));
+        const updatedTournamentName = tournamentForm.name || '';
+        setTournaments(prev => prev.map(t => t.id === editId ? { ...t, ...finalTournamentForm, id } as Tournament : t));
+        setAchievements(prev => prev.map(achievement =>
+          achievement.tournamentId === editId
+            ? { ...achievement, tournamentId: id, tournamentName: updatedTournamentName }
+            : achievement
+        ));
+        setHighlights(prev => prev.map(highlight =>
+          highlight.tournamentId === editId
+            ? { ...highlight, tournamentId: id, tournamentName: updatedTournamentName }
+            : highlight
+        ));
         addLog('Sửa', 'tournaments', `Đã cập nhật giải đấu: "${tournamentForm.name}" (ID: ${id})`);
         showToast('Cập nhật giải đấu thành công!', 'success');
       }
     } else if (activeTab === 'clubs') {
       const id = clubForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
-      const finalMapUrl = clubForm.googleMapUrl?.trim() || `https://maps.google.com/maps?q=${encodeURIComponent(clubForm.address || '')}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
-      const finalClubForm = { ...clubForm, id, googleMapUrl: finalMapUrl };
+      const clubAddress = clubForm.address?.trim() || '';
+      const clubPlaceName = clubForm.googleMapPlaceName?.trim() || '';
+      const clubMapQuery = [
+        clubPlaceName || clubForm.name,
+        clubAddress,
+        'Việt Nam'
+      ].filter(Boolean).join(', ');
+      const finalClubForm = {
+        ...clubForm,
+        id,
+        address: clubAddress,
+        googleMapPlaceName: clubPlaceName,
+        googleMapUrl: buildGoogleMapsEmbedUrl(clubForm.googleMapUrl, clubMapQuery)
+      };
 
       // Update associated coaches
       const selectedCoachIds = clubForm.coachIds || [];
@@ -1190,12 +1627,66 @@ export default function AdminPanel({
         showToast('Cập nhật câu lạc bộ thành công!', 'success');
       }
     } else if (activeTab === 'highlights') {
+      if (isUploadingHighlightMedia) {
+        showToast('Vui lòng chờ ảnh tải xong rồi mới bấm Lưu dữ liệu.', 'info');
+        return;
+      }
       const id = highlightForm.id?.trim() || '';
       if (!id) { showToast('Vui lòng nhập ID tự chọn', 'error'); return; }
-      const finalMediaUrls = highlightForm.mediaUrls?.filter(u => u.trim() !== '') || [];
+      const mediaPairs = (highlightForm.mediaUrls || [])
+        .map((url, index) => ({ url: url.trim(), note: highlightForm.mediaNotes?.[index]?.trim() || '' }))
+        .filter(item => item.url !== '');
+      if (mediaPairs.length > MAX_HIGHLIGHT_IMAGES) {
+        showToast(`Mỗi Highlight được lưu tối đa ${MAX_HIGHLIGHT_IMAGES} ảnh.`, 'error');
+        return;
+      }
+
+      const legacyImageIndexes = mediaPairs
+        .map((item, index) => item.url.startsWith('data:image/') ? index : -1)
+        .filter(index => index >= 0);
+      if (mediaPairs.some(item => item.url.startsWith('data:video/'))) {
+        showToast('Video từ máy không thể lưu trong Firestore. Hãy xóa video đó và dùng URL/YouTube.', 'error');
+        return;
+      }
+
+      if (legacyImageIndexes.length > 0) {
+        setIsUploadingHighlightMedia(true);
+        setHighlightUploadProgress({ current: 0, total: legacyImageIndexes.length });
+        try {
+          for (let position = 0; position < legacyImageIndexes.length; position += 1) {
+            const mediaIndex = legacyImageIndexes[position];
+            const legacyResponse = await fetch(mediaPairs[mediaIndex].url);
+            const legacyBlob = await legacyResponse.blob();
+            const legacyFile = new File(
+              [legacyBlob],
+              `anh-cu-${mediaIndex + 1}.${legacyBlob.type.split('/')[1] || 'jpg'}`,
+              { type: legacyBlob.type || 'image/jpeg' }
+            );
+            mediaPairs[mediaIndex].url = await compressAndUploadHighlightImage(legacyFile);
+            setHighlightUploadProgress({ current: position + 1, total: legacyImageIndexes.length });
+          }
+          setHighlightForm(previous => ({
+            ...previous,
+            mediaUrls: mediaPairs.map(item => item.url),
+            mediaNotes: mediaPairs.map(item => item.note)
+          }));
+        } catch (error) {
+          showToast(
+            error instanceof Error ? `Không thể chuyển ảnh cũ: ${error.message}` : 'Không thể chuyển ảnh cũ lên Firebase.',
+            'error'
+          );
+          return;
+        } finally {
+          setIsUploadingHighlightMedia(false);
+          setHighlightUploadProgress(null);
+        }
+      }
+
+      const finalMediaUrls = mediaPairs.map(item => item.url);
+      const finalMediaNotes = mediaPairs.map(item => item.note);
       if (editId === null) {
         if (highlights.some(h => h.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setHighlights(prev => [...prev, { ...highlightForm, mediaUrls: finalMediaUrls } as Highlight]);
+        setHighlights(prev => [...prev, { ...highlightForm, mediaUrls: finalMediaUrls, mediaNotes: finalMediaNotes } as Highlight]);
         addLog('Thêm', 'highlights', `Đã thêm Highlight mới: "${highlightForm.title}" (ID: ${id})`);
         showToast('Thêm highlight mới thành công!', 'success');
       } else {
@@ -1203,7 +1694,7 @@ export default function AdminPanel({
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
-        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, id, mediaUrls: finalMediaUrls } as Highlight : h));
+        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, id, mediaUrls: finalMediaUrls, mediaNotes: finalMediaNotes } as Highlight : h));
         addLog('Sửa', 'highlights', `Đã cập nhật Highlight: "${highlightForm.title}" (ID: ${id})`);
         showToast('Cập nhật highlight thành công!', 'success');
       }
@@ -1222,6 +1713,134 @@ export default function AdminPanel({
   const [loadingDbStatus, setLoadingDbStatus] = useState(false);
   const [isSyncingCloud, setIsSyncingCloud] = useState(false);
   const [isFetchingCloud, setIsFetchingCloud] = useState(false);
+  const [isOptimizingMedia, setIsOptimizingMedia] = useState(false);
+  const [backupStatus, setBackupStatus] = useState<any>(null);
+  const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isImportingBackup, setIsImportingBackup] = useState(false);
+
+  const buildLocalBackupData = () => ({
+    vovinam_categories: categories,
+    vovinam_articles: articles,
+    vovinam_members: members,
+    vovinam_coaches: coaches,
+    vovinam_achievements: achievements,
+    vovinam_tournaments: tournaments,
+    vovinam_clubs: clubs,
+    vovinam_highlights: highlights,
+    vovinam_webConfig: activeTab === 'webConfig' ? webConfigForm : webConfig
+  });
+
+  const downloadLocalBackup = (prefix = 'vovinam_database_backup') => {
+    const jsonStr = JSON.stringify(buildLocalBackupData(), null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = url;
+    link.download = `${prefix}_${timestamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    localStorage.setItem('vovinam_last_local_backup_at', String(Date.now()));
+  };
+
+  const fetchBackupStatus = () => {
+    fetch('/api/backup-status', { cache: 'no-store' })
+      .then(res => {
+        if (!res.ok) throw new Error(`Backup status failed (${res.status})`);
+        return res.json();
+      })
+      .then(setBackupStatus)
+      .catch(err => {
+        console.error('Không thể kiểm tra trạng thái sao lưu:', err);
+        setBackupStatus({ available: false, error: err.message || String(err) });
+      });
+  };
+
+  const handleCreateCloudBackup = async () => {
+    try {
+      setIsCreatingBackup(true);
+      const res = await fetch('/api/backup-now', { method: 'POST' });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) {
+        throw new Error(payload.error || `Backup failed (${res.status})`);
+      }
+      downloadLocalBackup('vovinam_verified_backup');
+      showToast('Đã tạo bản sao lưu Cloud và tải thêm bản JSON về máy!', 'success');
+      addLog('Sao lưu', 'system', 'Đã tạo bản sao lưu Cloud thủ công và bản JSON cục bộ');
+      fetchBackupStatus();
+    } catch (err) {
+      console.error(err);
+      showToast('Không thể tạo bản sao lưu. Không thực hiện thao tác ghi đè!', 'error');
+    } finally {
+      setIsCreatingBackup(false);
+    }
+  };
+
+  const handleOptimizeExistingMedia = async () => {
+    if (!window.confirm(
+      'Hệ thống sẽ sao lưu trước, sau đó chuyển ảnh đang nhúng trong dữ liệu sang kho ảnh riêng. Nội dung, logo và banner không bị xóa. Tiếp tục?'
+    )) return;
+
+    try {
+      setIsOptimizingMedia(true);
+      downloadLocalBackup('vovinam_before_media_optimization');
+
+      const backupRes = await fetch('/api/backup-now', { method: 'POST' });
+      const backupPayload = await backupRes.json().catch(() => ({}));
+      if (!backupRes.ok || !backupPayload.success) {
+        throw new Error(backupPayload.error || 'Không tạo được bản sao lưu Cloud trước khi tối ưu ảnh.');
+      }
+
+      const optimized = await externalizeInlineImages(buildLocalBackupData());
+      const savePayload = {
+        categories: optimized.vovinam_categories,
+        articles: optimized.vovinam_articles,
+        members: optimized.vovinam_members,
+        coaches: optimized.vovinam_coaches,
+        achievements: optimized.vovinam_achievements,
+        tournaments: optimized.vovinam_tournaments,
+        clubs: optimized.vovinam_clubs,
+        highlights: optimized.vovinam_highlights,
+        webConfig: optimized.vovinam_webConfig
+      };
+
+      const saveRes = await fetch('/api/save-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(savePayload)
+      });
+      const saveResult = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok || !saveResult.success) {
+        throw new Error(saveResult.error || 'Không thể lưu dữ liệu đã tối ưu lên Cloud.');
+      }
+
+      if (applyCloudSnapshot) {
+        applyCloudSnapshot(savePayload);
+      } else {
+        setCategories(savePayload.categories);
+        setArticles(savePayload.articles);
+        setMembers(savePayload.members);
+        setCoaches(savePayload.coaches);
+        setAchievements(savePayload.achievements);
+        setTournaments(savePayload.tournaments);
+        setClubs(savePayload.clubs);
+        setHighlights(savePayload.highlights);
+        setWebConfig(savePayload.webConfig);
+      }
+
+      showToast('Đã sao lưu và tối ưu kho ảnh thành công. Dữ liệu cũ vẫn được giữ nguyên.', 'success');
+      addLog('Tối ưu', 'dbSync', 'Đã tách ảnh nhúng khỏi dữ liệu JSON sau khi tạo bản sao lưu');
+      fetchDbStatus();
+      fetchBackupStatus();
+    } catch (err) {
+      console.error(err);
+      showToast(err instanceof Error ? err.message : 'Không thể tối ưu kho ảnh.', 'error');
+    } finally {
+      setIsOptimizingMedia(false);
+    }
+  };
 
   const fetchDbStatus = () => {
     setLoadingDbStatus(true);
@@ -1246,18 +1865,42 @@ export default function AdminPanel({
   };
 
   useEffect(() => {
-    if (activeTab === 'dbSync') {
+    if (activeTab === 'dbSync' || activeTab === 'webConfig') {
       fetchDbStatus();
+      fetchBackupStatus();
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    fetchBackupStatus();
+    const handleSyncSuccess = () => {
+      window.setTimeout(fetchBackupStatus, 800);
+    };
+    window.addEventListener('vovinam-sync-success', handleSyncSuccess);
+    const interval = window.setInterval(fetchBackupStatus, 5 * 60 * 1000);
+    return () => {
+      window.removeEventListener('vovinam-sync-success', handleSyncSuccess);
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const handleForceUploadToCloud = async () => {
-    if (!window.confirm("Bạn có chắc chắn muốn tải đè toàn bộ dữ liệu hiện tại lên Cloud? Thao tác này sẽ thay thế dữ liệu trên Cloud bằng dữ liệu bạn đang thấy trên máy tính này.")) {
+    downloadLocalBackup('vovinam_before_cloud_overwrite');
+    const confirmation = window.prompt(
+      'CẢNH BÁO: thao tác này ghi đè toàn bộ Cloud. Hệ thống vừa tải một bản JSON dự phòng. Chỉ tiếp tục khi thật sự cần thiết. Nhập chính xác: GHI DE CLOUD'
+    );
+    if (confirmation !== 'GHI DE CLOUD') {
+      showToast('Đã hủy ghi đè Cloud. Dữ liệu không thay đổi.', 'info');
       return;
     }
 
     try {
       setIsSyncingCloud(true);
+      const backupRes = await fetch('/api/backup-now', { method: 'POST' });
+      const backupPayload = await backupRes.json();
+      if (!backupRes.ok || !backupPayload.success) {
+        throw new Error('Không tạo được bản sao lưu Cloud trước khi ghi đè.');
+      }
       const res = await fetch('/api/save-all', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1280,6 +1923,7 @@ export default function AdminPanel({
         showToast('Đồng bộ lên Cloud thành công! Dữ liệu thực đã được cập nhật cho tất cả mọi người truy cập!', 'success');
         addLog('Đồng bộ', 'dbSync', 'Đã đẩy toàn bộ dữ liệu máy khách lên Cloud Database');
         fetchDbStatus();
+        fetchBackupStatus();
       } else {
         showToast('Không thể lưu dữ liệu lên Cloud!', 'error');
       }
@@ -1298,19 +1942,24 @@ export default function AdminPanel({
 
     try {
       setIsFetchingCloud(true);
+      downloadLocalBackup('vovinam_before_cloud_download');
       const res = await fetch('/api/data');
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       if (data) {
-        if (data.categories) setCategories(data.categories);
-        if (data.articles) setArticles(data.articles);
-        if (data.members) setMembers(data.members);
-        if (data.coaches) setCoaches(data.coaches);
-        if (data.achievements) setAchievements(data.achievements);
-        if (data.tournaments) setTournaments(data.tournaments);
-        if (data.clubs) setClubs(data.clubs);
-        if (data.highlights) setHighlights(data.highlights);
-        if (data.webConfig) setWebConfig(data.webConfig);
+        if (applyCloudSnapshot) {
+          applyCloudSnapshot(data);
+        } else {
+          if (data.categories) setCategories(data.categories);
+          if (data.articles) setArticles(data.articles);
+          if (data.members) setMembers(data.members);
+          if (data.coaches) setCoaches(data.coaches);
+          if (data.achievements) setAchievements(data.achievements);
+          if (data.tournaments) setTournaments(data.tournaments);
+          if (data.clubs) setClubs(data.clubs);
+          if (data.highlights) setHighlights(data.highlights);
+          if (data.webConfig) setWebConfig(data.webConfig);
+        }
 
         showToast('Đã tải và đồng bộ dữ liệu mới nhất từ Cloud thành công!', 'success');
         addLog('Đồng bộ', 'dbSync', 'Đã kéo dữ liệu từ Cloud Database xuống trình duyệt');
@@ -1362,11 +2011,21 @@ export default function AdminPanel({
           (c.birthYear && String(c.birthYear).includes(q))
         ));
       case 'members':
-        return members.filter(m => !q ? true : (
-          m.fullName.toLowerCase().includes(q) ||
-          (m.rank && m.rank.toLowerCase().includes(q)) ||
-          (m.birthYear && String(m.birthYear).includes(q))
-        ));
+        return members
+          .filter(m => !q ? true : (
+            m.id.toLowerCase().includes(q) ||
+            m.fullName.toLowerCase().includes(q) ||
+            (m.rank && m.rank.toLowerCase().includes(q)) ||
+            (m.birthYear && String(m.birthYear).includes(q)) ||
+            (m.displayOrder && String(m.displayOrder).includes(q))
+          ))
+          .sort((a, b) => {
+            const orderDifference = Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
+              Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER);
+            return orderDifference !== 0
+              ? orderDifference
+              : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
+          });
       case 'achievements':
         return achievements.filter(a => !q ? true : (
           a.title.toLowerCase().includes(q) ||
@@ -1402,7 +2061,25 @@ export default function AdminPanel({
     }
   };
 
-  const renderedData = getFilteredData();
+  const renderedData = useMemo(
+    () => getFilteredData(),
+    [activeTab, searchQuery, alphabetFilter, articles, categories, coaches, members, achievements, tournaments, clubs, highlights]
+  );
+  const [crudPage, setCrudPage] = useState(1);
+  const CRUD_PAGE_SIZE = 25;
+  const crudPageCount = Math.max(1, Math.ceil(renderedData.length / CRUD_PAGE_SIZE));
+  const pagedRenderedData = useMemo(
+    () => renderedData.slice((crudPage - 1) * CRUD_PAGE_SIZE, crudPage * CRUD_PAGE_SIZE),
+    [crudPage, renderedData]
+  );
+
+  useEffect(() => {
+    setCrudPage(1);
+  }, [activeTab, alphabetFilter, searchQuery]);
+
+  useEffect(() => {
+    if (crudPage > crudPageCount) setCrudPage(crudPageCount);
+  }, [crudPage, crudPageCount]);
 
   const isCrudTab = [
     'articles', 'categories', 'coaches', 'members', 'achievements', 'tournaments', 'clubs', 'highlights'
@@ -1512,7 +2189,7 @@ export default function AdminPanel({
     { id: 'articles', label: 'Quản lý Bài viết', icon: FileText, color: 'text-[#0054A6]' },
     { id: 'categories', label: 'Quản lý Danh mục', icon: FolderOpen, color: 'text-sky-600' },
     { id: 'coaches', label: 'Huấn luyện viên', icon: Users, color: 'text-indigo-600' },
-    { id: 'members', label: 'Quản lý Môn sinh', icon: Users, color: 'text-emerald-600' },
+    { id: 'members', label: 'Thành viên CLB', icon: Users, color: 'text-emerald-600' },
     { id: 'achievements', label: 'Thành tích đạt được', icon: Award, color: 'text-amber-500' },
     { id: 'tournaments', label: 'Giải đấu tham gia', icon: Trophy, color: 'text-orange-500' },
     { id: 'clubs', label: 'Câu lạc bộ', icon: Map, color: 'text-teal-600' },
@@ -1684,7 +2361,8 @@ export default function AdminPanel({
                     type="password"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Tối thiểu 3 ký tự..."
+                    placeholder="Tối thiểu 8 ký tự, có chữ và số..."
+                    minLength={8}
                     className="w-full text-sm border p-2.5 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none transition-all font-mono"
                     required
                   />
@@ -1758,14 +2436,18 @@ export default function AdminPanel({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Mật khẩu mới</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          {editAdminId === null ? 'Mật khẩu ban đầu' : 'Đặt mật khẩu mới (không bắt buộc)'}
+                        </label>
                         <input 
-                          type="text"
+                          type="password"
                           value={adminForm.password || ''}
                           onChange={e => setAdminForm({ ...adminForm, password: e.target.value })}
-                          placeholder="Nhập mật khẩu..."
+                          placeholder={editAdminId === null ? 'Tối thiểu 8 ký tự, có chữ và số' : 'Để trống nếu giữ mật khẩu hiện tại'}
                           className="w-full text-sm border p-2.5 rounded-lg font-mono outline-none"
-                          required
+                          required={editAdminId === null}
+                          minLength={editAdminId === null ? 8 : undefined}
+                          autoComplete="new-password"
                         />
                       </div>
 
@@ -1843,7 +2525,7 @@ export default function AdminPanel({
                     </div>
                     <button
                       onClick={() => {
-                        setAdminForm({ username: '', password: '123', name: '', role: 'assistant', permissions: ['articles', 'members'] });
+                        setAdminForm({ username: '', password: '', name: '', role: 'assistant', permissions: ['articles', 'members'] });
                         setEditAdminId(null);
                         setIsEditingAdmin(true);
                       }}
@@ -1874,7 +2556,7 @@ export default function AdminPanel({
                         <tr className="bg-slate-50 text-slate-400 uppercase tracking-wider font-extrabold border-b">
                           <th className="p-3">Tên hiển thị</th>
                           <th className="p-3">Tài khoản</th>
-                          <th className="p-3">Mật khẩu</th>
+                          <th className="p-3">Bảo mật</th>
                           <th className="p-3">Vai trò</th>
                           <th className="p-3">Mục được phép quản lý</th>
                           <th className="p-3 text-right">Thao tác</th>
@@ -1895,8 +2577,8 @@ export default function AdminPanel({
                               <td className="p-3 font-bold text-slate-800">{acc.name}</td>
                               <td className="p-3 font-mono text-slate-500">{acc.username}</td>
                               <td className="p-3">
-                                <span className="bg-rose-50 text-rose-700 font-mono text-xs font-bold px-2.5 py-1 rounded border border-rose-100 block w-max max-w-[150px] truncate" title={acc.password}>
-                                  {acc.password || '---'}
+                                <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded border border-emerald-100 block w-max">
+                                  {acc.hasPassword ? 'Đã bảo vệ' : 'Cần đặt mật khẩu'}
                                 </span>
                               </td>
                               <td className="p-3">
@@ -1929,7 +2611,7 @@ export default function AdminPanel({
                                   <div className="flex items-center justify-end gap-1.5">
                                     <button
                                       onClick={() => {
-                                        setAdminForm(acc);
+                                        setAdminForm({ ...acc, password: '' });
                                         setEditAdminId(acc.id);
                                         setIsEditingAdmin(true);
                                       }}
@@ -2091,6 +2773,36 @@ export default function AdminPanel({
             </div>
           )}
 
+          {currentAdmin?.role === 'super' && backupStatus?.available && (
+            <div className={`mb-6 rounded-xl border-l-4 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              backupStatus.needsBackup
+                ? 'bg-amber-50 border-amber-500 text-amber-900'
+                : 'bg-emerald-50 border-emerald-500 text-emerald-900'
+            }`}>
+              <div className="text-xs">
+                <div className="font-black uppercase tracking-wide">
+                  {backupStatus.needsBackup
+                    ? '⚠ Dữ liệu mới hơn bản sao lưu toàn bộ gần nhất'
+                    : '✓ Dữ liệu đã có bản sao lưu toàn bộ an toàn'}
+                </div>
+                <div className="mt-1 opacity-80">
+                  Hệ thống vẫn giữ {backupStatus.retentionSlots || 5} phiên bản tự động cho từng mục.
+                  {backupStatus.lastFullBackupAt > 0 && (
+                    <> Bản toàn bộ gần nhất: {new Date(backupStatus.lastFullBackupAt).toLocaleString('vi-VN')}.</>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateCloudBackup}
+                disabled={isCreatingBackup}
+                className="shrink-0 rounded-xl bg-[#0054A6] px-4 py-2.5 text-xs font-black text-white shadow hover:bg-blue-800 disabled:opacity-50"
+              >
+                {isCreatingBackup ? 'Đang sao lưu...' : 'Sao lưu Cloud ngay'}
+              </button>
+            </div>
+          )}
+
           {/* If managing WebConfig, display dedicated Settings view */}
           {activeTab === 'webConfig' && (
             <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-sm border border-slate-200 animate-in fade-in duration-200">
@@ -2113,29 +2825,7 @@ export default function AdminPanel({
                       type="button"
                       onClick={() => {
                         try {
-                          const backupData = {
-                            vovinam_categories: categories,
-                            vovinam_articles: articles,
-                            vovinam_members: members,
-                            vovinam_coaches: coaches,
-                            vovinam_achievements: achievements,
-                            vovinam_tournaments: tournaments,
-                            vovinam_clubs: clubs,
-                            vovinam_highlights: highlights,
-                            vovinam_webConfig: webConfigForm
-                          };
-                          
-                          const jsonStr = JSON.stringify(backupData, null, 2);
-                          const blob = new Blob([jsonStr], { type: 'application/json' });
-                          const url = URL.createObjectURL(blob);
-                          const link = document.createElement('a');
-                          const dateStr = new Date().toISOString().split('T')[0];
-                          link.href = url;
-                          link.download = `vovinam_database_backup_${dateStr}.json`;
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                          URL.revokeObjectURL(url);
+                          downloadLocalBackup();
                           
                           addLog('Sao lưu', 'system', 'Đã xuất file sao lưu dữ liệu (.json)');
                           showToast('Đã tải xuống file sao lưu dữ liệu thành công!', 'success');
@@ -2149,41 +2839,78 @@ export default function AdminPanel({
                     </button>
 
                     {/* Import */}
-                    <label className="flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm cursor-pointer">
+                    <label className={`flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-sm ${
+                      isImportingBackup
+                        ? 'cursor-not-allowed opacity-60'
+                        : 'cursor-pointer hover:bg-slate-50'
+                    }`}>
                       <input
                         type="file"
                         accept=".json"
                         onChange={(e) => {
+                          if (isImportingBackup) {
+                            e.target.value = '';
+                            return;
+                          }
                           const file = e.target.files?.[0];
                           if (!file) return;
                           
                           if (confirm('Khôi phục dữ liệu sẽ ghi đè và thay thế toàn bộ danh mục, thành viên, bài viết hiện tại. Bạn có chắc chắn muốn khôi phục không?')) {
+                            setIsImportingBackup(true);
+                            showToast('Đang sao lưu Cloud và khôi phục dữ liệu. Vui lòng không tải lại trang...', 'info');
                             const reader = new FileReader();
-                            reader.onload = (event) => {
+                            reader.onload = async (event) => {
                               try {
                                 const parsed = JSON.parse(event.target?.result as string);
-                                
-                                if (parsed.vovinam_categories) setCategories(parsed.vovinam_categories);
-                                if (parsed.vovinam_articles) setArticles(parsed.vovinam_articles);
-                                if (parsed.vovinam_members) setMembers(parsed.vovinam_members);
-                                if (parsed.vovinam_coaches) setCoaches(parsed.vovinam_coaches);
-                                if (parsed.vovinam_achievements) setAchievements(parsed.vovinam_achievements);
-                                if (parsed.vovinam_tournaments) setTournaments(parsed.vovinam_tournaments);
-                                if (parsed.vovinam_clubs) setClubs(parsed.vovinam_clubs);
-                                if (parsed.vovinam_highlights) setHighlights(parsed.vovinam_highlights);
-                                if (parsed.vovinam_webConfig) {
-                                  setWebConfig(parsed.vovinam_webConfig);
-                                  setWebConfigForm(parsed.vovinam_webConfig);
+                                const normalizedBackup = await externalizeInlineImages(parsed);
+                                const restoreRes = await fetch('/api/restore-backup', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ backup: normalizedBackup })
+                                });
+                                const restorePayload = await restoreRes.json().catch(() => ({}));
+                                if (!restoreRes.ok || !restorePayload.success) {
+                                  const partial = Array.isArray(restorePayload.restoredKeys) &&
+                                    restorePayload.restoredKeys.length > 0
+                                    ? ` Đã lưu được: ${restorePayload.restoredKeys.join(', ')}.`
+                                    : '';
+                                  throw new Error(
+                                    `${restorePayload.message || restorePayload.error || 'Không thể khôi phục dữ liệu.'}${partial}`
+                                  );
                                 }
-                                
-                                addLog('Khôi phục', 'system', 'Đã nhập dữ liệu khôi phục thành công từ file .json');
-                                showToast('Đã khôi phục và đồng bộ toàn bộ dữ liệu thành công!', 'success');
+
+                                if (applyCloudSnapshot && restorePayload.data) {
+                                  applyCloudSnapshot(restorePayload.data);
+                                } else {
+                                  window.location.reload();
+                                  return;
+                                }
+
+                                addLog(
+                                  'Khôi phục',
+                                  'system',
+                                  `Đã khôi phục tuần tự từ file .json: ${restorePayload.restoredKeys.join(', ')}`
+                                );
+                                showToast('Đã sao lưu an toàn và khôi phục dữ liệu thành công!', 'success');
                                 
                                 // Reset file input
                                 e.target.value = '';
                               } catch (err) {
-                                showToast('File sao lưu không đúng định dạng JSON hợp lệ!', 'error');
+                                showToast(
+                                  err instanceof Error
+                                    ? err.message
+                                    : 'File sao lưu không đúng định dạng JSON hợp lệ!',
+                                  'error'
+                                );
+                              } finally {
+                                setIsImportingBackup(false);
+                                e.target.value = '';
                               }
+                            };
+                            reader.onerror = () => {
+                              setIsImportingBackup(false);
+                              e.target.value = '';
+                              showToast('Không thể đọc file JSON đã chọn.', 'error');
                             };
                             reader.readAsText(file);
                           } else {
@@ -2192,7 +2919,7 @@ export default function AdminPanel({
                         }}
                         className="hidden"
                       />
-                      <span>📤 Nhập Sao Lưu (.json)</span>
+                      <span>{isImportingBackup ? '⏳ Đang khôi phục...' : '📤 Nhập Sao Lưu (.json)'}</span>
                     </label>
                   </div>
                 </div>
@@ -2225,16 +2952,19 @@ export default function AdminPanel({
                           <input 
                             type="file" 
                             accept="image/*"
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
                               if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  if (typeof reader.result === 'string') {
-                                    setWebConfigForm({ ...webConfigForm, logo: reader.result });
-                                  }
-                                };
-                                reader.readAsDataURL(file);
+                                try {
+                                  const uploadedLogo = await compressAndUploadHighlightImage(file);
+                                  setWebConfigForm(previous => ({ ...previous, logo: uploadedLogo }));
+                                  showToast('Đã nén và tải logo lên kho ảnh.', 'success');
+                                } catch (error) {
+                                  showToast(
+                                    error instanceof Error ? error.message : 'Không thể tải logo lên kho ảnh.',
+                                    'error'
+                                  );
+                                }
                               }
                             }}
                             className="hidden" 
@@ -2242,11 +2972,21 @@ export default function AdminPanel({
                           <span>Chọn ảnh từ máy tính 📁</span>
                         </label>
                         {webConfigForm.logo && (
-                          <div className="w-8 h-8 border rounded-lg overflow-hidden flex-shrink-0 bg-white p-0.5">
-                            <img src={webConfigForm.logo} alt="Logo preview" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                          <div className="w-12 h-12 rounded-full flex-shrink-0 bg-[#0054A6] p-[1px] ring-2 ring-[#FFF200]">
+                            <img
+                              src={webConfigForm.logo}
+                              alt="Logo preview"
+                              className="block w-full h-full object-contain"
+                              width={1024}
+                              height={1024}
+                              referrerPolicy="no-referrer"
+                            />
                           </div>
                         )}
                       </div>
+                      <p className="text-[10px] text-slate-400">
+                        Nên dùng PNG vuông tối thiểu 800×800 px để logo rõ trên màn hình Retina.
+                      </p>
                     </div>
                   </div>
                   <div>
@@ -2285,6 +3025,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.facebook}
                       onChange={e => setWebConfigForm({ ...webConfigForm, facebook: e.target.value })}
+                      placeholder="https://facebook.com/ten-trang-clb"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2294,6 +3035,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.instagram}
                       onChange={e => setWebConfigForm({ ...webConfigForm, instagram: e.target.value })}
+                      placeholder="https://instagram.com/ten_tai_khoan"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2303,6 +3045,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.threads}
                       onChange={e => setWebConfigForm({ ...webConfigForm, threads: e.target.value })}
+                      placeholder="https://threads.net/@ten_tai_khoan"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2312,6 +3055,7 @@ export default function AdminPanel({
                       type="text" 
                       value={webConfigForm.tiktok}
                       onChange={e => setWebConfigForm({ ...webConfigForm, tiktok: e.target.value })}
+                      placeholder="https://tiktok.com/@ten_tai_khoan"
                       className="w-full text-sm border p-2 rounded-lg"
                     />
                   </div>
@@ -2434,10 +3178,7 @@ export default function AdminPanel({
 
                         // Determine height depending on bannerHeight selection
                         const configHeight = webConfigForm.bannerHeight || 'medium';
-                        const heightClasses = 
-                          configHeight === 'short' ? 'h-[160px] sm:h-[190px]' :
-                          configHeight === 'large' ? 'h-[230px] sm:h-[280px]' :
-                          'h-[190px] sm:h-[230px]'; // medium (default)
+                        const previewAspectClass = getBannerPreviewAspectClass(configHeight);
 
                         const handleDragStart = (clientY: number) => {
                           setIsDraggingY(true);
@@ -2477,7 +3218,7 @@ export default function AdminPanel({
                             </div>
 
                             <div 
-                              className={`w-full ${heightClasses} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
+                              className={`w-full ${previewAspectClass} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
                               onMouseDown={(e) => handleDragStart(e.clientY)}
                               onMouseMove={(e) => handleDragMove(e.clientY, e.currentTarget.clientHeight)}
                               onMouseUp={() => setIsDraggingY(false)}
@@ -2495,7 +3236,7 @@ export default function AdminPanel({
                               {/* Background Image */}
                               {activeBn?.image ? (
                                 <img
-                                  src={activeBn.image}
+                                  src={resolveAdminBannerImage(activeBn.image)}
                                   alt="Preview Slide"
                                   className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
                                   style={{ objectPosition: `center ${alignment}%` }}
@@ -2509,7 +3250,6 @@ export default function AdminPanel({
 
                               {/* Overlays */}
                               <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/35 to-black/80 pointer-events-none"></div>
-                              <div className="absolute inset-0 opacity-15 bg-[linear-gradient(45deg,#0054A6_25%,transparent_25%,transparent_50%,#0054A6_50%,#0054A6_75%,transparent_75%,transparent)] bg-[length:14px_14px] pointer-events-none"></div>
 
                               {/* Content Overlay */}
                               <div className="relative z-10 w-full h-full flex flex-col justify-start pt-5 px-4 text-center text-white pointer-events-none">
@@ -2643,16 +3383,17 @@ export default function AdminPanel({
                                     reader.onloadend = () => {
                                       if (typeof reader.result === 'string') {
                                         const img = new Image();
-                                        img.onload = () => {
+                                        img.onload = async () => {
                                           // Simple canvas resize to avoid massive base64 in localstorage
                                           const canvas = document.createElement('canvas');
                                           let width = img.width;
                                           let height = img.height;
                                           
-                                          // Max width 1200px
-                                          if (width > 1200) {
-                                            height = Math.round((height * 1200) / width);
-                                            width = 1200;
+                                          // Keep every Firestore banner document safely
+                                          // below its 1 MiB limit, including base64 overhead.
+                                          if (width > 1000) {
+                                            height = Math.round((height * 1000) / width);
+                                            width = 1000;
                                           }
                                           
                                           canvas.width = width;
@@ -2660,8 +3401,17 @@ export default function AdminPanel({
                                           const ctx = canvas.getContext('2d');
                                           if (ctx) {
                                             ctx.drawImage(img, 0, 0, width, height);
-                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7); // 70% quality JPEG
-                                            setBannerForm(prev => ({ ...prev, image: compressedBase64 }));
+                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.62);
+                                            try {
+                                              const uploadedBanner = await uploadHighlightImageDataUrl(compressedBase64);
+                                              setBannerForm(prev => ({ ...prev, image: uploadedBanner }));
+                                              showToast('Đã nén và tải ảnh banner lên kho ảnh.', 'success');
+                                            } catch (error) {
+                                              showToast(
+                                                error instanceof Error ? error.message : 'Không thể tải banner lên kho ảnh.',
+                                                'error'
+                                              );
+                                            }
                                           } else {
                                             setBannerForm(prev => ({ ...prev, image: reader.result as string }));
                                           }
@@ -2706,10 +3456,10 @@ export default function AdminPanel({
                             <span>XEM TRƯỚC SƠ BỘ SLIDE</span>
                           </label>
                           
-                          <div className="flex-grow border border-slate-300 rounded-xl overflow-hidden relative bg-slate-900 flex flex-col justify-between h-[180px] sm:h-[220px] shadow-inner select-none">
+                          <div className={`w-full ${getBannerPreviewAspectClass(webConfigForm.bannerHeight || 'medium')} border border-slate-300 rounded-xl overflow-hidden relative bg-slate-900 flex flex-col justify-between shadow-inner select-none`}>
                             {bannerForm.image ? (
                               <img
-                                src={bannerForm.image}
+                                src={resolveAdminBannerImage(bannerForm.image)}
                                 alt="Single Preview Background"
                                 className="absolute inset-0 w-full h-full object-cover"
                                 style={{ objectPosition: `center ${bannerForm.alignmentPct}%` }}
@@ -2813,7 +3563,7 @@ export default function AdminPanel({
                                 {/* Micro Thumbnail */}
                                 <div className="w-16 h-12 bg-slate-900 border rounded-lg overflow-hidden flex-shrink-0 relative">
                                   <img
-                                    src={banner.image}
+                                    src={resolveAdminBannerImage(banner.image)}
                                     alt="Thumbnail"
                                     className="w-full h-full object-cover"
                                     style={{ objectPosition: `center ${pct}%` }}
@@ -3011,6 +3761,18 @@ export default function AdminPanel({
                     <div className="text-[11px] text-slate-500 font-medium">
                       Phương thức lưu trữ hiện tại: <strong className="text-[#0054A6] font-bold">{dbStatus.storageType || 'Chưa xác định'}</strong>
                     </div>
+                    <div className={`rounded-xl border p-3 text-[11px] ${
+                      dbStatus.mediaStorage?.hasBucket && dbStatus.mediaStorage?.test?.includes('success')
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-amber-200 bg-amber-50 text-amber-800'
+                    }`}>
+                      <strong>Kho ảnh:</strong>{' '}
+                      {dbStatus.mediaStorage?.hasBucket && dbStatus.mediaStorage?.test?.includes('success')
+                        ? `Firebase Storage (${dbStatus.mediaStorage.bucket}). Ảnh mới được tách khỏi dữ liệu để trang tải nhanh hơn.`
+                        : dbStatus.mediaStorage?.hasBucket
+                          ? `Firebase Storage chưa dùng được (${dbStatus.mediaStorage.error || dbStatus.mediaStorage.test}). Ảnh đang rơi về Firestore dự phòng.`
+                          : 'Ảnh đang dùng Firestore dự phòng. Khi số lượng ảnh tăng cao, hãy thêm FIREBASE_STORAGE_BUCKET trên Vercel để tránh đầy Firestore.'}
+                    </div>
                   </div>
                 ) : dbStatus && dbStatus.error ? (
                   <div className="space-y-2 py-1">
@@ -3091,6 +3853,28 @@ export default function AdminPanel({
                 </div>
               </div>
 
+              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/60 p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-xs font-black uppercase tracking-wider text-amber-900">
+                      Tối ưu ảnh đã lưu trước đây
+                    </h3>
+                    <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-amber-800">
+                      Tách logo, banner và ảnh HLV/thành viên đang nhúng trong dữ liệu sang kho ảnh riêng để giảm dung lượng tải.
+                      Hệ thống bắt buộc tạo bản sao lưu Cloud và tải một bản JSON về máy trước khi thực hiện.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isOptimizingMedia}
+                    onClick={handleOptimizeExistingMedia}
+                    className="shrink-0 rounded-xl bg-amber-600 px-5 py-3 text-xs font-bold text-white shadow transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isOptimizingMedia ? 'Đang sao lưu và tối ưu...' : 'Sao lưu & tối ưu ảnh'}
+                  </button>
+                </div>
+              </div>
+
               {/* Firebase Firestore Setup Guide */}
               <div className="mt-8 border-t border-slate-200 pt-6">
                 <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -3158,7 +3942,7 @@ export default function AdminPanel({
                     activeTab === 'articles' ? 'Bài viết' :
                     activeTab === 'categories' ? 'Danh mục' :
                     activeTab === 'coaches' ? 'Huấn luyện viên' :
-                    activeTab === 'members' ? 'Thành viên' :
+                    activeTab === 'members' ? 'Thành viên CLB' :
                     activeTab === 'achievements' ? 'Thành tích' :
                     activeTab === 'tournaments' ? 'Giải đấu' :
                     activeTab === 'clubs' ? 'Câu lạc bộ' : 'Highlight'
@@ -3238,11 +4022,10 @@ export default function AdminPanel({
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nội dung bài viết (Dạng văn bản báo chí)</label>
-                      <textarea 
+                      <RichTextEditor
                         value={articleForm.content || ''}
-                        onChange={e => setArticleForm({ ...articleForm, content: e.target.value })}
-                        rows={8}
-                        className="w-full text-sm border p-2 rounded-lg font-sans" required
+                        onChange={content => setArticleForm(current => ({ ...current, content }))}
+                        placeholder="Nhập nội dung bài báo..."
                       />
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
@@ -3430,6 +4213,23 @@ export default function AdminPanel({
                         />
                       </div>
                       <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">ID thứ tự hiển thị</label>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={memberForm.displayOrder || ''}
+                          onChange={e => setMemberForm({
+                            ...memberForm,
+                            displayOrder: Number.parseInt(e.target.value, 10) || undefined
+                          })}
+                          className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none"
+                          placeholder="Ví dụ: 1"
+                          required
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Số nhỏ hiển thị trước; không được trùng.</p>
+                      </div>
+                      <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Họ và tên</label>
                         <input 
                           type="text" 
@@ -3440,7 +4240,7 @@ export default function AdminPanel({
                       </div>
                       <div>
                         <ImageInput 
-                          label="Ảnh đại diện (Môn sinh)"
+                          label="Ảnh đại diện (Thành viên CLB)"
                           value={memberForm.photo || ''}
                           onChange={val => setMemberForm({ ...memberForm, photo: val })}
                           id="member-photo-uploader"
@@ -3680,11 +4480,23 @@ export default function AdminPanel({
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (Tự điền)</label>
                         <input 
                           type="text" 
+                          list="achievement-saved-tournaments"
                           value={achievementForm.tournamentName || ''}
-                          onChange={e => setAchievementForm({ ...achievementForm, tournamentName: e.target.value })}
+                          onChange={e => {
+                            const name = e.target.value;
+                            const matchedTournament = tournaments.find(t => t.name === name);
+                            setAchievementForm({
+                              ...achievementForm,
+                              tournamentName: name,
+                              tournamentId: matchedTournament?.id || ''
+                            });
+                          }}
                           className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
                           placeholder="Ví dụ: Giải Vô địch Trẻ Vovinam 2026"
                         />
+                        <datalist id="achievement-saved-tournaments">
+                          {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
+                        </datalist>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày đạt giải (Tự động tính Năm)</label>
@@ -3701,39 +4513,67 @@ export default function AdminPanel({
                       </div>
                     </div>
 
-                    {/* Associated Members Section */}
+                    <div className="grid grid-cols-1 gap-4 border-t pt-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          Ý nghĩa thành tích (Không bắt buộc)
+                        </label>
+                        <textarea
+                          rows={4}
+                          value={achievementForm.meaning || ''}
+                          onChange={e => setAchievementForm({ ...achievementForm, meaning: e.target.value })}
+                          className="w-full text-sm border p-3 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none resize-y"
+                          placeholder="Để trống, website sẽ tự hiển thị nội dung mặc định phù hợp với thành tích."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">
+                          Hành trình chinh phục vinh quang (Không bắt buộc)
+                        </label>
+                        <textarea
+                          rows={5}
+                          value={achievementForm.journey || ''}
+                          onChange={e => setAchievementForm({ ...achievementForm, journey: e.target.value })}
+                          className="w-full text-sm border p-3 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none resize-y"
+                          placeholder={'Nhập mỗi giai đoạn trên một dòng.\nVí dụ: Giai đoạn chuẩn bị: ...\nQuá trình tập luyện: ...\nPhút tỏa sáng: ...'}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Mỗi dòng sẽ được hiển thị thành một bước được đánh số ngoài trang người dùng.</p>
+                      </div>
+                    </div>
+
+                    {/* Associated member/coach profiles */}
                     <div className="border-t pt-4">
                       <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Môn sinh đạt giải (Ghi nhận vào Hồ sơ môn sinh)
+                        Người đạt giải (Ghi nhận vào hồ sơ Thành viên / HLV)
                       </label>
                       <p className="text-[11px] text-slate-400 mb-3">
-                        Tích chọn các môn sinh đạt thành tích này để hệ thống tự động lưu vào hồ sơ chi tiết của họ.
+                        Tìm theo ID hoặc họ tên rồi tích chọn. Thành tích sẽ tự động hiển thị trong chi tiết của Thành viên hoặc HLV tương ứng.
                       </p>
-                      {members.length === 0 ? (
+                      {members.length === 0 && coaches.length === 0 ? (
                         <p className="text-xs text-amber-600 bg-amber-50 p-3 rounded-lg border border-amber-100 italic">
-                          Chưa có môn sinh nào trong danh sách hệ thống. Hãy thêm môn sinh trước.
+                          Chưa có Thành viên hoặc HLV nào trong hệ thống.
                         </p>
                       ) : (
                         <div className="space-y-3">
                           <input 
                             type="text"
-                            placeholder="🔍 Nhập mã ID hoặc tên môn sinh để tìm kiếm nhanh..."
+                            placeholder="🔍 Nhập ID hoặc tên Thành viên / HLV để tìm nhanh..."
                             value={memberSearchQuery}
                             onChange={e => setMemberSearchQuery(e.target.value)}
                             className="w-full text-xs border border-slate-200 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6]"
                           />
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
-                            {members
-                              .filter(member => {
+                            {[...members.map(person => ({ ...person, profileType: 'member' as const })), ...coaches.map(person => ({ ...person, profileType: 'coach' as const }))]
+                              .filter(person => {
                                 if (!memberSearchQuery) return true;
                                 const term = memberSearchQuery.toLowerCase().trim();
-                                return member.fullName.toLowerCase().includes(term) || member.id.toLowerCase().includes(term);
+                                return person.fullName.toLowerCase().includes(term) || person.id.toLowerCase().includes(term);
                               })
-                              .map(member => {
-                                const isChecked = achievementForm.memberIds?.includes(member.id) || false;
+                              .map(person => {
+                                const isChecked = achievementForm.memberIds?.includes(person.id) || false;
                                 return (
                                   <label 
-                                    key={member.id} 
+                                    key={`${person.profileType}-${person.id}`} 
                                     className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer select-none transition-all ${
                                       isChecked 
                                         ? 'bg-blue-50 border-blue-200 text-[#0054A6] font-bold shadow-sm' 
@@ -3746,24 +4586,26 @@ export default function AdminPanel({
                                       onChange={e => {
                                         const currentIds = achievementForm.memberIds || [];
                                         if (e.target.checked) {
-                                          setAchievementForm({ ...achievementForm, memberIds: [...currentIds, member.id] });
+                                          setAchievementForm({ ...achievementForm, memberIds: Array.from(new Set([...currentIds, person.id])) });
                                         } else {
-                                          setAchievementForm({ ...achievementForm, memberIds: currentIds.filter(id => id !== member.id) });
+                                          setAchievementForm({ ...achievementForm, memberIds: currentIds.filter(id => id !== person.id) });
                                         }
                                       }}
                                       className="rounded border-slate-300 text-[#0054A6] focus:ring-[#0054A6] w-4 h-4 cursor-pointer"
                                     />
                                     <div className="flex items-center gap-2">
-                                      {member.photo ? (
-                                        <img src={member.photo} alt={member.fullName} className="w-7 h-7 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                      {person.photo ? (
+                                        <img src={person.photo} alt={person.fullName} className="w-7 h-7 rounded-full object-cover border" referrerPolicy="no-referrer" />
                                       ) : (
                                         <div className="w-7 h-7 bg-blue-100 text-[#0054A6] rounded-full flex items-center justify-center font-bold text-[10px]">
-                                          {member.fullName.charAt(0)}
+                                          {person.fullName.charAt(0)}
                                         </div>
                                       )}
                                       <div className="text-left">
-                                        <p className="text-xs font-bold leading-tight">{member.fullName}</p>
-                                        <p className="text-[9px] text-slate-400 font-medium">{member.rank} (ID: {member.id})</p>
+                                        <p className="text-xs font-bold leading-tight">{person.fullName}</p>
+                                        <p className="text-[9px] text-slate-400 font-medium">
+                                          {person.profileType === 'coach' ? 'HLV' : 'Thành viên'} • {person.rank} (ID: {person.id})
+                                        </p>
                                       </div>
                                     </div>
                                   </label>
@@ -3804,10 +4646,14 @@ export default function AdminPanel({
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu</label>
                         <input 
                           type="text" 
+                          list="tournament-saved-names"
                           value={tournamentForm.name || ''}
                           onChange={e => setTournamentForm({ ...tournamentForm, name: e.target.value })}
                           className="w-full text-sm border p-2 rounded-lg" required
                         />
+                        <datalist id="tournament-saved-names">
+                          {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
+                        </datalist>
                       </div>
                       <div>
                         <ImageInput 
@@ -3848,6 +4694,58 @@ export default function AdminPanel({
                           <option value="sắp diễn ra">🟡 Sắp diễn ra</option>
                           <option value="đã kết thúc">🔴 Đã kết thúc</option>
                         </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-black text-[#0054A6] uppercase mb-1">
+                            Tên địa điểm đúng trên Google Maps
+                          </label>
+                          <input
+                            type="text"
+                            value={tournamentForm.googleMapPlaceName || ''}
+                            onChange={e => setTournamentForm({ ...tournamentForm, googleMapPlaceName: e.target.value })}
+                            className="w-full text-sm border p-2 rounded-lg bg-white"
+                            placeholder="Ví dụ: Nhà thi đấu Hồ Xuân Hương"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black text-[#0054A6] uppercase mb-1">
+                            Mã nhúng Google Maps chính xác
+                          </label>
+                          <textarea
+                            value={tournamentForm.googleMapUrl || ''}
+                            onChange={e => setTournamentForm({ ...tournamentForm, googleMapUrl: e.target.value })}
+                            className="w-full text-xs border p-2 rounded-lg bg-white font-mono"
+                            rows={4}
+                            placeholder={'Dán toàn bộ đoạn <iframe src="https://www.google.com/maps/embed?...">...</iframe>'}
+                          />
+                          <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                            Google Maps → Chia sẻ → Nhúng bản đồ → Sao chép HTML. Không dùng link rút gọn maps.app.goo.gl.
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-black uppercase text-slate-600">Xem trước đúng vị trí sẽ hiển thị</p>
+                        <div className="h-52 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                          <iframe
+                            title="Xem trước bản đồ giải đấu"
+                            src={buildGoogleMapsEmbedUrl(
+                              tournamentForm.googleMapUrl,
+                              [
+                                tournamentForm.googleMapPlaceName || tournamentForm.name,
+                                tournamentForm.location,
+                                'Việt Nam'
+                              ].filter(Boolean).join(', ')
+                            )}
+                            className="h-full w-full"
+                            style={{ border: 0 }}
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -4026,6 +4924,56 @@ export default function AdminPanel({
                             className="w-full text-sm border p-2 rounded-lg" required
                           />
                         </div>
+                        <div>
+                          <label className="block text-xs font-black text-[#0054A6] uppercase mb-1">
+                            Tên địa điểm đúng trên Google Maps
+                          </label>
+                          <input
+                            type="text"
+                            value={clubForm.googleMapPlaceName || ''}
+                            onChange={e => setClubForm({ ...clubForm, googleMapPlaceName: e.target.value })}
+                            className="w-full text-sm border p-2 rounded-lg"
+                            placeholder="Ví dụ: Nhà Thiếu Nhi Quận 4"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+                      <div>
+                        <label className="block text-xs font-black text-[#0054A6] uppercase mb-1">
+                          Mã nhúng Google Maps chính xác
+                        </label>
+                        <textarea
+                          value={clubForm.googleMapUrl || ''}
+                          onChange={e => setClubForm({ ...clubForm, googleMapUrl: e.target.value })}
+                          className="w-full text-xs border p-2 rounded-lg bg-white font-mono"
+                          rows={5}
+                          placeholder={'Dán toàn bộ đoạn <iframe src="https://www.google.com/maps/embed?...">...</iframe>'}
+                        />
+                        <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                          Google Maps → Chia sẻ → Nhúng bản đồ → Sao chép HTML. Đây là cách giữ đúng Nhà Thiếu Nhi Quận 4, không bị chuyển sang Công viên Quận 4 hoặc đường Khánh Hội.
+                        </p>
+                      </div>
+                      <div>
+                        <p className="mb-1 text-xs font-black uppercase text-slate-600">Xem trước đúng vị trí sẽ hiển thị</p>
+                        <div className="h-52 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                          <iframe
+                            title="Xem trước bản đồ điểm tập"
+                            src={buildGoogleMapsEmbedUrl(
+                              clubForm.googleMapUrl,
+                              [
+                                clubForm.googleMapPlaceName || clubForm.name,
+                                clubForm.address,
+                                'Việt Nam'
+                              ].filter(Boolean).join(', ')
+                            )}
+                            className="h-full w-full"
+                            style={{ border: 0 }}
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -4124,6 +5072,29 @@ export default function AdminPanel({
                             <option value="video">🎥 Video chính</option>
                             <option value="ảnh">🖼️ Bộ sưu tập hình ảnh</option>
                           </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (chọn hoặc chỉnh sửa)</label>
+                          <input
+                            type="text"
+                            list="highlight-saved-achievement-tournaments"
+                            value={highlightForm.tournamentName || ''}
+                            onChange={e => {
+                              const tournamentName = e.target.value;
+                              const tournament = tournaments.find(t => t.name === tournamentName);
+                              setHighlightForm({
+                                ...highlightForm,
+                                tournamentName,
+                                tournamentId: tournament?.id || ''
+                              });
+                            }}
+                            placeholder="Chọn tên giải từ Thành tích hoặc nhập tên khác"
+                            className="w-full text-sm border p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                          />
+                          <datalist id="highlight-saved-achievement-tournaments">
+                            {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
+                          </datalist>
+                          <p className="mt-1 text-[10px] text-slate-400">Có thể chọn tên cũ rồi sửa năm hoặc bất kỳ nội dung nào.</p>
                         </div>
                       </div>
 
@@ -4226,9 +5197,56 @@ export default function AdminPanel({
                       <h4 className="text-xs font-black text-slate-700 uppercase tracking-wide mb-1 flex items-center gap-1.5">
                         <span>Quản lý các nguồn ảnh / video chi tiết ({highlightForm.mediaUrls?.length || 0})</span>
                       </h4>
-                      <p className="text-[10px] text-slate-400 mb-4">
-                        Bạn có thể chọn tải file ảnh/video từ máy lên trực tiếp, hoặc dán đường dẫn URL từ internet. Các file video tải từ máy lên sẽ được xem và phát trực tiếp.
+                      <p className="text-[10px] text-slate-500 mb-3">
+                        Ảnh từ máy sẽ được tự nén và lưu từng ảnh riêng trong Firebase. Tối đa 50 ảnh/Highlight,
+                        mỗi ảnh gốc tối đa 5 MB. Video vui lòng dùng đường dẫn URL/YouTube.
                       </p>
+
+                      <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <label className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition-all ${
+                          isUploadingHighlightMedia
+                            ? 'bg-slate-400 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                        }`}>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={isUploadingHighlightMedia}
+                            className="hidden"
+                            onChange={event => {
+                              const files = Array.from(event.currentTarget.files || []) as File[];
+                              event.currentTarget.value = '';
+                              void handleHighlightImageUpload(files);
+                            }}
+                          />
+                          <Plus className="w-3.5 h-3.5" />
+                          Chọn nhiều ảnh từ máy
+                        </label>
+                        <span className="text-[10px] font-semibold text-slate-500">
+                          JPEG, PNG, WebP hoặc GIF • ưu tiên độ nét, tự nén còn khoảng 560 KB/ảnh
+                        </span>
+                      </div>
+
+                      {highlightUploadProgress && (
+                        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
+                          <div className="mb-1.5 flex items-center justify-between text-[10px] font-bold text-blue-800">
+                            <span>Đang nén và lưu từng ảnh lên Firebase…</span>
+                            <span>{highlightUploadProgress.current}/{highlightUploadProgress.total}</span>
+                          </div>
+                          <div className="h-2 overflow-hidden rounded-full bg-blue-100">
+                            <div
+                              className="h-full rounded-full bg-[#0054A6] transition-all"
+                              style={{
+                                width: `${Math.max(
+                                  4,
+                                  (highlightUploadProgress.current / highlightUploadProgress.total) * 100
+                                )}%`
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       
                       <div className="space-y-3">
                         {highlightForm.mediaUrls?.map((url, idx) => {
@@ -4242,8 +5260,10 @@ export default function AdminPanel({
                                   type="button"
                                   onClick={() => {
                                     const copy = [...(highlightForm.mediaUrls || [])];
+                                    const noteCopy = [...(highlightForm.mediaNotes || [])];
                                     copy.splice(idx, 1);
-                                    setHighlightForm({ ...highlightForm, mediaUrls: copy });
+                                    noteCopy.splice(idx, 1);
+                                    setHighlightForm({ ...highlightForm, mediaUrls: copy, mediaNotes: noteCopy });
                                   }}
                                   className="text-rose-600 hover:text-rose-800 text-xs font-black uppercase"
                                 >
@@ -4267,22 +5287,16 @@ export default function AdminPanel({
                                   <label className="bg-blue-50 text-[#0054A6] hover:bg-blue-100 text-xs font-bold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-1 transition-all">
                                     <input 
                                       type="file"
-                                      accept="image/*,video/*"
+                                      accept="image/*"
+                                      disabled={isUploadingHighlightMedia}
                                       className="hidden"
                                       onChange={e => {
                                         const file = e.target.files?.[0];
-                                        if (file) {
-                                          const reader = new FileReader();
-                                          reader.onloadend = () => {
-                                            const copy = [...(highlightForm.mediaUrls || [])];
-                                            copy[idx] = reader.result as string;
-                                            setHighlightForm({ ...highlightForm, mediaUrls: copy });
-                                          };
-                                          reader.readAsDataURL(file);
-                                        }
+                                        e.target.value = '';
+                                        if (file) void handleHighlightImageUpload([file], idx);
                                       }}
                                     />
-                                    <span>Tải file từ máy</span>
+                                    <span>Tải ảnh từ máy</span>
                                   </label>
                                   {isBase64 && (
                                     <button
@@ -4298,6 +5312,23 @@ export default function AdminPanel({
                                     </button>
                                   )}
                                 </div>
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                  Ghi chú cho tập tin #{idx + 1}
+                                </label>
+                                <textarea
+                                  rows={2}
+                                  value={highlightForm.mediaNotes?.[idx] || ''}
+                                  onChange={e => {
+                                    const noteCopy = [...(highlightForm.mediaNotes || [])];
+                                    while (noteCopy.length <= idx) noteCopy.push('');
+                                    noteCopy[idx] = e.target.value;
+                                    setHighlightForm({ ...highlightForm, mediaNotes: noteCopy });
+                                  }}
+                                  placeholder="Nhập nội dung, địa điểm, thời gian hoặc mô tả riêng cho ảnh/video này..."
+                                  className="w-full text-xs border border-slate-200 p-2 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#0054A6] resize-y"
+                                />
                               </div>
                               {/* Preview area */}
                               {url && (
@@ -4325,12 +5356,13 @@ export default function AdminPanel({
                         onClick={() => {
                           setHighlightForm({ 
                             ...highlightForm, 
-                            mediaUrls: [...(highlightForm.mediaUrls || []), ''] 
+                            mediaUrls: [...(highlightForm.mediaUrls || []), ''],
+                            mediaNotes: [...(highlightForm.mediaNotes || []), '']
                           });
                         }}
                         className="mt-3 inline-flex items-center gap-1.5 bg-[#0054A6] hover:bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-all"
                       >
-                        <Plus className="w-3.5 h-3.5" /> Thêm tư liệu mới (Ảnh hoặc Video)
+                        <Plus className="w-3.5 h-3.5" /> Thêm ô nhập URL ảnh/video
                       </button>
                     </div>
 
@@ -4382,7 +5414,7 @@ export default function AdminPanel({
                       activeTab === 'articles' ? 'Danh sách Bài viết' :
                       activeTab === 'categories' ? 'Danh sách Danh mục' :
                       activeTab === 'coaches' ? 'Đội ngũ Huấn luyện viên' :
-                      activeTab === 'members' ? 'Hồ sơ Thành viên' :
+                      activeTab === 'members' ? 'Danh sách Thành viên CLB' :
                       activeTab === 'achievements' ? 'Bảng vàng Thành tích' :
                       activeTab === 'tournaments' ? 'Tổng hợp Giải đấu' :
                       activeTab === 'clubs' ? 'Hệ thống Câu lạc bộ' : 'Thư viện Highlights'
@@ -4455,6 +5487,7 @@ export default function AdminPanel({
                     <thead>
                       <tr className="bg-slate-50 border-b text-[10px] uppercase font-bold text-slate-500 tracking-wider">
                         <th className="p-3">ID</th>
+                        {activeTab === 'members' && <th className="p-3">Thứ tự hiển thị</th>}
                         <th className="p-3">Thông tin chính</th>
                         {activeTab === 'articles' && <th className="p-3">Danh mục / Ngày đăng</th>}
                         {activeTab === 'articles' && <th className="p-3">Lượt xem</th>}
@@ -4469,11 +5502,16 @@ export default function AdminPanel({
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700 text-xs">
-                      {renderedData.map((item: any) => (
+                      {pagedRenderedData.map((item: any) => (
                         <tr key={item.id} className="hover:bg-slate-50/50 transition-all">
                           <td className="p-3 font-bold text-slate-400">
                             #{item.id}
                           </td>
+                          {activeTab === 'members' && (
+                            <td className="p-3 font-black text-[#0054A6]">
+                              {item.displayOrder ?? '—'}
+                            </td>
+                          )}
                           <td className="p-3">
                             <div className="flex items-center gap-3">
                               {/* Thumbnail check */}
@@ -4482,6 +5520,8 @@ export default function AdminPanel({
                                   src={item.photo || item.image || item.thumbnail} 
                                   alt="" 
                                   className="w-10 h-10 object-cover rounded-lg border bg-slate-100"
+                                  loading="lazy"
+                                  decoding="async"
                                   referrerPolicy="no-referrer"
                                 />
                               )}
@@ -4489,9 +5529,11 @@ export default function AdminPanel({
                                 <h4 className="font-bold text-slate-800 line-clamp-1">
                                   {item.title || item.fullName || item.name}
                                 </h4>
-                                <span className="text-[10px] text-slate-400 block line-clamp-1">
-                                  {item.description || item.address || item.athleteName || 'Không có mô tả phụ'}
-                                </span>
+                                {(item.description || item.address || item.athleteName) && (
+                                  <span className="text-[10px] text-slate-400 block line-clamp-1">
+                                    {item.description || item.address || item.athleteName}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -4609,6 +5651,35 @@ export default function AdminPanel({
                   </table>
                 )}
               </div>
+
+              {crudPageCount > 1 && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <span className="text-slate-500">
+                    Trang <strong className="text-[#0054A6]">{crudPage}</strong> / {crudPageCount}
+                    {' '}• tối đa {CRUD_PAGE_SIZE} bản ghi mỗi trang
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCrudPage(page => Math.max(1, page - 1))}
+                      disabled={crudPage === 1}
+                      className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Trước
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCrudPage(page => Math.min(crudPageCount, page + 1))}
+                      disabled={crudPage === crudPageCount}
+                      className="inline-flex items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sau
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
             </div>
           )}

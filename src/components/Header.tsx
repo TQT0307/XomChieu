@@ -1,9 +1,21 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
-  Play, Award, User, CheckCircle, MapPin, Mail 
+  Play, Award, User, CheckCircle, MapPin, Mail, Globe2, ChevronDown
 } from 'lucide-react';
 import { WebConfig } from '../types';
+
+const PUBLIC_SECTION_IDS = [
+  'section-about',
+  'section-news',
+  'section-tournaments',
+  'section-highlights',
+  'section-achievements',
+  'section-coaches',
+  'section-members',
+  'section-clubs',
+  'section-contact'
+] as const;
 
 interface HeaderProps {
   isAdmin: boolean;
@@ -27,20 +39,160 @@ export default function Header({
 
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
+  const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historyNavigationFrameRef = useRef<number | null>(null);
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const [language, setLanguage] = useState<'vi' | 'en'>(() => {
+    const translateCookie = decodeURIComponent(
+      document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/)?.[1] || ''
+    );
+    if (translateCookie.endsWith('/en')) return 'en';
+    return localStorage.getItem('vovinam_language') === 'en' ? 'en' : 'vi';
+  });
+
+  useEffect(() => {
+    // Vietnamese is the native UI, so do not download the large Google
+    // Translate script unless English was explicitly selected.
+    if (language !== 'en') return;
+    const initializeTranslate = () => {
+      const googleTranslate = (window as any).google?.translate?.TranslateElement;
+      if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
+      new googleTranslate(
+        { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
+        'google_translate_element'
+      );
+    };
+
+    (window as any).vovinamGoogleTranslateInit = initializeTranslate;
+    if ((window as any).google?.translate?.TranslateElement) {
+      initializeTranslate();
+    } else if (!document.getElementById('google-translate-script')) {
+      const script = document.createElement('script');
+      script.id = 'google-translate-script';
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=vovinamGoogleTranslateInit';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, [language]);
+
+  const handleLanguageChange = (nextLanguage: 'vi' | 'en') => {
+    if (nextLanguage === language) return;
+    setLanguage(nextLanguage);
+    localStorage.setItem('vovinam_language', nextLanguage);
+    document.documentElement.lang = nextLanguage;
+
+    const expires = 'Thu, 01 Jan 1970 00:00:00 GMT';
+    if (nextLanguage === 'en') {
+      document.cookie = 'googtrans=/vi/en; path=/; SameSite=Lax';
+    } else {
+      document.cookie = `googtrans=; expires=${expires}; path=/; SameSite=Lax`;
+      document.cookie = `googtrans=; expires=${expires}; path=/; domain=${window.location.hostname}; SameSite=Lax`;
+    }
+
+    // Reload once so Google Translate and the selector always start in the same
+    // language. This also restores the original Vietnamese DOM without leftovers.
+    window.location.reload();
+  };
+
+  useEffect(() => {
+    setLogoLoadFailed(false);
+  }, [webConfig.logo]);
+
+  const markManualNavigation = () => {
+    (window as any)._isManualScrolling = true;
+    if ((window as any)._manualScrollTimeout) {
+      clearTimeout((window as any)._manualScrollTimeout);
+    }
+    (window as any)._manualScrollTimeout = setTimeout(() => {
+      (window as any)._isManualScrolling = false;
+    }, 1200);
+  };
+
+  const scrollToSection = (sectionId: string, behavior: ScrollBehavior = 'smooth') => {
+    const targetEl = document.getElementById(sectionId);
+    if (!targetEl) return false;
+    markManualNavigation();
+    targetEl.scrollIntoView({ behavior, block: 'start' });
+    setActiveNavSection?.(sectionId);
+    return true;
+  };
+
+  const navigateToSection = (sectionId: string) => {
+    const nextHash = `#${sectionId}`;
+    if (window.location.hash !== nextHash) {
+      window.history.pushState({ vovinamSection: sectionId }, '', nextHash);
+    }
+    scrollToSection(sectionId);
+  };
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    const restoreHistoryPosition = (behavior: ScrollBehavior) => {
+      if (historyNavigationFrameRef.current !== null) {
+        window.cancelAnimationFrame(historyNavigationFrameRef.current);
+      }
+      historyNavigationFrameRef.current = window.requestAnimationFrame(() => {
+        historyNavigationFrameRef.current = null;
+        let sectionId = window.location.hash.replace(/^#/, '');
+        try {
+          sectionId = decodeURIComponent(sectionId);
+        } catch {
+          // Keep the raw hash when it contains malformed URL encoding.
+        }
+        if (PUBLIC_SECTION_IDS.includes(sectionId as (typeof PUBLIC_SECTION_IDS)[number])) {
+          scrollToSection(sectionId, behavior);
+        } else if (!window.location.hash) {
+          markManualNavigation();
+          window.scrollTo({ top: 0, behavior });
+          setActiveNavSection?.('section-about');
+        }
+      });
+    };
+
+    const handleHistoryNavigation = () => restoreHistoryPosition('smooth');
+    window.addEventListener('popstate', handleHistoryNavigation);
+    window.addEventListener('hashchange', handleHistoryNavigation);
+    restoreHistoryPosition('auto');
+
+    return () => {
+      window.removeEventListener('popstate', handleHistoryNavigation);
+      window.removeEventListener('hashchange', handleHistoryNavigation);
+      if (historyNavigationFrameRef.current !== null) {
+        window.cancelAnimationFrame(historyNavigationFrameRef.current);
+      }
+    };
+  }, [isAdmin, setActiveNavSection]);
 
   const handleLogoClick = () => {
     const now = Date.now();
+    if (logoReloadTimerRef.current) {
+      clearTimeout(logoReloadTimerRef.current);
+      logoReloadTimerRef.current = null;
+    }
+
     if (now - lastClickTime < 3000) {
       const newCount = clickCount + 1;
       setClickCount(newCount);
       if (newCount >= 5) {
         setIsAdmin(!isAdmin);
         setClickCount(0);
+        setLastClickTime(now);
+        return;
       }
     } else {
       setClickCount(1);
     }
     setLastClickTime(now);
+
+    // On the public site, a normal logo click returns to the homepage and forces
+    // a fresh data load. The short delay preserves the existing five-click admin
+    // shortcut when the logo is clicked repeatedly.
+    if (!isAdmin) {
+      logoReloadTimerRef.current = setTimeout(() => {
+        window.location.assign('/');
+      }, 650);
+    }
   };
 
   const navSections = [
@@ -64,13 +216,19 @@ export default function Header({
           className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none active:scale-95 transition-transform"
           title="CLB Vovinam Xóm Chiếu"
         >
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-white rounded-full flex items-center justify-center p-1 border-2 border-[#FFF200] shadow-md transform hover:rotate-12 transition-transform duration-300">
-            {webConfig.logo ? (
+          <div className="w-12 h-12 md:w-14 md:h-14 bg-[#0054A6] rounded-full flex items-center justify-center flex-shrink-0 p-[1px] ring-2 ring-[#FFF200] shadow-md hover:rotate-6 transition-transform duration-300">
+            {webConfig.logo && !logoLoadFailed ? (
               <img 
-                src={webConfig.logo || "/logo_1784192552510.jpg"}
+                src={webConfig.logo}
                 alt="Vovinam Logo" 
-                className="w-full h-full object-contain"
+                className="block w-full h-full object-contain [image-rendering:auto]"
+                width={1024}
+                height={1024}
+                decoding="async"
+                fetchPriority="high"
                 referrerPolicy="no-referrer"
+                draggable={false}
+                onError={() => setLogoLoadFailed(true)}
               />
             ) : (
               <div className="bg-[#0054A6] w-full h-full rounded-full flex items-center justify-center font-black text-[9px] text-center leading-tight uppercase">
@@ -102,20 +260,7 @@ export default function Header({
                   href={`#${sec.id}`}
                   onClick={(e) => {
                     e.preventDefault();
-                    const targetEl = document.getElementById(sec.id);
-                    if (targetEl) {
-                      targetEl.scrollIntoView({ behavior: 'smooth' });
-                    }
-                    setActiveNavSection?.(sec.id);
-                    
-                    // Disable scrollspy temporarily to avoid jumpy effects
-                    (window as any)._isManualScrolling = true;
-                    if ((window as any)._manualScrollTimeout) {
-                      clearTimeout((window as any)._manualScrollTimeout);
-                    }
-                    (window as any)._manualScrollTimeout = setTimeout(() => {
-                      (window as any)._isManualScrolling = false;
-                    }, 1200);
+                    navigateToSection(sec.id);
                   }}
                   className={`flex items-center px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg text-[8.5px] md:text-[9px] xl:text-[9.5px] font-bold uppercase tracking-wide cursor-pointer border transition-all duration-200 ${
                     activeNavSection === sec.id
@@ -128,6 +273,26 @@ export default function Header({
               ))}
             </nav>
           )}
+
+          {!isAdmin && (
+            <div className="relative flex-shrink-0" title="Chọn ngôn ngữ / Select language">
+              <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFF200]/50 bg-[#003f80] shadow-sm">
+                <Globe2 className="h-3.5 w-3.5 text-[#FFF200]" strokeWidth={2.2} />
+              </span>
+              <select
+                value={language}
+                onChange={(event) => handleLanguageChange(event.target.value as 'vi' | 'en')}
+                aria-label="Chọn ngôn ngữ"
+                className="h-9 appearance-none rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 pl-8 pr-7 text-[10px] font-black text-white shadow-sm outline-none transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:border-[#FFF200] focus:ring-2 focus:ring-[#FFF200]/20 cursor-pointer"
+              >
+                <option value="vi" className="text-slate-900">VI</option>
+                <option value="en" className="text-slate-900">EN</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-white" />
+            </div>
+          )}
+
+          <div id="google_translate_element" className="google-translate-host" aria-hidden="true" />
 
         </div>
       </div>

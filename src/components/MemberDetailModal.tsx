@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
 import { Member, Achievement, Club, getBeltStyle, parseBeltRank } from '../types';
+import PersonAvatar from './PersonAvatar';
 
 interface MemberDetailModalProps {
   member: Member | null;
@@ -25,9 +26,20 @@ export default function MemberDetailModal({
   const clubName = clubs.find(c => c.id === member.clubId)?.name || 'Chưa xác định';
 
   // Get achievements associated with this member
-  const memberAchievements = achievements.filter(
-    ach => ach.memberIds && ach.memberIds.includes(member.id)
-  );
+  const getAchievementYear = (achievement: Achievement) => {
+    const explicitYear = Number.parseInt(String(achievement.year || ''), 10);
+    if (Number.isFinite(explicitYear)) return explicitYear;
+    const yearFromDate = String(achievement.date || '').match(/(?:19|20)\d{2}/);
+    return yearFromDate ? Number.parseInt(yearFromDate[0], 10) : Number.MAX_SAFE_INTEGER;
+  };
+
+  const memberAchievements = achievements
+    .filter(ach => ach.memberIds && ach.memberIds.includes(member.id))
+    .sort((a, b) => {
+      const yearDifference = getAchievementYear(a) - getAchievementYear(b);
+      if (yearDifference !== 0) return yearDifference;
+      return String(a.date || '').localeCompare(String(b.date || ''));
+    });
 
   const getMedalEmoji = (medalType: string) => {
     switch (medalType) {
@@ -48,11 +60,23 @@ export default function MemberDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200" id={`modal-member-${member.id}`}>
-      <div className="bg-slate-900 text-white rounded-[2rem] max-w-2xl w-full overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
+    <div
+      className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      id={`modal-member-${member.id}`}
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <button
+        type="button"
+        className="absolute inset-0 h-full w-full cursor-default"
+        onClick={onClose}
+        aria-label="Đóng cửa sổ chi tiết thành viên"
+      />
+      <div className="relative z-10 bg-slate-900 text-white rounded-[1.5rem] sm:rounded-[2rem] max-w-2xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
         
         {/* Header Section */}
-        <div className="relative bg-gradient-to-r from-[#0054A6]/90 to-blue-950 p-6 sm:p-8 border-b border-white/5">
+        <div className="relative shrink-0 bg-gradient-to-r from-[#0054A6]/90 to-blue-950 p-6 sm:p-8 border-b border-white/5">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full transition-all cursor-pointer z-10 border border-white/10"
@@ -72,11 +96,11 @@ export default function MemberDetailModal({
               className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-cyan-400 shadow-xl shadow-blue-950/40 flex-shrink-0 cursor-zoom-in hover:scale-105 active:scale-95 transition-transform"
               title="Bấm để xem ảnh phóng to"
             >
-              <img 
-                src={member.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'} 
+              <PersonAvatar
+                src={member.photo}
                 alt={member.fullName} 
                 className="w-full h-full rounded-full object-cover bg-slate-800"
-                referrerPolicy="no-referrer"
+                iconClassName="w-12 h-12"
               />
             </div>
 
@@ -127,7 +151,7 @@ export default function MemberDetailModal({
                         {member.fullName}
                       </h3>
                       <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest mt-1">
-                        ID: {member.id} • Sinh năm: {member.birthYear}
+                        Sinh năm: {member.birthYear}
                       </p>
                     </div>
 
@@ -161,7 +185,7 @@ export default function MemberDetailModal({
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 sm:p-8 max-h-[55vh] overflow-y-auto space-y-6">
+        <div className="detail-scrollbar p-5 sm:p-8 overflow-y-auto overscroll-contain space-y-6">
           
           {/* Quick Profile Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -259,16 +283,6 @@ export default function MemberDetailModal({
             )}
           </div>
 
-        </div>
-
-        {/* Footer */}
-        <div className="bg-slate-950/60 px-6 py-4 border-t border-white/5 flex justify-end">
-          <button 
-            onClick={onClose}
-            className="bg-[#0054A6] hover:bg-blue-800 text-[#FFF200] text-xs font-black uppercase tracking-wider px-6 py-2.5 rounded-xl cursor-pointer shadow-lg transition-all"
-          >
-            Đóng hồ sơ
-          </button>
         </div>
 
       </div>
