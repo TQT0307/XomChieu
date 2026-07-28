@@ -1,61 +1,14 @@
-import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
-  Info, Newspaper, X, Search
+  Facebook, Instagram, AtSign, Music, Info, Newspaper, X, Search
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, getBeltStyle, getNormalizedTournamentStatus 
 } from '../types';
-import PersonAvatar from './PersonAvatar';
-import defaultBanner1 from '../assets/images/banner1.jpg';
-import defaultBanner2 from '../assets/images/banner2.jpg';
-import defaultBanner3 from '../assets/images/banner3.jpg';
-import defaultBanner4 from '../assets/images/banner4.jpg';
-import defaultBanner5 from '../assets/images/banner5.jpg';
-import { articleContentToPlainText } from '../utils/articleContent';
-
-const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
-const CoachDetailModal = lazy(() => import('./CoachDetailModal'));
-
-const bundledBannerImages: Record<string, string> = {
-  '/src/assets/images/banner1.jpg': defaultBanner1,
-  '/src/assets/images/banner2.jpg': defaultBanner2,
-  '/src/assets/images/banner3.jpg': defaultBanner3,
-  '/src/assets/images/banner4.jpg': defaultBanner4,
-  '/src/assets/images/banner5.jpg': defaultBanner5,
-};
-
-const resolveBannerImage = (image?: string) =>
-  (image && bundledBannerImages[image]) || image || defaultBanner1;
-
-const getBannerObjectPosition = (position?: string) => {
-  const match = position?.match(/object-\[center_(\d+)%\]/);
-  const verticalPercent = match ? Math.min(100, Math.max(0, Number(match[1]))) : 50;
-  return `center ${verticalPercent}%`;
-};
-
-type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'tiktok';
-
-const normalizeSocialUrl = (platform: SocialPlatform, value?: string) => {
-  const rawValue = String(value || '').trim();
-  if (!rawValue) return '';
-  if (/^https?:\/\//i.test(rawValue)) return rawValue;
-  if (rawValue.startsWith('//')) return `https:${rawValue}`;
-
-  const cleanValue = rawValue.replace(/^@/, '').replace(/^\/+/, '');
-  if (/^[\w.-]+\.[a-z]{2,}(?:\/.*)?$/i.test(cleanValue)) {
-    return `https://${cleanValue}`;
-  }
-
-  const platformBases: Record<SocialPlatform, string> = {
-    facebook: 'https://www.facebook.com/',
-    instagram: 'https://www.instagram.com/',
-    threads: 'https://www.threads.net/@',
-    tiktok: 'https://www.tiktok.com/@',
-  };
-  return `${platformBases[platform]}${cleanValue}`;
-};
+import MemberDetailModal from './MemberDetailModal';
+import CoachDetailModal from './CoachDetailModal';
 
 interface UserViewProps {
   categories: Category[];
@@ -96,60 +49,51 @@ export default function UserView({
 }: UserViewProps) {
 
   // Auto-sliding banners from webConfig or defaults
-  const banners = useMemo(() => webConfig.banners && webConfig.banners.length > 0
+  const banners = webConfig.banners && webConfig.banners.length > 0
     ? webConfig.banners
     : [
         {
           id: '1',
-          image: defaultBanner1,
+          image: '/src/assets/images/banner1.jpg',
           title: 'Đồng Hành Cùng Vovinam Xóm Chiếu',
           subtitle: 'Quy tụ tinh hoa võ thuật cổ truyền, rèn luyện thân thể vững vàng và ý chí tự cường kiên định.',
           position: 'object-[center_15%]'
         },
         {
           id: '2',
-          image: defaultBanner2,
+          image: '/src/assets/images/banner2.jpg',
           title: 'Vinh Quang Việt Võ Đạo',
           subtitle: 'Nhiều huy chương vàng và danh hiệu xuất sắc đạt được tại các giải trẻ toàn quốc.',
           position: 'object-[center_25%]'
         },
         {
           id: '3',
-          image: defaultBanner3,
+          image: '/src/assets/images/banner3.jpg',
           title: 'Hội Tụ Ban Huấn Luyện Tâm Huyết',
           subtitle: 'Võ sư và HLV dày dặn kinh nghiệm, đồng hành sát cánh hướng dẫn từng động tác cho môn sinh.',
           position: 'object-[center_20%]'
         },
         {
           id: '4',
-          image: defaultBanner4,
+          image: '/src/assets/images/banner4.jpg',
           title: 'Năng Động Trẻ Trung & Đam Mê',
           subtitle: 'Tinh thần đồng đội gắn kết keo sơn, đoàn kết học hỏi vì màu cờ sắc áo võ đường.',
           position: 'object-[center_70%]'
         },
         {
           id: '5',
-          image: defaultBanner5,
+          image: '/src/assets/images/banner5.jpg',
           title: 'Học Đường Thể Thao Học Sinh',
           subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.',
           position: 'object-[center_50%]'
         }
-      ], [webConfig.banners]);
+      ];
 
   const [currentBanner, setCurrentBanner] = useState(0);
   const safeCurrentBanner = currentBanner >= banners.length ? 0 : currentBanner;
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
-
-  // Decode the next slide before it becomes visible so transitions do not wait
-  // for image loading on slower connections.
-  useEffect(() => {
-    if (banners.length < 2) return;
-    const nextIndex = (safeCurrentBanner + 1) % banners.length;
-    const preloadImage = new Image();
-    preloadImage.src = resolveBannerImage(banners[nextIndex]?.image);
-  }, [safeCurrentBanner, banners]);
 
   const navSections = [
     { id: 'section-about', name: 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
@@ -164,11 +108,7 @@ export default function UserView({
   ];
 
   useEffect(() => {
-    let frameId: number | null = null;
     const handleScroll = () => {
-      if (frameId !== null) return;
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null;
       // If manual scrolling is occurring, bypass scrollspy updates to avoid jumping
       if ((window as any)._isManualScrolling) return;
 
@@ -185,20 +125,16 @@ export default function UserView({
           }
         }
       }
-      });
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (frameId !== null) window.cancelAnimationFrame(frameId);
-    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
   }, [setActiveNavSection]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentBanner((prev) => (prev + 1) % banners.length);
-    }, 3500);
+    }, 5000);
     return () => clearInterval(timer);
   }, [banners.length]);
 
@@ -217,18 +153,9 @@ export default function UserView({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // News category filter tab selection state
+  const [activeNewsTab, setActiveNewsTab] = useState<string>('ALL');
   const categoryScrollRef = React.useRef<HTMLDivElement>(null);
   const rowScrollRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
-  const achievementsScrollRef = React.useRef<HTMLDivElement>(null);
-
-  const scrollAchievements = (direction: 'left' | 'right') => {
-    const container = achievementsScrollRef.current;
-    if (!container) return;
-    container.scrollBy({
-      left: direction === 'left' ? -container.clientWidth * 0.9 : container.clientWidth * 0.9,
-      behavior: 'smooth'
-    });
-  };
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (categoryScrollRef.current) {
@@ -263,15 +190,12 @@ export default function UserView({
   };
 
   // Filter visible items based on status
-  const visibleArticles = useMemo(
-    () => articles.filter(a => a.status !== false),
-    [articles]
-  );
+  const visibleArticles = articles.filter(a => a.status !== false);
   
   const [searchCoachQuery, setSearchCoachQuery] = useState<string>('');
   const [searchMemberQuery, setSearchMemberQuery] = useState<string>('');
 
-  const visibleCoaches = useMemo(() => coaches.filter(c => {
+  const visibleCoaches = coaches.filter(c => {
     if (c.status === false) return false;
     const q = searchCoachQuery.toLowerCase().trim();
     if (!q) return true;
@@ -282,33 +206,25 @@ export default function UserView({
       (c.experience && c.experience.toLowerCase().includes(q)) ||
       (c.birthYear && String(c.birthYear).includes(q))
     );
-  }), [coaches, searchCoachQuery]);
+  });
 
-  const visibleMembers = useMemo(() => members
-    .filter(m => {
-      if (m.status === false) return false;
-      const q = searchMemberQuery.toLowerCase().trim();
-      if (!q) return true;
-      return (
-        m.id.toLowerCase().includes(q) ||
-        m.fullName.toLowerCase().includes(q) ||
-        (m.rank && m.rank.toLowerCase().includes(q)) ||
-        (m.birthYear && String(m.birthYear).includes(q))
-      );
-    })
-    .sort((a, b) => {
-      const orderDifference = Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
-        Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER);
-      return orderDifference !== 0
-        ? orderDifference
-        : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
-    }), [members, searchMemberQuery]);
+  const visibleMembers = members.filter(m => {
+    if (m.status === false) return false;
+    const q = searchMemberQuery.toLowerCase().trim();
+    if (!q) return true;
+    return (
+      m.id.toLowerCase().includes(q) ||
+      m.fullName.toLowerCase().includes(q) ||
+      (m.rank && m.rank.toLowerCase().includes(q)) ||
+      (m.birthYear && String(m.birthYear).includes(q))
+    );
+  });
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
-  const visibleTournaments = useMemo(() => tournaments.filter(t => {
+  const visibleTournaments = tournaments.filter(t => {
     const norm = getNormalizedTournamentStatus(t.status);
     return tournamentStatusFilter === 'all' || norm === tournamentStatusFilter;
-  }), [tournamentStatusFilter, tournaments]);
+  });
 
   // Filter state for achievements section
   const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('');
@@ -316,7 +232,6 @@ export default function UserView({
   const [searchAchievementQuery, setSearchAchievementQuery] = useState<string>('');
   const [searchAthleteQuery, setSearchAthleteQuery] = useState<string>(''); // For filtering by athlete name (e.g., "Thiện")
   const [searchHighlightQuery, setSearchHighlightQuery] = useState<string>('');
-  const [selectedHighlightTournament, setSelectedHighlightTournament] = useState<string>('');
   const [showAllCoaches, setShowAllCoaches] = useState<boolean>(false);
   const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
 
@@ -331,15 +246,15 @@ export default function UserView({
     return '';
   };
 
-  const uniqueYears = useMemo(() => Array.from(
+  const uniqueYears = Array.from(
     new Set(
       achievements
         .map(a => getYearFromAchievement(a))
         .filter(Boolean)
     )
-  ).sort((a, b) => b.localeCompare(a)), [achievements]);
+  ).sort((a, b) => b.localeCompare(a));
 
-  const uniqueTournaments = useMemo(() => Array.from(
+  const uniqueTournaments = Array.from(
     new Set(
       achievements
         .map(a => {
@@ -352,29 +267,20 @@ export default function UserView({
         })
         .filter(Boolean)
     )
-  ).sort((a, b) => a.localeCompare(b)), [achievements, tournaments]);
+  ).sort((a, b) => a.localeCompare(b));
 
-  const highlightTournamentOptions = useMemo(() => Array.from(
-    new Set(
-      [
-        ...achievements.map(achievement => achievement.tournamentName?.trim() ||
-          (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : '')),
-        ...tournaments.map(tournament => tournament.name?.trim()),
-        ...highlights.map(highlight => highlight.tournamentName?.trim() ||
-          (highlight.tournamentId ? tournaments.find(t => t.id === highlight.tournamentId)?.name?.trim() : ''))
-      ]
-        .filter((name): name is string => Boolean(name))
-    )
-  ).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
-
-  // Use the achievement image consistently in both the card and detail modal.
-  // Mixing profile photos here with achievement photos in the modal made one
-  // record appear to have two different images.
+  // Helper to find athlete photo
   const getMemberPhotoForAchievement = (ach: Achievement) => {
-    return ach.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
+    if (!ach.athleteName) return ach.image || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80";
+    const normName = ach.athleteName.toLowerCase().trim();
+    const matchedMember = members.find(m => {
+      const normM = m.fullName.toLowerCase().trim();
+      return normM.includes(normName) || normName.includes(normM);
+    });
+    return (matchedMember && matchedMember.photo) ? matchedMember.photo : (ach.image || "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80");
   };
 
-  const visibleAchievements = useMemo(() => achievements.filter(a => {
+  const visibleAchievements = achievements.filter(a => {
     if (a.status === false) return false;
     
     // Search query match (achievement title or unit)
@@ -405,45 +311,43 @@ export default function UserView({
     }
     
     return true;
-  }), [
-    achievements,
-    searchAchievementQuery,
-    searchAthleteQuery,
-    selectedTournamentFilter,
-    selectedYearFilter,
-    tournaments
-  ]);
-  const visibleHighlights = useMemo(() => highlights.filter(h => {
+  });
+  const visibleHighlights = highlights.filter(h => {
     if (h.status === false) return false;
-    if (selectedHighlightTournament) {
-      const linkedTournamentName = h.tournamentName ||
-        (h.tournamentId ? tournaments.find(t => t.id === h.tournamentId)?.name : '');
-      if (!linkedTournamentName?.toLowerCase().includes(selectedHighlightTournament.trim().toLowerCase())) return false;
-    }
     if (searchHighlightQuery.trim()) {
       const q = searchHighlightQuery.toLowerCase();
+      const idMatch = h.id.toLowerCase().includes(q);
       const titleMatch = h.title.toLowerCase().includes(q);
       const athleteMatch = h.athleteName.toLowerCase().includes(q);
-      const tournamentMatch = (h.tournamentName || '').toLowerCase().includes(q);
-      return titleMatch || athleteMatch || tournamentMatch;
+      return idMatch || titleMatch || athleteMatch;
     }
     return true;
-  }), [highlights, searchHighlightQuery, selectedHighlightTournament, tournaments]);
+  });
   const visibleClubs = clubs;
 
+  // Filter articles based on activeNewsTab (Latest vs specific Category)
+  const displayedArticles = visibleArticles.filter(article => {
+    if (activeNewsTab === 'ALL') {
+      return true; // Hiển thị toàn bộ bài viết
+    } else if (activeNewsTab === 'LATEST') {
+      if (!article.showInNews) return false;
+      const itemDate = new Date(article.date);
+      const now = new Date();
+      const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
+      const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffTime = d2.getTime() - d1.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 2;
+    } else {
+      return article.categoryId === activeNewsTab;
+    }
+  });
+
   const configHeight = webConfig.bannerHeight || 'medium';
-  const zaloPhoneMatch = String(webConfig.phone || '').match(/(?:\+?84|0)(?:[\s.-]?\d){8,9}(?![\s.-]?\d)/);
-  const zaloPhone = zaloPhoneMatch ? zaloPhoneMatch[0].replace(/\D/g, '') : '';
-  const facebookUrl = normalizeSocialUrl('facebook', webConfig.facebook);
-  const instagramUrl = normalizeSocialUrl('instagram', webConfig.instagram);
-  const threadsUrl = normalizeSocialUrl('threads', webConfig.threads);
-  const tiktokUrl = normalizeSocialUrl('tiktok', webConfig.tiktok);
-  // A fixed aspect ratio gives the banner the exact same crop on phone, tablet
-  // and desktop. These ratios are also used by the admin preview.
-  const carouselAspectClass =
-    configHeight === 'short' ? 'aspect-[18/5]' :
-    configHeight === 'large' ? 'aspect-[72/31]' :
-    'aspect-[72/25]'; // medium (default)
+  const carouselHeightClass = 
+    configHeight === 'short' ? 'h-[280px] sm:h-[400px]' :
+    configHeight === 'large' ? 'h-[440px] sm:h-[620px]' :
+    'h-[365px] sm:h-[500px]'; // medium (default)
 
   return (
     <div className="bg-[#f8fafc] min-h-screen text-slate-800 font-sans selection:bg-[#0054A6]/20" id="vovinam-user-root">
@@ -452,36 +356,32 @@ export default function UserView({
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0"></div>
 
       {/* Vovinam Watermark Background Logo */}
-      <div className="fixed inset-0 flex items-center justify-center opacity-[0.09] pointer-events-none z-0 select-none overflow-hidden">
+      <div className="fixed inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none z-0 select-none overflow-hidden">
         <img 
-          src={webConfig.logo || "/logo-sharp.png"} 
+          src={webConfig.logo || "/logo.jpg"} 
           alt="Vovinam Watermark Logo" 
-          className="w-[85vw] max-w-[550px] aspect-square object-cover rounded-full scale-[1.08] [clip-path:circle(49%_at_50%_50%)] animate-[spin_120s_linear_infinite] saturate-125 contrast-110"
-          loading="lazy"
-          decoding="async"
+          className="w-[85vw] max-w-[550px] aspect-square object-contain animate-[spin_120s_linear_infinite] filter blur-[1px]"
           referrerPolicy="no-referrer"
         />
       </div>
 
       {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
-      <section className={`relative w-full ${carouselAspectClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
+      <section className={`relative ${carouselHeightClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
           <img 
-            src={resolveBannerImage(banners[safeCurrentBanner]?.image)} 
+            src={banners[safeCurrentBanner]?.image} 
             alt="Vovinam Slide" 
-            className="w-full h-full object-cover opacity-100 transition-opacity duration-1000"
-            style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position) }}
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
+            className={`w-full h-full object-cover opacity-100 scale-105 transition-all duration-1000 ${banners[safeCurrentBanner]?.position || 'object-center'}`}
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
+          {/* Sports style subtle diagonal overlay pattern */}
+          <div className="absolute inset-0 opacity-15 bg-[linear-gradient(45deg,#0054A6_25%,transparent_25%,transparent_50%,#0054A6_50%,#0054A6_75%,transparent_75%,transparent)] bg-[length:24px_24px]"></div>
         </div>
 
         {/* Content Box - Centered horizontally and positioned closer to the top */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-[clamp(0.5rem,3.3vw,3rem)] items-center text-white">
+        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-8 sm:pt-12 items-center text-white">
           <div className="max-w-xl flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/25">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FFF200] animate-ping"></span>
@@ -515,19 +415,19 @@ export default function UserView({
         {/* Manual navigation buttons */}
         <button 
           onClick={prevBanner}
-          className="absolute left-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          className="absolute left-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
         <button 
           onClick={nextBanner}
-          className="absolute right-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          className="absolute right-6 top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
         >
           <ChevronRight className="w-5 h-5" />
         </button>
 
         {/* Carousel indicators */}
-        <div className="absolute bottom-[clamp(0.5rem,2.2vw,2rem)] left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-2.5">
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2.5">
           {banners.map((_, idx) => (
             <button
               key={idx}
@@ -619,73 +519,43 @@ export default function UserView({
                 <ul className="space-y-3 text-blue-50 font-medium leading-relaxed">
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện đạt tới cao độ của nghệ thuật để phục vụ dân tộc và nhân loại.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 1: Hoài bão và mục đích học võ.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện đạt tới cao độ của Võ thuật để phục vụ dân tộc và nhân loại.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện trung kiên phát huy môn phái, xây dựng thế hệ thanh niên dấn thân hiến ích.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 2: Nghĩa vụ đối với môn phái và dân tộc.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tích cực xây dựng đại gia đình Vovinam, cùng nhau đoàn kết thương yêu giúp đỡ lẫn nhau.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Đồng tâm nhất trí, tôn kính người trên, thương mến đồng đạo.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 3: Tình đoàn kết trong môn phái.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tôn trọng kỷ luật võ phái, tôn kính sư trưởng, mến yêu đồng môn.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tuyệt đối tôn trọng kỷ luật, nêu cao danh dự võ sĩ.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 4: Võ kỷ và danh dự võ sĩ.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tôn trọng pháp luật, bảo vệ danh dự võ phái, giữ gìn thanh danh môn sinh.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bênh vực lẽ phải.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 5: Ý thức dụng võ.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bảo vệ lẽ phải.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Chuyên cần học tập, rèn luyện tinh thần, trau dồi đạo hạnh.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 6: Ý hướng học tập và đời sống tinh thần.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện rèn luyện tâm trí, giữ gìn nề nếp sống trong sạch, giản dị, thành thật và cao thượng.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">7</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sống trong sạch, trung thực, giản dị và cao thượng.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 7: Tâm nguyện sống.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện kiên trì, vượt qua khó khăn, không kiêu căng, không nản chí trước thử thách.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">8</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Kiện toàn một ý chí đanh thép, nỗ lực tự thân cầu tiến.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 8: Rèn luyện ý chí.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện thận trọng, suy xét kỹ càng trước khi hành động, luôn sáng suốt quyết định.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">9</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sáng suốt nhận định, bền gan tranh đấu, tháo vát hành động.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 9: Nếp suy cảm, nghị lực và tính thực tế.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện sống vị tha, khoan dung, biết giúp người khác sống và cùng sống lành mạnh.</span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">10</span>
-                    <span className="space-y-1">
-                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tự tin, tự thắng, khiêm cung, độ lượng, luôn luôn kiểm điểm để tiến bộ.</span>
-                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 10: Đức sống và tinh thần cầu tiến.</em>
-                    </span>
+                    <span>Việt Võ Đạo sinh nguyện bền bỉ rèn luyện, nâng cao ý chí tiến thủ, quyết tâm xây dựng bản thân thành võ đạo sinh gương mẫu.</span>
                   </li>
                 </ul>
               </div>
@@ -813,8 +683,6 @@ export default function UserView({
                                 src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                loading="lazy"
-                                decoding="async"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
@@ -831,12 +699,13 @@ export default function UserView({
                                     {article.date}
                                   </span>
                                   <span>•</span>
+                                  <span>Mã: #{article.id}</span>
                                 </div>
                                 <h3 className="font-bold text-slate-800 text-sm leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
                                   {article.title}
                                 </h3>
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans whitespace-pre-wrap break-words [tab-size:4]">
-                                  {articleContentToPlainText(article.content)}
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans">
+                                  {article.content}
                                 </p>
                               </div>
 
@@ -919,8 +788,6 @@ export default function UserView({
                                 src={article.image}
                                 alt={article.title}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-110"
-                                loading="lazy"
-                                decoding="async"
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
@@ -935,14 +802,15 @@ export default function UserView({
                                     {article.date}
                                   </span>
                                   <span>•</span>
+                                  <span>Mã: #{article.id}</span>
                                 </div>
 
                                 <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase tracking-tight group-hover/card:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
                                   {article.title}
                                 </h3>
                                 
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans whitespace-pre-wrap break-words [tab-size:4]">
-                                  {articleContentToPlainText(article.content)}
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans">
+                                  {article.content}
                                 </p>
                               </div>
 
@@ -975,10 +843,10 @@ export default function UserView({
 
 
       {/* 4. GIẢI ĐẤU (Tournaments) */}
-      <section className="py-16 sm:py-20 bg-gradient-to-b from-[#f1f5f9] to-white relative scroll-mt-32" id="section-tournaments">
+      <section className="py-20 bg-gradient-to-b from-[#f1f5f9] to-white relative scroll-mt-32" id="section-tournaments">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
               Lịch trình thi đấu & Võ nghiệp
             </span>
@@ -1041,29 +909,18 @@ export default function UserView({
               </p>
             </div>
           ) : (
-            <div className="relative group/slider">
-              {visibleTournaments.length > 1 && (<>
-                <button onClick={() => scrollRow('TOURNAMENTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
-                  <ChevronLeft className="w-5 h-5 text-slate-700" />
-                </button>
-                <button onClick={() => scrollRow('TOURNAMENTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
-                  <ChevronRight className="w-5 h-5 text-slate-700" />
-                </button>
-              </>)}
-              <div ref={(el) => (rowScrollRefs.current['TOURNAMENTS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {visibleTournaments.map((t) => (
                 <div 
                   key={t.id}
                   onClick={() => onSelectTournament(t)}
-                  className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl cursor-pointer group transition-all duration-300 transform hover:-translate-y-1 flex flex-col hover:border-[#0054A6]/20"
+                  className="bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-md hover:shadow-2xl cursor-pointer group transition-all duration-300 transform hover:-translate-y-2 flex flex-col hover:border-[#0054A6]/20"
                 >
                   <div className="relative h-52 overflow-hidden bg-slate-900">
                     <img 
                       src={t.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80'} 
                       alt={t.name}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90 group-hover:opacity-100"
-                      loading="lazy"
-                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent"></div>
@@ -1097,6 +954,7 @@ export default function UserView({
                     </div>
 
                     <div className="pt-4 border-t border-slate-100/80 flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-wider">
+                      <span>Mã sự kiện: #{t.id}</span>
                       <span className="text-[#0054A6] group-hover:translate-x-1 transition-transform flex items-center gap-1 font-extrabold">
                         Xem chi tiết <span className="text-sm">→</span>
                       </span>
@@ -1104,7 +962,6 @@ export default function UserView({
                   </div>
                 </div>
               ))}
-              </div>
             </div>
           )}
         </div>
@@ -1112,11 +969,11 @@ export default function UserView({
 
 
       {/* 5. HIGHLIGHTS (Bento gallery gọn gàng, dễ nhìn, dễ thao tác) */}
-      <section className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-highlights">
+      <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-highlights">
         {/* Soft background decor to avoid monotony */}
         <div className="absolute top-1/3 right-12 w-64 h-64 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
+        <div className="text-center max-w-2xl mx-auto mb-16 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
             Khoảnh khắc thi đấu
           </span>
@@ -1130,14 +987,14 @@ export default function UserView({
         </div>
 
         {/* Search input for Highlights */}
-        <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="max-w-lg mx-auto mb-12 relative z-10 px-4 sm:px-0">
           <div className="relative group/search flex items-center bg-slate-900 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all duration-300 shadow-xl shadow-slate-950/40">
             <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#FFF200] transition-colors" />
             </span>
             <input
               type="text"
-              placeholder="Tìm theo tên VĐV, giải đấu hoặc tiêu đề..."
+              placeholder="Tìm theo ID môn sinh, tên VĐV hoặc tiêu đề..."
               value={searchHighlightQuery}
               onChange={(e) => setSearchHighlightQuery(e.target.value)}
               className="w-full text-xs sm:text-sm pl-11 pr-16 py-3.5 bg-transparent text-slate-100 rounded-2xl outline-none transition-all placeholder:text-slate-500"
@@ -1159,76 +1016,43 @@ export default function UserView({
               </span>
             </div>
           </div>
-          <div className="relative group/tournament-search">
-            <input
-              type="text"
-              list="highlight-achievement-tournament-names"
-              value={selectedHighlightTournament}
-              onChange={(e) => setSelectedHighlightTournament(e.target.value)}
-              placeholder={`Chọn hoặc nhập tên giải (${highlightTournamentOptions.length} gợi ý)`}
-              className="w-full h-full min-h-12 text-xs sm:text-sm pl-4 pr-10 py-3.5 bg-slate-900 text-slate-100 border border-slate-800 hover:border-slate-700 focus:border-[#FFF200] focus:ring-4 focus:ring-[#FFF200]/10 rounded-2xl outline-none transition-all shadow-xl shadow-slate-950/40"
-              aria-label="Lọc Highlights theo giải đấu"
-            />
-            <datalist id="highlight-achievement-tournament-names">
-              {highlightTournamentOptions.map(name => <option key={name} value={name} />)}
-            </datalist>
-            {selectedHighlightTournament && (
-              <button
-                type="button"
-                onClick={() => setSelectedHighlightTournament('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
-                title="Xóa lọc giải đấu"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          {(searchHighlightQuery || selectedHighlightTournament) && (
-            <p className="sm:col-span-2 text-center text-[10px] text-slate-500 mt-1">
-              Đang hiển thị {visibleHighlights.length} highlight
-              {selectedHighlightTournament ? ` khớp tên giải “${selectedHighlightTournament}”` : ''}
+          {searchHighlightQuery && (
+            <p className="text-center text-[10px] text-slate-400 mt-2 font-mono">
+              Đang lọc theo từ khóa: <span className="text-[#FFF200] font-bold">"{searchHighlightQuery}"</span>
             </p>
           )}
         </div>
 
-        {/* Responsive horizontal gallery */}
-        <div className="relative z-10 group/slider">
-          {visibleHighlights.length > 1 && (<>
-            <button onClick={() => scrollRow('HIGHLIGHTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
-              <ChevronLeft className="w-5 h-5 text-slate-700" />
-            </button>
-            <button onClick={() => scrollRow('HIGHLIGHTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
-              <ChevronRight className="w-5 h-5 text-slate-700" />
-            </button>
-          </>)}
-          <div ref={(el) => (rowScrollRefs.current['HIGHLIGHTS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
+        {/* Bento grid layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 relative z-10">
           {visibleHighlights.map((hl) => (
             <div 
               key={hl.id}
               onClick={() => onSelectHighlight(hl)}
-              className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-900 text-white rounded-[2rem] p-4 border border-slate-700 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/10 hover:-translate-y-1"
+              className="bg-slate-950 text-white rounded-[2rem] p-4 border border-slate-800 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1.5"
             >
               {/* Thumbnail Container */}
-              <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-800 shadow-inner">
+              <div className="relative h-48 rounded-2xl overflow-hidden bg-black shadow-inner">
                 <img 
                   src={hl.thumbnail} 
                   alt={hl.title} 
-                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 brightness-105 saturate-110 group-hover:brightness-110"
-                  loading="lazy"
-                  decoding="async"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-100"
                   referrerPolicy="no-referrer"
                 />
                 
-                {/* Video overlay is kept light so the thumbnail remains clear. */}
-                <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
-                  hl.mediaType === 'video' ? 'bg-slate-950/20 group-hover:bg-transparent' : 'bg-transparent'
-                }`}>
+                {/* Dark overlay & play button if video */}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/10 transition-colors">
                   {hl.mediaType === 'video' && (
                     <div className="w-14 h-14 bg-gradient-to-br from-[#FFF200] to-yellow-400 text-slate-900 rounded-full flex items-center justify-center pl-1 shadow-xl transform group-hover:scale-110 transition-transform">
                       <Play className="w-6 h-6 text-slate-950 fill-current" />
                     </div>
                   )}
                 </div>
+
+                {/* Media type badge */}
+                <span className="absolute top-3.5 left-3.5 bg-black/75 border border-slate-800 text-[9px] px-2.5 py-1 rounded-xl uppercase font-extrabold tracking-wider text-white">
+                  {hl.mediaType} ({hl.mediaUrls?.length || 1})
+                </span>
               </div>
 
               {/* Text Title details */}
@@ -1241,31 +1065,28 @@ export default function UserView({
                     <User className="w-3.5 h-3.5 text-[#FFF200]" />
                     <span className="text-[10px] text-slate-300 font-bold">Biểu diễn: {hl.athleteName}</span>
                   </div>
-                  {hl.tournamentName && (
-                    <p className="mt-2 text-[10px] text-slate-400 truncate">🏆 {hl.tournamentName}</p>
-                  )}
                 </div>
                 
                 <div className="text-right text-[10px] text-[#FFF200] font-black uppercase tracking-wider pt-3 border-t border-slate-900 mt-2 flex items-center justify-between">
+                  <span className="text-slate-500 font-medium font-mono">#{hl.id}</span>
                   <span>Xem Chi Tiết &gt;</span>
                 </div>
               </div>
             </div>
           ))}
-          </div>
         </div>
       </section>
 
 
       {/* 6. THÀNH TÍCH (Achievements) */}
-      <section className="py-16 sm:py-20 bg-slate-950 text-white relative overflow-hidden scroll-mt-32" id="section-achievements">
+      <section className="py-24 bg-slate-950 text-white relative overflow-hidden scroll-mt-32" id="section-achievements">
         {/* Dynamic sport background lines and glows */}
         <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#FFF200_1px,transparent_1px),linear-gradient(to_bottom,#FFF200_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800 shadow-xl inline-block">
               Vinh danh thành tích
             </span>
@@ -1374,38 +1195,12 @@ export default function UserView({
               </button>
             </div>
           ) : (
-            <div className="relative group/slider">
-              {visibleAchievements.length > 2 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => scrollAchievements('left')}
-                    aria-label="Xem các thành tích phía trước"
-                    className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-                    title="Trượt sang trái"
-                  >
-                    <ChevronLeft className="w-5 h-5 text-slate-700" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => scrollAchievements('right')}
-                    aria-label="Xem các thành tích phía sau"
-                    className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-                    title="Trượt sang phải"
-                  >
-                    <ChevronRight className="w-5 h-5 text-slate-700" />
-                  </button>
-                </>
-              )}
-              <div
-                ref={achievementsScrollRef}
-                className="achievements-carousel-grid grid grid-rows-2 grid-flow-col auto-cols-[88%] sm:auto-cols-[calc((100%_-_1.5rem)/2)] lg:auto-cols-[calc((100%_-_3rem)/3)] gap-5 lg:gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth pb-3 no-scrollbar"
-              >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {visibleAchievements.map((ach) => (
                 <div 
                   key={ach.id}
                   onClick={() => onSelectAchievement(ach)}
-                  className="achievement-card snap-start bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-5 border border-slate-800/80 flex items-center gap-5 hover:border-[#FFF200] hover:shadow-2xl hover:shadow-yellow-500/10 hover:-translate-y-1 transform cursor-pointer transition-all duration-300 group min-w-0 overflow-hidden"
+                  className="bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-5 border border-slate-800/80 flex items-center gap-5 hover:border-[#FFF200] hover:shadow-2xl hover:shadow-yellow-500/10 hover:-translate-y-1.5 transform cursor-pointer transition-all duration-300 group"
                 >
                   {/* Athlete Photo with Medal Badge Overlay */}
                   <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-[#FFF200]/20 group-hover:border-[#FFF200] transition-colors bg-slate-800">
@@ -1413,8 +1208,6 @@ export default function UserView({
                       src={getMemberPhotoForAchievement(ach)} 
                       alt={ach.athleteName || 'Môn sinh'} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      loading="lazy"
-                      decoding="async"
                       referrerPolicy="no-referrer"
                     />
                     {/* Medal overlay at bottom-right */}
@@ -1455,7 +1248,6 @@ export default function UserView({
                   </div>
                 </div>
               ))}
-              </div>
             </div>
           )}
 
@@ -1547,11 +1339,11 @@ export default function UserView({
                   {/* Photo with beautiful dual ring indicator */}
                   <div className="w-32 h-32 mx-auto rounded-full overflow-hidden p-1.5 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-xl relative group-hover:scale-105 transition-transform duration-300">
                     <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
-                      <PersonAvatar
+                      <img 
                         src={coach.photo} 
                         alt={coach.fullName} 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        iconClassName="w-14 h-14"
+                        referrerPolicy="no-referrer"
                       />
                     </div>
                   </div>
@@ -1581,7 +1373,7 @@ export default function UserView({
                   </div>
 
                   <p className="text-[11px] text-[#0054A6] font-black uppercase mt-3 font-mono tracking-wider">
-                    Sinh năm: {coach.birthYear}
+                    Sinh năm: {coach.birthYear} • ID: {coach.id}
                   </p>
 
                   <p className="text-xs text-slate-900 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-150/80 italic relative font-semibold">
@@ -1628,11 +1420,11 @@ export default function UserView({
                     {/* Photo with beautiful dual ring indicator */}
                     <div className="w-28 h-28 mx-auto rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-md relative group-hover:scale-105 transition-transform duration-300">
                       <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
-                        <PersonAvatar
+                        <img 
                           src={coach.photo} 
                           alt={coach.fullName} 
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          iconClassName="w-12 h-12"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
                     </div>
@@ -1662,7 +1454,7 @@ export default function UserView({
                     </div>
 
                     <p className="text-[10px] text-[#0054A6] font-black uppercase mt-2 font-mono tracking-wider">
-                      Sinh năm: {coach.birthYear}
+                      Sinh năm: {coach.birthYear} • ID: {coach.id}
                     </p>
 
                     <p className="text-xs text-slate-900 font-sans leading-relaxed mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-150/80 italic line-clamp-3 relative font-semibold">
@@ -1772,11 +1564,11 @@ export default function UserView({
                       className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
                       title="Bấm vào ảnh để phóng to chi tiết"
                     >
-                      <PersonAvatar
+                      <img 
                         src={m.photo} 
                         alt={m.fullName} 
                         className="w-full h-full rounded-full object-cover"
-                        iconClassName="w-10 h-10"
+                        referrerPolicy="no-referrer"
                       />
                     </div>
                     
@@ -1805,7 +1597,7 @@ export default function UserView({
                     </div>
                     
                     <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
-                      Sinh năm {m.birthYear}
+                      Sinh năm {m.birthYear} • ID: {m.id}
                     </div>
                   </div>
 
@@ -1857,11 +1649,11 @@ export default function UserView({
                         className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
                         title="Bấm vào ảnh để phóng to chi tiết"
                       >
-                        <PersonAvatar
+                        <img 
                           src={m.photo} 
                           alt={m.fullName} 
                           className="w-full h-full rounded-full object-cover"
-                          iconClassName="w-8 h-8"
+                          referrerPolicy="no-referrer"
                         />
                       </div>
                       
@@ -1890,7 +1682,7 @@ export default function UserView({
                       </div>
                       
                       <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
-                        Sinh năm {m.birthYear}
+                        Sinh năm {m.birthYear} • ID: {m.id}
                       </div>
                     </div>
 
@@ -1907,9 +1699,9 @@ export default function UserView({
 
 
       {/* 9. CÂU LẠC BỘ (Clubs - embedded map on click) */}
-      <section className="py-16 sm:py-20 bg-white scroll-mt-32" id="section-clubs">
+      <section className="py-20 bg-white scroll-mt-32" id="section-clubs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="text-center max-w-2xl mx-auto mb-16">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
               Địa điểm võ đường
             </span>
@@ -1922,29 +1714,18 @@ export default function UserView({
             </p>
           </div>
 
-          <div className="relative group/slider">
-            {visibleClubs.length > 1 && (<>
-              <button onClick={() => scrollRow('CLUBS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
-                <ChevronLeft className="w-5 h-5 text-slate-700" />
-              </button>
-              <button onClick={() => scrollRow('CLUBS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
-                <ChevronRight className="w-5 h-5 text-slate-700" />
-              </button>
-            </>)}
-            <div ref={(el) => (rowScrollRefs.current['CLUBS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {visibleClubs.map((club) => (
               <div 
                 key={club.id}
                 onClick={() => onSelectClub(club)}
-                className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-200/60 hover:border-[#0054A6]/30 cursor-pointer group shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col justify-between"
+                className="bg-slate-50 rounded-[2rem] overflow-hidden border border-slate-200/60 hover:border-[#0054A6]/30 cursor-pointer group shadow-sm hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 flex flex-col justify-between"
               >
                 <div className="relative h-48 overflow-hidden bg-slate-900">
                   <img 
                     src={club.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'} 
                     alt={club.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 opacity-90"
-                    loading="lazy"
-                    decoding="async"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent"></div>
@@ -1990,7 +1771,6 @@ export default function UserView({
                 </div>
               </div>
             ))}
-            </div>
           </div>
         </div>
       </section>
@@ -2051,70 +1831,48 @@ export default function UserView({
           <div className="pt-8 border-t border-white/10 flex flex-col items-center space-y-4">
             <p className="text-[10px] font-black text-[#FFF200] uppercase tracking-wider">Kết nối qua mạng xã hội truyền thông:</p>
             <div className="flex gap-4">
-              {facebookUrl && (
+              {webConfig.facebook && (
                 <a 
-                  href={facebookUrl} 
+                  href={webConfig.facebook} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-[#1877F2] hover:border-[#1877F2] transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
                   title="Facebook"
                 >
-                  <span className="w-7 h-6 rounded-lg bg-white text-[#1877F2] flex items-center justify-center text-xl font-black leading-none shadow-sm font-sans">
-                    f
-                  </span>
+                  <Facebook className="w-5 h-5" />
                 </a>
               )}
-              {instagramUrl && (
+              {webConfig.instagram && (
                 <a 
-                  href={instagramUrl} 
+                  href={webConfig.instagram} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-gradient-to-br hover:from-[#833AB4] hover:via-[#E1306C] hover:to-[#FCAF45] hover:border-[#E1306C] transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
                   title="Instagram"
                 >
-                  <span className="w-7 h-6 rounded-lg bg-gradient-to-br from-[#833AB4] via-[#E1306C] to-[#FCAF45] text-white flex items-center justify-center text-[9px] font-black tracking-tight shadow-sm">
-                    IG
-                  </span>
+                  <Instagram className="w-5 h-5" />
                 </a>
               )}
-              {zaloPhone && (
-                <a
-                  href={`https://zalo.me/${zaloPhone}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#0068ff] hover:border-[#0068ff] transition-all duration-300 font-black"
-                  title={`Zalo ${zaloPhone}`}
-                  aria-label={`Mở trang Zalo của số ${zaloPhone}`}
-                >
-                  <span className="w-7 h-6 rounded-lg bg-white text-[#0068ff] flex items-center justify-center text-[8px] font-black tracking-tight shadow-sm">
-                    Zalo
-                  </span>
-                </a>
-              )}
-              {threadsUrl && (
+              {webConfig.threads && (
                 <a 
-                  href={threadsUrl} 
+                  href={webConfig.threads} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-black hover:border-white/30 transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
                   title="Threads"
                 >
-                  <span className="w-7 h-6 rounded-lg bg-white text-black flex items-center justify-center text-base font-black leading-none shadow-sm">
-                    @
-                  </span>
+                  <AtSign className="w-5 h-5" />
                 </a>
               )}
-              {tiktokUrl && (
+              {webConfig.tiktok && (
                 <a 
-                  href={tiktokUrl} 
+                  href={webConfig.tiktok} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center hover:bg-black hover:border-[#25F4EE]/60 transition-all duration-300 font-black"
+                  className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#FFF200] hover:text-[#0054A6] transition-all duration-300 font-black"
                   title="TikTok"
                 >
-                  <span className="w-7 h-6 rounded-lg bg-black text-white flex items-center justify-center text-base font-black leading-none shadow-[2px_0_0_#FE2C55,-2px_0_0_#25F4EE]">
-                    ♪
-                  </span>
+                  <Music className="w-5 h-5" />
                 </a>
               )}
             </div>
@@ -2137,7 +1895,6 @@ export default function UserView({
         </div>
       </footer>
 
-      <Suspense fallback={null}>
       {selectedMember && (
         <MemberDetailModal 
           member={selectedMember} 
@@ -2152,12 +1909,9 @@ export default function UserView({
         <CoachDetailModal 
           coach={selectedCoach} 
           clubs={clubs} 
-          achievements={achievements}
           onClose={() => setSelectedCoach(null)} 
-          onSelectAchievement={onSelectAchievement}
         />
       )}
-      </Suspense>
 
       {zoomedPhoto && (
         <div 

@@ -1,96 +1,29 @@
 import React from 'react';
-import { X, MapPin, Award, Star, Quote, Trophy } from 'lucide-react';
-import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
-import PersonAvatar from './PersonAvatar';
+import { X, Calendar, User, MapPin, Award, Star, Quote } from 'lucide-react';
+import { Coach, Club, getBeltStyle, parseBeltRank } from '../types';
 
 interface CoachDetailModalProps {
   coach: Coach | null;
   clubs: Club[];
-  achievements: Achievement[];
   onClose: () => void;
-  onSelectAchievement?: (achievement: Achievement) => void;
 }
 
 export default function CoachDetailModal({
   coach,
   clubs,
-  achievements,
-  onClose,
-  onSelectAchievement
+  onClose
 }: CoachDetailModalProps) {
   if (!coach) return null;
 
   // Resolve Club Name
   const clubName = clubs.find(c => c.id === coach.clubId)?.name || 'Chưa xác định';
 
-  const getMedalTheme = (medalType: Achievement['medalType']) => {
-    switch (medalType) {
-      case 'Vàng':
-        return {
-          icon: 'text-yellow-300',
-          box: 'bg-yellow-400/10 border-yellow-300/30',
-          label: 'text-yellow-300'
-        };
-      case 'Bạc':
-        return {
-          icon: 'text-slate-200',
-          box: 'bg-slate-200/10 border-slate-200/30',
-          label: 'text-slate-200'
-        };
-      case 'Đồng':
-        return {
-          icon: 'text-orange-400',
-          box: 'bg-orange-500/10 border-orange-400/30',
-          label: 'text-orange-400'
-        };
-      default:
-        return {
-          icon: 'text-sky-300',
-          box: 'bg-sky-400/10 border-sky-300/30',
-          label: 'text-sky-300'
-        };
-    }
-  };
-
-  const getMedalIcon = (medalType: Achievement['medalType']) => {
-    switch (medalType) {
-      case 'Vàng': return '🥇';
-      case 'Bạc': return '🥈';
-      case 'Đồng': return '🥉';
-      default: return null;
-    }
-  };
-
-  const getAchievementYear = (achievement: Achievement) => {
-    const explicitYear = Number.parseInt(String(achievement.year || ''), 10);
-    if (Number.isFinite(explicitYear)) return explicitYear;
-    const yearFromDate = String(achievement.date || '').match(/(?:19|20)\d{2}/);
-    return yearFromDate ? Number.parseInt(yearFromDate[0], 10) : Number.MAX_SAFE_INTEGER;
-  };
-
-  // Achievement.memberIds is also used by the existing admin form when a coach
-  // is selected as the award recipient.
-  const coachAchievements = achievements
-    .filter(achievement => achievement.memberIds?.includes(coach.id))
-    .sort((a, b) => {
-      const yearDifference = getAchievementYear(a) - getAchievementYear(b);
-      return yearDifference !== 0
-        ? yearDifference
-        : String(a.date || '').localeCompare(String(b.date || ''));
-    });
-
   return (
-    <div
-      className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
-      id={`modal-coach-${coach.id}`}
-      onClick={event => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-slate-900 text-white rounded-[1.5rem] sm:rounded-[2rem] max-w-2xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200" id={`modal-coach-${coach.id}`}>
+      <div className="bg-slate-900 text-white rounded-[2rem] max-w-2xl w-full overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
         
         {/* Header Section */}
-        <div className="relative shrink-0 bg-gradient-to-r from-[#0054A6]/90 to-blue-950 p-6 sm:p-8 border-b border-white/5">
+        <div className="relative bg-gradient-to-r from-[#0054A6]/90 to-blue-950 p-6 sm:p-8 border-b border-white/5">
           <button 
             onClick={onClose}
             className="absolute top-4 right-4 bg-black/40 hover:bg-black/60 text-white p-2 rounded-full transition-all cursor-pointer z-10 border border-white/10"
@@ -103,11 +36,11 @@ export default function CoachDetailModal({
             {/* Big Avatar with Glow Ring */}
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-orange-400 shadow-xl shadow-blue-950/40 flex-shrink-0">
               <div className="w-full h-full rounded-full overflow-hidden bg-slate-800">
-                <PersonAvatar
-                  src={coach.photo}
+                <img 
+                  src={coach.photo || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80'} 
                   alt={coach.fullName} 
                   className="w-full h-full object-cover"
-                  iconClassName="w-12 h-12"
+                  referrerPolicy="no-referrer"
                 />
               </div>
             </div>
@@ -159,7 +92,7 @@ export default function CoachDetailModal({
                         {coach.fullName}
                       </h3>
                       <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest mt-1">
-                        Sinh năm: {coach.birthYear || 'Chưa cập nhật'}
+                        ID: {coach.id} • Sinh năm: {coach.birthYear || 'Chưa cập nhật'}
                       </p>
                     </div>
 
@@ -193,7 +126,7 @@ export default function CoachDetailModal({
         </div>
 
         {/* Modal Body */}
-        <div className="detail-scrollbar p-5 sm:p-8 space-y-6 overflow-y-auto overscroll-contain">
+        <div className="p-6 sm:p-8 space-y-6">
           
           {/* Quick Specifications */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -242,65 +175,14 @@ export default function CoachDetailModal({
             </div>
           </div>
 
-          {/* Coach Achievements - only visible inside the detail modal */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-black text-[#FFF200] uppercase tracking-wider flex items-center gap-2">
-              <Trophy className="w-4 h-4 text-[#FFF200]" />
-              Thành tích của huấn luyện viên
-            </h4>
-
-            {coachAchievements.length === 0 ? (
-              <div className="bg-slate-950/40 border border-white/5 p-5 rounded-2xl text-xs text-slate-400 text-center">
-                Chưa có dữ liệu thành tích được liên kết với huấn luyện viên này.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {coachAchievements.map(achievement => {
-                  const medalTheme = getMedalTheme(achievement.medalType);
-                  return (
-                  <button
-                    type="button"
-                    key={achievement.id}
-                    onClick={() => {
-                      if (onSelectAchievement) {
-                        onClose();
-                        onSelectAchievement(achievement);
-                      }
-                    }}
-                    className={`w-full p-4 rounded-2xl border border-white/5 bg-slate-950/40 flex items-center gap-4 text-left transition-all ${
-                      onSelectAchievement
-                        ? 'hover:border-[#FFF200]/40 hover:bg-slate-900/80 cursor-pointer'
-                        : 'cursor-default'
-                    }`}
-                  >
-                    <div className={`w-11 h-11 rounded-xl border flex items-center justify-center flex-shrink-0 ${medalTheme.box} ${medalTheme.icon}`}>
-                      {getMedalIcon(achievement.medalType)
-                        ? <span className="text-2xl leading-none" aria-hidden="true">{getMedalIcon(achievement.medalType)}</span>
-                        : <Trophy className="w-5 h-5" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className={`text-[9px] font-black uppercase ${medalTheme.label}`}>
-                          Huy chương {achievement.medalType}
-                        </span>
-                        <span className="text-[9px] text-slate-500 font-mono">
-                          {achievement.year || achievement.date}
-                        </span>
-                      </div>
-                      <h5 className="mt-1 text-xs sm:text-sm font-bold text-slate-100 truncate">
-                        {achievement.title}
-                      </h5>
-                      {achievement.tournamentName && (
-                        <p className="mt-1 text-[10px] text-slate-400 truncate">
-                          Giải đấu: {achievement.tournamentName}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                  );
-                })}
-              </div>
-            )}
+          {/* Action Footer */}
+          <div className="flex justify-end pt-4 border-t border-white/5">
+            <button
+              onClick={onClose}
+              className="bg-white/10 hover:bg-white/20 text-white font-black text-xs uppercase px-6 py-2.5 rounded-xl border border-white/10 transition-all cursor-pointer"
+            >
+              Đóng Cửa Sổ
+            </button>
           </div>
 
         </div>

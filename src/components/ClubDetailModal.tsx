@@ -1,23 +1,19 @@
 import React from 'react';
 import { X, Calendar, Clock, MapPin, User, ShieldCheck } from 'lucide-react';
 import { Club, Coach, getBeltStyle } from '../types';
-import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 
 interface ClubDetailModalProps {
   club: Club | null;
   coaches: Coach[];
   onClose: () => void;
-  onSelectCoach: (coach: Coach) => void;
 }
 
-export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach }: ClubDetailModalProps) {
+export default function ClubDetailModal({ club, coaches, onClose }: ClubDetailModalProps) {
   if (!club) return null;
 
   // Elegant embed maps search query
-  const mapIframeUrl = buildGoogleMapsEmbedUrl(
-    club.googleMapUrl,
-    club.address || club.name
-  );
+  const mapSearchQuery = encodeURIComponent(club.address || club.name);
+  const mapIframeUrl = club.googleMapUrl || `https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
   // Identify the primary head coach object
   const primaryCoach = coaches.find(c => c.id === club.headCoach || c.fullName === club.headCoach);
@@ -30,24 +26,9 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
   });
 
   return (
-    <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden"
-      onClick={event => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div className="relative bg-white text-slate-800 rounded-3xl max-w-3xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200 flex flex-col">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-white/80 bg-slate-950/90 text-white shadow-xl transition-all hover:bg-rose-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200] cursor-pointer"
-          aria-label="Đóng chi tiết điểm tập"
-          title="Đóng"
-        >
-          <X className="w-6 h-6" strokeWidth={2.5} />
-        </button>
-
-        <div className="detail-scrollbar min-h-0 flex-1 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200 my-8">
+        
         {/* Header Block */}
         <div className="relative h-48 sm:h-60 w-full overflow-hidden">
           <img 
@@ -58,6 +39,13 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
           
+          <button 
+            onClick={onClose}
+            className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all cursor-pointer z-10"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
           <div className="absolute bottom-6 left-6 right-6 text-white">
             {club.status !== false ? (
               <span className="bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-1 rounded uppercase tracking-wider mb-2 inline-block">
@@ -168,13 +156,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {associatedCoaches.map(coach => (
-                <button
-                  key={coach.id}
-                  type="button"
-                  onClick={() => onSelectCoach(coach)}
-                  className="w-full flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/80 hover:border-[#0054A6]/40 hover:bg-blue-50/60 transition-all shadow-sm text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0054A6]"
-                  aria-label={`Xem chi tiết huấn luyện viên ${coach.fullName}`}
-                >
+                <div key={coach.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/80 hover:border-[#0054A6]/20 transition-all shadow-sm">
                   {coach.photo ? (
                     <img 
                       src={coach.photo} 
@@ -200,21 +182,26 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
                     {coach.experience && (
                       <p className="text-[10px] text-slate-500 mt-0.5 truncate italic">KN: {coach.experience}</p>
                     )}
+                    <p className="text-[10px] text-slate-400 mt-0.5">Mã: #{coach.id}</p>
                   </div>
-                  <span className="ml-auto shrink-0 text-[10px] font-bold text-[#0054A6]">Xem chi tiết</span>
-                </button>
+                </div>
               ))}
             </div>
           </div>
         )}
 
         {/* Footer Area */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-center text-center text-xs text-slate-500">
+        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
           <span className="flex items-center gap-1">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             Thông tin đã được xác minh bởi Tổng Đàn Xóm Chiếu
           </span>
-        </div>
+          <button 
+            onClick={onClose}
+            className="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-xl font-bold transition-all cursor-pointer"
+          >
+            Đóng
+          </button>
         </div>
 
       </div>
