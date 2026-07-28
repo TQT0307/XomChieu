@@ -89,10 +89,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         onClick={onClose}
         aria-label="Đóng cửa sổ chi tiết giải đấu"
       />
-      <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white text-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white text-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
-        <div className="relative h-48 sm:h-64 w-full overflow-hidden">
+        <div className="relative h-64 sm:h-80 w-full flex-shrink-0 overflow-hidden">
           <DetailHeroImage
             src={tournament.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80'}
             alt={tournament.name}
@@ -118,10 +118,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         </div>
 
         {/* Content Tabs/Details */}
-        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 p-6 sm:p-8 overflow-y-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 p-6 sm:p-8 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-8">
           
           {/* Left Side: Information details (8 cols) */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className="md:col-span-7 space-y-6">
             
             {/* Quick meta section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -203,13 +203,13 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
           </div>
 
           {/* Right Side: Interactive Google Map (5 cols) */}
-          <div className="lg:col-span-5 flex flex-col h-full min-h-[300px]">
+          <div className="md:col-span-5 flex flex-col h-full min-h-[300px]">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
               <MapPin className="w-4 h-4 text-[#0054A6]" />
               Bản đồ địa điểm thi đấu
             </h4>
             
-            <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative h-[250px] lg:h-full">
+            <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative h-[250px] md:h-full">
               <iframe
                 title={`Bản đồ giải đấu ${tournament.name}`}
                 src={mapIframeUrl}
