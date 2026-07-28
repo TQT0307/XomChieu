@@ -17,6 +17,36 @@ const PUBLIC_SECTION_IDS = [
   'section-contact'
 ] as const;
 
+type PublicLanguage = 'vi' | 'en';
+
+const readPublicLanguage = (): PublicLanguage => {
+  try {
+    const translateCookie = decodeURIComponent(
+      document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/)?.[1] || ''
+    );
+    if (translateCookie.endsWith('/en')) return 'en';
+  } catch {
+    // Ignore a malformed browser cookie and use the saved preference instead.
+  }
+  return localStorage.getItem('vovinam_language') === 'en' ? 'en' : 'vi';
+};
+
+const writeGoogleTranslateCookie = (language: PublicLanguage) => {
+  const hostname = window.location.hostname;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  const cookieOptions = `path=/; SameSite=Lax${secure}`;
+  const expiredCookieOptions = `expires=Thu, 01 Jan 1970 00:00:00 GMT; ${cookieOptions}`;
+
+  if (language === 'en') {
+    document.cookie = `googtrans=/vi/en; ${cookieOptions}`;
+    document.cookie = `googtrans=/vi/en; domain=${hostname}; ${cookieOptions}`;
+    return;
+  }
+
+  document.cookie = `googtrans=; ${expiredCookieOptions}`;
+  document.cookie = `googtrans=; domain=${hostname}; ${expiredCookieOptions}`;
+};
+
 interface HeaderProps {
   isAdmin: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
@@ -42,25 +72,40 @@ export default function Header({
   const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyNavigationFrameRef = useRef<number | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-  const [language, setLanguage] = useState<'vi' | 'en'>(() => {
-    const translateCookie = decodeURIComponent(
-      document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/)?.[1] || ''
-    );
-    if (translateCookie.endsWith('/en')) return 'en';
-    return localStorage.getItem('vovinam_language') === 'en' ? 'en' : 'vi';
-  });
+  const [language, setLanguage] = useState<PublicLanguage>(readPublicLanguage);
 
   useEffect(() => {
-    // Vietnamese is the native UI, so do not download the large Google
-    // Translate script unless English was explicitly selected.
-    if (language !== 'en') return;
+    document.documentElement.lang = language;
+    if (language !== 'en') return undefined;
+
+    let cancelled = false;
+    let applyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const applyEnglishToTranslateSelector = (attempt = 0) => {
+      if (cancelled) return;
+      const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (selector) {
+        if (selector.value !== 'en') {
+          selector.value = 'en';
+          selector.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        return;
+      }
+      if (attempt < 50) {
+        applyTimer = setTimeout(() => applyEnglishToTranslateSelector(attempt + 1), 120);
+      }
+    };
+
     const initializeTranslate = () => {
       const googleTranslate = (window as any).google?.translate?.TranslateElement;
-      if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
-      new googleTranslate(
-        { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
-        'google_translate_element'
-      );
+      if (!googleTranslate) return;
+      if (!document.querySelector('.goog-te-combo')) {
+        new googleTranslate(
+          { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
+          'google_translate_element'
+        );
+      }
+      applyEnglishToTranslateSelector();
     };
 
     (window as any).vovinamGoogleTranslateInit = initializeTranslate;
@@ -71,27 +116,35 @@ export default function Header({
       script.id = 'google-translate-script';
       script.src = 'https://translate.google.com/translate_a/element.js?cb=vovinamGoogleTranslateInit';
       script.async = true;
+      script.onerror = () => {
+        console.error('[Language] Không thể tải dịch vụ Google Translate.');
+      };
       document.head.appendChild(script);
     }
+
+    return () => {
+      cancelled = true;
+      if (applyTimer) clearTimeout(applyTimer);
+    };
   }, [language]);
 
-  const handleLanguageChange = (nextLanguage: 'vi' | 'en') => {
+  const handleLanguageChange = (nextLanguage: PublicLanguage) => {
     if (nextLanguage === language) return;
     setLanguage(nextLanguage);
     localStorage.setItem('vovinam_language', nextLanguage);
     document.documentElement.lang = nextLanguage;
+    writeGoogleTranslateCookie(nextLanguage);
 
-    const expires = 'Thu, 01 Jan 1970 00:00:00 GMT';
-    if (nextLanguage === 'en') {
-      document.cookie = 'googtrans=/vi/en; path=/; SameSite=Lax';
-    } else {
-      document.cookie = `googtrans=; expires=${expires}; path=/; SameSite=Lax`;
-      document.cookie = `googtrans=; expires=${expires}; path=/; domain=${window.location.hostname}; SameSite=Lax`;
+    if (nextLanguage === 'vi') {
+      const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (selector) {
+        selector.value = 'vi';
+        selector.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      // Google Translate edits DOM text nodes directly. Reloading after the
+      // selector restores Vietnamese prevents translated fragments lingering.
+      window.setTimeout(() => window.location.reload(), 250);
     }
-
-    // Reload once so Google Translate and the selector always start in the same
-    // language. This also restores the original Vietnamese DOM without leftovers.
-    window.location.reload();
   };
 
   useEffect(() => {
@@ -196,15 +249,15 @@ export default function Header({
   };
 
   const navSections = [
-    { id: 'section-about', name: 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
-    { id: 'section-news', name: 'Tin tức', icon: <Newspaper className="w-3.5 h-3.5" /> },
-    { id: 'section-tournaments', name: 'Giải đấu', icon: <Swords className="w-3.5 h-3.5" /> },
+    { id: 'section-about', name: language === 'en' ? 'About' : 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
+    { id: 'section-news', name: language === 'en' ? 'News' : 'Tin tức', icon: <Newspaper className="w-3.5 h-3.5" /> },
+    { id: 'section-tournaments', name: language === 'en' ? 'Tournaments' : 'Giải đấu', icon: <Swords className="w-3.5 h-3.5" /> },
     { id: 'section-highlights', name: 'Highlights', icon: <Play className="w-3.5 h-3.5" /> },
-    { id: 'section-achievements', name: 'Thành tích', icon: <Award className="w-3.5 h-3.5" /> },
-    { id: 'section-coaches', name: 'Huấn luyện', icon: <User className="w-3.5 h-3.5" /> },
-    { id: 'section-members', name: 'Môn sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
-    { id: 'section-clubs', name: 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
-    { id: 'section-contact', name: 'Liên hệ', icon: <Mail className="w-3.5 h-3.5" /> }
+    { id: 'section-achievements', name: language === 'en' ? 'Achievements' : 'Thành tích', icon: <Award className="w-3.5 h-3.5" /> },
+    { id: 'section-coaches', name: language === 'en' ? 'Coaches' : 'Huấn luyện', icon: <User className="w-3.5 h-3.5" /> },
+    { id: 'section-members', name: language === 'en' ? 'Members' : 'Môn sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+    { id: 'section-clubs', name: language === 'en' ? 'Training locations' : 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
+    { id: 'section-contact', name: language === 'en' ? 'Contact' : 'Liên hệ', icon: <Mail className="w-3.5 h-3.5" /> }
   ];
 
   return (
@@ -275,14 +328,14 @@ export default function Header({
           )}
 
           {!isAdmin && (
-            <div className="relative flex-shrink-0" title="Chọn ngôn ngữ / Select language">
+            <div className="notranslate relative flex-shrink-0" translate="no" title="Chọn ngôn ngữ / Select language">
               <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFF200]/50 bg-[#003f80] shadow-sm">
                 <Globe2 className="h-3.5 w-3.5 text-[#FFF200]" strokeWidth={2.2} />
               </span>
               <select
                 value={language}
-                onChange={(event) => handleLanguageChange(event.target.value as 'vi' | 'en')}
-                aria-label="Chọn ngôn ngữ"
+                onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
+                aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
                 className="h-9 appearance-none rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 pl-8 pr-7 text-[10px] font-black text-white shadow-sm outline-none transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:border-[#FFF200] focus:ring-2 focus:ring-[#FFF200]/20 cursor-pointer"
               >
                 <option value="vi" className="text-slate-900">VI</option>
