@@ -98,8 +98,23 @@ img {
   content-visibility: auto;
 }
 
-/* Google Translate is controlled by the compact VI/EN selector in the header. */
-.google-translate-host,
+/*
+ * Google Translate must be allowed to render its internal select before the
+ * compact VI/EN control can trigger a full-page translation. Using
+ * display:none on the host prevents the widget from initializing on some
+ * browsers, so keep it measurable but move it outside the visible viewport.
+ */
+.google-translate-host {
+  position: fixed !important;
+  left: -10000px !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0.001 !important;
+  pointer-events: none !important;
+}
+
 .goog-te-banner-frame,
 .goog-te-balloon-frame,
 #goog-gt-tt {
