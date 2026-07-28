@@ -66,6 +66,34 @@ body {
   contain-intrinsic-size: 320px 300px;
 }
 
+/* Achievement cards use two fixed rows. Do not let the generic lazy-paint
+   placeholder change their height while images/content are being rendered. */
+#section-achievements .achievements-carousel-grid {
+  grid-template-rows: repeat(2, 180px);
+  grid-auto-rows: 180px;
+}
+
+#section-achievements .achievement-card {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+  height: 180px;
+  min-height: 180px;
+  max-height: 180px;
+}
+
+@media (max-width: 639px) {
+  #section-achievements .achievements-carousel-grid {
+    grid-template-rows: repeat(2, 190px);
+    grid-auto-rows: 190px;
+  }
+
+  #section-achievements .achievement-card {
+    height: 190px;
+    min-height: 190px;
+    max-height: 190px;
+  }
+}
+
 img {
   content-visibility: auto;
 }

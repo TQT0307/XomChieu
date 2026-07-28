@@ -1399,13 +1399,13 @@ export default function UserView({
               )}
               <div
                 ref={achievementsScrollRef}
-                className="grid grid-rows-2 grid-flow-col auto-cols-[88%] sm:auto-cols-[calc((100%_-_1.5rem)/2)] lg:auto-cols-[calc((100%_-_3rem)/3)] gap-5 lg:gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth pb-3 no-scrollbar"
+                className="achievements-carousel-grid grid grid-rows-2 grid-flow-col auto-cols-[88%] sm:auto-cols-[calc((100%_-_1.5rem)/2)] lg:auto-cols-[calc((100%_-_3rem)/3)] gap-5 lg:gap-6 overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-smooth pb-3 no-scrollbar"
               >
               {visibleAchievements.map((ach) => (
                 <div 
                   key={ach.id}
                   onClick={() => onSelectAchievement(ach)}
-                  className="snap-start bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-5 border border-slate-800/80 flex items-center gap-5 hover:border-[#FFF200] hover:shadow-2xl hover:shadow-yellow-500/10 hover:-translate-y-1 transform cursor-pointer transition-all duration-300 group min-w-0"
+                  className="achievement-card snap-start bg-slate-900/60 backdrop-blur-md rounded-[2rem] p-5 border border-slate-800/80 flex items-center gap-5 hover:border-[#FFF200] hover:shadow-2xl hover:shadow-yellow-500/10 hover:-translate-y-1 transform cursor-pointer transition-all duration-300 group min-w-0 overflow-hidden"
                 >
                   {/* Athlete Photo with Medal Badge Overlay */}
                   <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-[#FFF200]/20 group-hover:border-[#FFF200] transition-colors bg-slate-800">
