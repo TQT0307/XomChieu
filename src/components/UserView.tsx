@@ -169,26 +169,44 @@ export default function UserView({
       if (frameId !== null) return;
       frameId = window.requestAnimationFrame(() => {
         frameId = null;
-      // If manual scrolling is occurring, bypass scrollspy updates to avoid jumping
-      if ((window as any)._isManualScrolling) return;
+        // A menu click or browser Back/Forward already owns the target hash.
+        // Wait for that smooth scroll to finish before scrollspy takes over.
+        if ((window as any)._isManualScrolling) return;
 
-      const scrollPosition = window.scrollY + 160;
+        const scrollPosition = window.scrollY + 160;
+        let visibleSectionId = navSections[0].id;
 
-      for (const section of navSections) {
-        const el = document.getElementById(section.id);
-        if (el) {
-          const top = el.offsetTop;
-          const height = el.offsetHeight;
-          if (scrollPosition >= top && scrollPosition < top + height) {
-            setActiveNavSection(section.id);
+        // Use the last section whose top edge has passed the sticky header.
+        // This also covers spacing between sections, where the previous
+        // height-based calculation could leave the URL on an older section.
+        for (const section of navSections) {
+          const el = document.getElementById(section.id);
+          if (!el) continue;
+          if (scrollPosition >= el.offsetTop) {
+            visibleSectionId = section.id;
+          } else {
             break;
           }
         }
-      }
+
+        setActiveNavSection(visibleSectionId);
+
+        // Scrolling must keep the shareable URL and highlighted menu item in
+        // sync. replaceState avoids filling browser history on every scroll;
+        // explicit menu clicks still use pushState in Header.tsx.
+        const nextHash = `#${visibleSectionId}`;
+        if (window.location.hash !== nextHash) {
+          window.history.replaceState(
+            { ...(window.history.state || {}), vovinamSection: visibleSectionId },
+            '',
+            nextHash
+          );
+        }
       });
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
     return () => {
       window.removeEventListener('scroll', handleScroll);
       if (frameId !== null) window.cancelAnimationFrame(frameId);
