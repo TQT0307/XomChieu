@@ -14,9 +14,9 @@ import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
 import { articleContentToPlainText } from '../utils/articleContent';
+import { closeDetailRoute, parseDetailHash, pushDetailRoute } from '../utils/detailRoutes';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
-const CoachDetailModal = lazy(() => import('./CoachDetailModal'));
 
 const bundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -72,6 +72,7 @@ interface UserViewProps {
   onSelectClub: (club: Club) => void;
   onSelectTournament: (tournament: Tournament) => void;
   onSelectAchievement: (achievement: Achievement) => void;
+  onSelectCoach: (coach: Coach) => void;
   activeNavSection: string;
   setActiveNavSection: (secId: string) => void;
 }
@@ -91,6 +92,7 @@ export default function UserView({
   onSelectClub,
   onSelectTournament,
   onSelectAchievement,
+  onSelectCoach,
   activeNavSection,
   setActiveNavSection
 }: UserViewProps) {
@@ -139,8 +141,40 @@ export default function UserView({
   const [currentBanner, setCurrentBanner] = useState(0);
   const safeCurrentBanner = currentBanner >= banners.length ? 0 : currentBanner;
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
+
+  const openMemberDetail = (member: Member) => {
+    pushDetailRoute('member', member.id);
+    setSelectedMember(member);
+  };
+
+  const closeMemberDetail = () => {
+    closeDetailRoute('member');
+    setSelectedMember(null);
+  };
+
+  useEffect(() => {
+    const syncMemberDetailFromUrl = () => {
+      const detailRoute = parseDetailHash(window.location.hash);
+      if (detailRoute?.kind !== 'member') {
+        setSelectedMember(null);
+        return;
+      }
+
+      const member = members.find(item => String(item.id) === detailRoute.id) || null;
+      setSelectedMember(current =>
+        current && member && String(current.id) === String(member.id) ? current : member
+      );
+    };
+
+    window.addEventListener('popstate', syncMemberDetailFromUrl);
+    window.addEventListener('hashchange', syncMemberDetailFromUrl);
+    syncMemberDetailFromUrl();
+    return () => {
+      window.removeEventListener('popstate', syncMemberDetailFromUrl);
+      window.removeEventListener('hashchange', syncMemberDetailFromUrl);
+    };
+  }, [members]);
 
   // Decode the next slide before it becomes visible so transitions do not wait
   // for image loading on slower connections.
@@ -172,6 +206,7 @@ export default function UserView({
         // A menu click or browser Back/Forward already owns the target hash.
         // Wait for that smooth scroll to finish before scrollspy takes over.
         if ((window as any)._isManualScrolling) return;
+        if (parseDetailHash(window.location.hash)) return;
 
         const scrollPosition = window.scrollY + 160;
         let visibleSectionId = navSections[0].id;
@@ -1558,7 +1593,7 @@ export default function UserView({
             {visibleCoaches.map((coach) => (
               <div 
                 key={coach.id}
-                onClick={() => setSelectedCoach(coach)}
+                onClick={() => onSelectCoach(coach)}
                 className="bg-white rounded-[2rem] p-8 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between cursor-pointer"
               >
                 <div>
@@ -1639,7 +1674,7 @@ export default function UserView({
               {visibleCoaches.map((coach) => (
                 <div 
                   key={coach.id}
-                  onClick={() => setSelectedCoach(coach)}
+                  onClick={() => onSelectCoach(coach)}
                   className="w-[280px] sm:w-[330px] shrink-0 snap-start bg-white rounded-[2rem] p-6 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-1 flex flex-col justify-between cursor-pointer"
                 >
                   <div>
@@ -1774,7 +1809,7 @@ export default function UserView({
               {visibleMembers.map((m) => (
                 <div 
                   key={m.id}
-                  onClick={() => setSelectedMember(m)}
+                  onClick={() => openMemberDetail(m)}
                   className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                 >
                   <div>
@@ -1784,7 +1819,7 @@ export default function UserView({
                         if (m.photo) {
                           setZoomedPhoto(m.photo);
                         } else {
-                          setSelectedMember(m);
+                          openMemberDetail(m);
                         }
                       }}
                       className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
@@ -1859,7 +1894,7 @@ export default function UserView({
                 {visibleMembers.map((m) => (
                   <div 
                     key={m.id}
-                    onClick={() => setSelectedMember(m)}
+                    onClick={() => openMemberDetail(m)}
                     className="w-[200px] sm:w-[240px] shrink-0 snap-start bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                   >
                     <div>
@@ -1869,7 +1904,7 @@ export default function UserView({
                           if (m.photo) {
                             setZoomedPhoto(m.photo);
                           } else {
-                            setSelectedMember(m);
+                            openMemberDetail(m);
                           }
                         }}
                         className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
@@ -2161,18 +2196,8 @@ export default function UserView({
           member={selectedMember} 
           achievements={achievements} 
           clubs={clubs} 
-          onClose={() => setSelectedMember(null)} 
+          onClose={closeMemberDetail}
           onZoomPhoto={(url) => setZoomedPhoto(url)}
-        />
-      )}
-
-      {selectedCoach && (
-        <CoachDetailModal 
-          coach={selectedCoach} 
-          clubs={clubs} 
-          achievements={achievements}
-          onClose={() => setSelectedCoach(null)} 
-          onSelectAchievement={onSelectAchievement}
         />
       )}
       </Suspense>

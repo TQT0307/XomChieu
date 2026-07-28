@@ -25,6 +25,12 @@ import {
 // Types
 import { Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig } from './types';
 import { externalizeInlineImages } from './mediaSync';
+import {
+  closeDetailRoute,
+  DetailKind,
+  parseDetailHash,
+  pushDetailRoute,
+} from './utils/detailRoutes';
 
 type SyncKey =
   | 'categories'
@@ -322,9 +328,10 @@ export default function App() {
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
   const [selectedClub, setSelectedClub] = useState<Club | null>(null);
-  const [selectedClubCoach, setSelectedClubCoach] = useState<Coach | null>(null);
+  const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null);
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+  const countedArticleRouteRef = useRef<string | null>(null);
 
   // Helper to save safely to localStorage to avoid QuotaExceededError crashes
   const safeSetItem = (key: string, value: any) => {
@@ -607,6 +614,122 @@ export default function App() {
       });
   };
 
+  const openArticleDetail = (article: Article) => {
+    countedArticleRouteRef.current = `article:${String(article.id)}`;
+    pushDetailRoute('article', article.id);
+    handleSelectArticle(article);
+  };
+
+  const openHighlightDetail = (highlight: Highlight) => {
+    pushDetailRoute('highlight', highlight.id);
+    setSelectedHighlight(highlight);
+  };
+
+  const openClubDetail = (club: Club) => {
+    pushDetailRoute('club', club.id);
+    setSelectedClub(club);
+  };
+
+  const openTournamentDetail = (tournament: Tournament) => {
+    pushDetailRoute('tournament', tournament.id);
+    setSelectedTournament(tournament);
+  };
+
+  const openAchievementDetail = (achievement: Achievement) => {
+    pushDetailRoute('achievement', achievement.id);
+    setSelectedAchievement(achievement);
+  };
+
+  const openCoachDetail = (coach: Coach) => {
+    pushDetailRoute('coach', coach.id);
+    setSelectedCoach(coach);
+  };
+
+  const closeSelectedDetail = (
+    kind: DetailKind,
+    setter: React.Dispatch<React.SetStateAction<any>>
+  ) => {
+    closeDetailRoute(kind);
+    setter(null);
+  };
+
+  useEffect(() => {
+    if (isAdmin) return;
+
+    const syncDetailFromUrl = () => {
+      const route = parseDetailHash(window.location.hash);
+      if (!route) {
+        countedArticleRouteRef.current = null;
+        setSelectedArticle(null);
+        setSelectedHighlight(null);
+        setSelectedClub(null);
+        setSelectedCoach(null);
+        setSelectedTournament(null);
+        setSelectedAchievement(null);
+        return;
+      }
+
+      setActiveNavSection(route.sectionId);
+
+      if (route.kind !== 'article') setSelectedArticle(null);
+      if (route.kind !== 'highlight') setSelectedHighlight(null);
+      if (route.kind !== 'club') setSelectedClub(null);
+      if (route.kind !== 'coach') setSelectedCoach(null);
+      if (route.kind !== 'tournament') setSelectedTournament(null);
+      if (route.kind !== 'achievement') setSelectedAchievement(null);
+
+      switch (route.kind) {
+        case 'article': {
+          const article = articles.find(
+            item => String(item.id) === route.id && item.status !== false
+          );
+          const routeKey = `article:${route.id}`;
+          if (article && countedArticleRouteRef.current !== routeKey) {
+            countedArticleRouteRef.current = routeKey;
+            handleSelectArticle(article);
+          }
+          break;
+        }
+        case 'highlight':
+          setSelectedHighlight(
+            highlights.find(item => String(item.id) === route.id && item.status !== false) || null
+          );
+          break;
+        case 'club':
+          setSelectedClub(
+            clubs.find(item => String(item.id) === route.id && item.status !== false) || null
+          );
+          break;
+        case 'coach':
+          setSelectedCoach(
+            coaches.find(item => String(item.id) === route.id && item.status !== false) || null
+          );
+          break;
+        case 'tournament':
+          setSelectedTournament(
+            tournaments.find(item => String(item.id) === route.id) || null
+          );
+          break;
+        case 'achievement':
+          setSelectedAchievement(
+            achievements.find(item => String(item.id) === route.id && item.status !== false) || null
+          );
+          break;
+        case 'member':
+          // Member detail state is owned by UserView, which uses the same URL parser.
+          break;
+      }
+    };
+
+    window.addEventListener('popstate', syncDetailFromUrl);
+    window.addEventListener('hashchange', syncDetailFromUrl);
+    syncDetailFromUrl();
+    return () => {
+      window.removeEventListener('popstate', syncDetailFromUrl);
+      window.removeEventListener('hashchange', syncDetailFromUrl);
+    };
+  }, [isAdmin, articles, highlights, clubs, coaches, tournaments, achievements]);
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       
@@ -695,11 +818,12 @@ export default function App() {
             clubs={clubs}
             highlights={highlights}
             webConfig={webConfig}
-            onSelectArticle={handleSelectArticle}
-            onSelectHighlight={setSelectedHighlight}
-            onSelectClub={setSelectedClub}
-            onSelectTournament={setSelectedTournament}
-            onSelectAchievement={setSelectedAchievement}
+            onSelectArticle={openArticleDetail}
+            onSelectHighlight={openHighlightDetail}
+            onSelectClub={openClubDetail}
+            onSelectTournament={openTournamentDetail}
+            onSelectAchievement={openAchievementDetail}
+            onSelectCoach={openCoachDetail}
             activeNavSection={activeNavSection}
             setActiveNavSection={setActiveNavSection}
           />
@@ -711,47 +835,47 @@ export default function App() {
       <ArticleDetailModal 
         article={selectedArticle}
         categories={categories}
-        onClose={() => setSelectedArticle(null)}
+        onClose={() => closeSelectedDetail('article', setSelectedArticle)}
       />
 
       {/* Highlight Details Carousel/Gallery Modal */}
       <HighlightDetailModal 
         highlight={selectedHighlight}
-        onClose={() => setSelectedHighlight(null)}
+        onClose={() => closeSelectedDetail('highlight', setSelectedHighlight)}
       />
 
       {/* Club Details with Embedded Interactive Map Modal */}
       <ClubDetailModal 
         club={selectedClub}
         coaches={coaches}
-        onClose={() => setSelectedClub(null)}
+        onClose={() => closeSelectedDetail('club', setSelectedClub)}
         onSelectCoach={(coach) => {
           setSelectedClub(null);
-          setSelectedClubCoach(coach);
+          openCoachDetail(coach);
         }}
       />
 
       <CoachDetailModal
-        coach={selectedClubCoach}
+        coach={selectedCoach}
         clubs={clubs}
         achievements={achievements}
-        onClose={() => setSelectedClubCoach(null)}
+        onClose={() => closeSelectedDetail('coach', setSelectedCoach)}
         onSelectAchievement={(achievement) => {
-          setSelectedClubCoach(null);
-          setSelectedAchievement(achievement);
+          setSelectedCoach(null);
+          openAchievementDetail(achievement);
         }}
       />
 
       {/* Tournament Details Modal */}
       <TournamentDetailModal 
         tournament={selectedTournament}
-        onClose={() => setSelectedTournament(null)}
+        onClose={() => closeSelectedDetail('tournament', setSelectedTournament)}
       />
 
       {/* Achievement Details Modal */}
       <AchievementDetailModal 
         achievement={selectedAchievement}
-        onClose={() => setSelectedAchievement(null)}
+        onClose={() => closeSelectedDetail('achievement', setSelectedAchievement)}
       />
       </Suspense>
 

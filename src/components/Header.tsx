@@ -4,6 +4,7 @@ import {
   Play, Award, User, CheckCircle, MapPin, Mail, Globe2, ChevronDown
 } from 'lucide-react';
 import { WebConfig } from '../types';
+import { getSectionIdFromHash } from '../utils/detailRoutes';
 
 const PUBLIC_SECTION_IDS = [
   'section-about',
@@ -151,12 +152,7 @@ export default function Header({
       }
       historyNavigationFrameRef.current = window.requestAnimationFrame(() => {
         historyNavigationFrameRef.current = null;
-        let sectionId = window.location.hash.replace(/^#/, '');
-        try {
-          sectionId = decodeURIComponent(sectionId);
-        } catch {
-          // Keep the raw hash when it contains malformed URL encoding.
-        }
+        const sectionId = getSectionIdFromHash(window.location.hash);
         if (PUBLIC_SECTION_IDS.includes(sectionId as (typeof PUBLIC_SECTION_IDS)[number])) {
           scrollToSection(sectionId, behavior);
         } else if (!window.location.hash) {
