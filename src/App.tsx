@@ -31,6 +31,7 @@ import {
   parseDetailHash,
   pushDetailRoute,
 } from './utils/detailRoutes';
+import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
 
 type SyncKey =
   | 'categories'
@@ -371,20 +372,55 @@ export default function App() {
 
           // Upload inline images first. The following JSON save then contains
           // short URLs instead of megabytes of base64 data.
-          const normalizedData = await externalizeInlineImages(dataToSave);
-          const response = await fetch('/api/save-key', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              key,
-              data: normalizedData,
-              baseVersion: Number(serverKeyVersionsRef.current[key] || 0)
-            })
-          });
-          const payload = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            const message = payload.message || payload.error || `Không thể đồng bộ ${key} (${response.status})`;
-            throw new Error(message);
+          let normalizedData = await externalizeInlineImages(dataToSave);
+          let conflictBase = lastServerDataRef.current[key];
+          let payload: any = {};
+          let conflictResolved = false;
+
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const response = await fetch('/api/save-key', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                key,
+                data: normalizedData,
+                baseVersion: Number(serverKeyVersionsRef.current[key] || 0)
+              })
+            });
+            payload = await response.json().catch(() => ({}));
+
+            if (response.status === 409 && attempt < 2) {
+              const latestResponse = await fetch(`/api/key/${encodeURIComponent(key)}`, {
+                cache: 'no-store'
+              });
+              const latestPayload = await latestResponse.json().catch(() => ({}));
+              if (!latestResponse.ok || latestPayload.data === undefined) {
+                throw new Error(
+                  latestPayload.message
+                  || latestPayload.error
+                  || `Không thể tải dữ liệu ${key} mới nhất để hợp nhất.`
+                );
+              }
+
+              normalizedData = mergeConcurrentKeyData(
+                conflictBase,
+                normalizedData,
+                latestPayload.data
+              );
+              conflictBase = latestPayload.data;
+              lastServerDataRef.current[key] = latestPayload.data;
+              serverKeyVersionsRef.current[key] = Number(
+                latestPayload.keyVersion || payload.currentVersion || 0
+              );
+              conflictResolved = true;
+              continue;
+            }
+
+            if (!response.ok) {
+              const message = payload.message || payload.error || `Không thể đồng bộ ${key} (${response.status})`;
+              throw new Error(message);
+            }
+            break;
           }
 
           const savedData = payload.data ?? normalizedData;
@@ -398,12 +434,26 @@ export default function App() {
 
           // Do not replace a newer edit that was queued while an image upload or
           // network request was still running.
-          if (queue.queuedData === undefined && latestStateRef.current[key] === dataToSave) {
+          if (queue.queuedData !== undefined) {
+            // A second local edit arrived while the first request was being
+            // merged/saved. Rebase that edit onto the newly saved snapshot so
+            // it cannot accidentally remove concurrent remote additions.
+            queue.queuedData = mergeConcurrentKeyData(
+              dataToSave,
+              queue.queuedData,
+              savedData
+            );
+            latestStateRef.current[key] = queue.queuedData;
+          } else if (latestStateRef.current[key] === dataToSave) {
             adminDirtyKeysRef.current.delete(key);
             if (savedData !== dataToSave) applyServerKeyData(key, savedData);
           }
           window.dispatchEvent(new CustomEvent('vovinam-sync-success', {
-            detail: { key, lastUpdated: payload.lastUpdated || Date.now() }
+            detail: {
+              key,
+              lastUpdated: payload.lastUpdated || Date.now(),
+              conflictResolved
+            }
           }));
         }
       } catch (error) {

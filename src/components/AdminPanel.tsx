@@ -846,8 +846,21 @@ export default function AdminPanel({
         'error'
       );
     };
+    const handleMergedSyncSuccess = (event: Event) => {
+      const detail = (event as CustomEvent<{ conflictResolved?: boolean }>).detail;
+      if (detail?.conflictResolved) {
+        showToast(
+          'Dữ liệu mới nhất đã được tự động hợp nhất và lưu thành công.',
+          'success'
+        );
+      }
+    };
     window.addEventListener('vovinam-sync-error', handleSyncError);
-    return () => window.removeEventListener('vovinam-sync-error', handleSyncError);
+    window.addEventListener('vovinam-sync-success', handleMergedSyncSuccess);
+    return () => {
+      window.removeEventListener('vovinam-sync-error', handleSyncError);
+      window.removeEventListener('vovinam-sync-success', handleMergedSyncSuccess);
+    };
   }, []);
 
   // Account credentials are kept only in the private server database. The
