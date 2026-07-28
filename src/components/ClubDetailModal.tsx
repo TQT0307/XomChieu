@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Calendar, Clock, MapPin, User, ShieldCheck } from 'lucide-react';
 import { Club, Coach, getBeltStyle } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
+import DetailHeroImage from './DetailHeroImage';
 
 interface ClubDetailModalProps {
   club: Club | null;
@@ -58,11 +59,9 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
         <div className="detail-scrollbar min-h-0 flex-1 overflow-y-auto">
         {/* Header Block */}
         <div className="relative h-48 sm:h-60 w-full overflow-hidden">
-          <img 
-            src={club.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'} 
-            alt={club.name} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
+          <DetailHeroImage
+            src={club.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'}
+            alt={club.name}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
           

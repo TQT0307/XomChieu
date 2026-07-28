@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Award, Calendar, User, ShieldCheck, Trophy, Sparkles } from 'lucide-react';
 import { Achievement } from '../types';
+import DetailHeroImage from './DetailHeroImage';
 
 interface AchievementDetailModalProps {
   achievement: Achievement | null;
@@ -112,11 +113,9 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
         
         {/* Modal Header Banner */}
         <div className="relative h-48 sm:h-56 w-full overflow-hidden">
-          <img 
-            src={achievement.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80'} 
-            alt={achievement.title} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
+          <DetailHeroImage
+            src={achievement.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80'}
+            alt={achievement.title}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
           

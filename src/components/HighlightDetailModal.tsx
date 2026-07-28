@@ -33,10 +33,29 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
 
   if (!highlight) return null;
 
-  const mediaList = highlight.mediaUrls && highlight.mediaUrls.length > 0 
-    ? highlight.mediaUrls 
+  const mediaItems = (highlight.mediaUrls || [])
+    .filter(Boolean)
+    .map((url, index) => ({
+      url,
+      note: highlight.mediaNotes?.[index]?.trim() || ''
+    }));
+
+  // The public card uses `thumbnail`. Keep that exact same image first in the
+  // detail viewer, then show the remaining gallery items without duplicates.
+  if (highlight.thumbnail) {
+    const thumbnailIndex = mediaItems.findIndex(item => item.url === highlight.thumbnail);
+    if (thumbnailIndex > 0) {
+      const [thumbnailItem] = mediaItems.splice(thumbnailIndex, 1);
+      mediaItems.unshift(thumbnailItem);
+    } else if (thumbnailIndex === -1) {
+      mediaItems.unshift({ url: highlight.thumbnail, note: '' });
+    }
+  }
+
+  const mediaList = mediaItems.length > 0
+    ? mediaItems.map(item => item.url)
     : [highlight.thumbnail];
-  const activeMediaNote = highlight.mediaNotes?.[activeMediaIndex]?.trim() || '';
+  const activeMediaNote = mediaItems[activeMediaIndex]?.note || '';
 
   const handleNext = () => {
     setActiveMediaIndex((prev) => (prev + 1) % mediaList.length);
@@ -274,7 +293,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
                   <button
                     key={idx}
                     onClick={() => setActiveMediaIndex(idx)}
-                    title={highlight.mediaNotes?.[idx] || `Tư liệu ${idx + 1}`}
+                    title={mediaItems[idx]?.note || `Tư liệu ${idx + 1}`}
                     className={`relative w-20 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 transition-all cursor-pointer ${
                       activeMediaIndex === idx ? 'border-[#FFF200] scale-105 shadow' : 'border-slate-800 opacity-60 hover:opacity-100'
                     }`}

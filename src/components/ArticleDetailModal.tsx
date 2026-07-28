@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Calendar, Eye } from 'lucide-react';
 import { Article, Category } from '../types';
 import { sanitizeArticleHtml } from '../utils/articleContent';
+import DetailHeroImage from './DetailHeroImage';
 
 interface ArticleDetailModalProps {
   article: Article | null;
@@ -32,11 +33,9 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
         
         {/* Banner Image */}
         <div className="relative h-64 sm:h-80 w-full overflow-hidden">
-          <img 
-            src={article.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'} 
-            alt={article.title} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
+          <DetailHeroImage
+            src={article.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'}
+            alt={article.title}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
           

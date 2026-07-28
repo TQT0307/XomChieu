@@ -2,6 +2,7 @@ import React from 'react';
 import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen } from 'lucide-react';
 import { Tournament, getNormalizedTournamentStatus } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
+import DetailHeroImage from './DetailHeroImage';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -89,11 +90,9 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         
         {/* Banner Image */}
         <div className="relative h-48 sm:h-64 w-full overflow-hidden">
-          <img 
-            src={tournament.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80'} 
-            alt={tournament.name} 
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
+          <DetailHeroImage
+            src={tournament.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80'}
+            alt={tournament.name}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
           
