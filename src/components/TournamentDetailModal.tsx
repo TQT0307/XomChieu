@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen } from 'lucide-react';
 import { Tournament, getNormalizedTournamentStatus } from '../types';
+import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -11,8 +12,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
   if (!tournament) return null;
 
   // Google Maps search query based on location
-  const mapSearchQuery = encodeURIComponent(tournament.location || tournament.name);
-  const mapIframeUrl = `https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  const mapIframeUrl = buildGoogleMapsEmbedUrl(
+    undefined,
+    tournament.location || tournament.name
+  );
 
   // Status-specific styles
   const statusStyles = {
@@ -68,7 +71,12 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
   const details = getTournamentDetails(tournament.name);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white text-slate-800 rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}

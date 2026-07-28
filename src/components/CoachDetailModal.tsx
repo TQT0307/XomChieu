@@ -80,7 +80,13 @@ export default function CoachDetailModal({
     });
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200" id={`modal-coach-${coach.id}`}>
+    <div
+      className="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
+      id={`modal-coach-${coach.id}`}
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-slate-900 text-white rounded-[1.5rem] sm:rounded-[2rem] max-w-2xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-hidden flex flex-col shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200">
         
         {/* Header Section */}

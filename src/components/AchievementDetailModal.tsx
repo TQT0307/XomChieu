@@ -95,7 +95,13 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
     : details.journey;
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" id={`modal-achievement-${achievement.id}`}>
+    <div
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      id={`modal-achievement-${achievement.id}`}
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header Banner */}

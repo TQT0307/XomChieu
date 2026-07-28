@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Calendar, Clock, MapPin, User, ShieldCheck } from 'lucide-react';
 import { Club, Coach, getBeltStyle } from '../types';
+import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 
 interface ClubDetailModalProps {
   club: Club | null;
@@ -13,8 +14,10 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
   if (!club) return null;
 
   // Elegant embed maps search query
-  const mapSearchQuery = encodeURIComponent(club.address || club.name);
-  const mapIframeUrl = club.googleMapUrl || `https://maps.google.com/maps?q=${mapSearchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+  const mapIframeUrl = buildGoogleMapsEmbedUrl(
+    club.googleMapUrl,
+    club.address || club.name
+  );
 
   // Identify the primary head coach object
   const primaryCoach = coaches.find(c => c.id === club.headCoach || c.fullName === club.headCoach);
@@ -27,7 +30,12 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
   });
 
   return (
-    <div className="detail-scrollbar fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div
+      className="detail-scrollbar fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200 my-8">
         
         {/* Header Block */}

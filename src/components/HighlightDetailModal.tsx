@@ -75,7 +75,12 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   };
 
   return (
-    <div className="detail-scrollbar fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div
+      className="detail-scrollbar fixed inset-0 bg-slate-900/70 backdrop-blur-md z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="bg-slate-800 text-white rounded-3xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-600 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header bar */}

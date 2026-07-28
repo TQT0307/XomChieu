@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, Calendar, Eye, Share2, Award } from 'lucide-react';
+import { X, Calendar, Eye } from 'lucide-react';
 import { Article, Category } from '../types';
+import { sanitizeArticleHtml } from '../utils/articleContent';
 
 interface ArticleDetailModalProps {
   article: Article | null;
@@ -12,9 +13,15 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
   if (!article) return null;
 
   const categoryName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
+  const safeArticleContent = sanitizeArticleHtml(article.content);
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      onClick={event => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div className="detail-scrollbar bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
@@ -61,14 +68,10 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
             </span>
           </div>
 
-          {/* Newspaper Layout Content */}
-          <div className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-sm sm:text-base space-y-4 font-sans">
-            {article.content.split('\n\n').map((paragraph, index) => (
-              <p key={index} className="first-letter:text-4xl first-letter:font-black first-letter:text-[#0054A6] first-letter:mr-3 first-letter:float-left first-letter:h-12 first-letter:uppercase">
-                {index === 0 ? paragraph : paragraph}
-              </p>
-            ))}
-          </div>
+          <div
+            className="article-content max-w-none text-slate-700 text-sm sm:text-base font-sans"
+            dangerouslySetInnerHTML={{ __html: safeArticleContent }}
+          />
 
         </div>
 

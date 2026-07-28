@@ -13,6 +13,7 @@ import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
+import { articleContentToPlainText } from '../utils/articleContent';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
 const CoachDetailModal = lazy(() => import('./CoachDetailModal'));
@@ -834,8 +835,8 @@ export default function UserView({
                                 <h3 className="font-bold text-slate-800 text-sm leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
                                   {article.title}
                                 </h3>
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans">
-                                  {article.content}
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans whitespace-pre-wrap break-words [tab-size:4]">
+                                  {articleContentToPlainText(article.content)}
                                 </p>
                               </div>
 
@@ -940,8 +941,8 @@ export default function UserView({
                                   {article.title}
                                 </h3>
                                 
-                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans">
-                                  {article.content}
+                                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed font-sans whitespace-pre-wrap break-words [tab-size:4]">
+                                  {articleContentToPlainText(article.content)}
                                 </p>
                               </div>
 

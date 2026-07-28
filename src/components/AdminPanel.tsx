@@ -11,12 +11,17 @@ import {
   AdminAccount, EditHistory
 } from '../types';
 import AdminItemDetailModal from './AdminItemDetailModal';
+import RichTextEditor from './RichTextEditor';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
 import { externalizeInlineImages } from '../mediaSync';
+import {
+  articleContentToPlainText,
+  normalizeArticleContentForStorage,
+} from '../utils/articleContent';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -1366,6 +1371,11 @@ export default function AdminPanel({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'articles') {
+      const normalizedContent = normalizeArticleContentForStorage(articleForm.content || '');
+      if (!articleContentToPlainText(normalizedContent).trim()) {
+        showToast('Vui lòng nhập nội dung bài viết!', 'error');
+        return;
+      }
       let finalId: string | number = articleForm.id !== undefined ? articleForm.id : '';
       if (typeof finalId === 'string') finalId = finalId.trim();
       
@@ -1391,7 +1401,7 @@ export default function AdminPanel({
         const newArt: Article = {
           id: finalId,
           title: articleForm.title || 'Bài viết mới',
-          content: articleForm.content || '',
+          content: normalizedContent,
           categoryId: articleForm.categoryId || categories[0]?.id || 'TIN_CLB',
           image: articleForm.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80',
           date: articleForm.date || new Date().toISOString().split('T')[0],
@@ -1407,7 +1417,12 @@ export default function AdminPanel({
           showToast('ID bài viết này đã tồn tại!', 'error');
           return;
         }
-        setArticles(prev => prev.map(a => String(a.id) === String(editId) ? { ...a, ...articleForm, id: finalId } as Article : a));
+        setArticles(prev => prev.map(a => String(a.id) === String(editId) ? {
+          ...a,
+          ...articleForm,
+          id: finalId,
+          content: normalizedContent,
+        } as Article : a));
         addLog('Sửa', 'articles', `Đã cập nhật bài viết: "${articleForm.title}" (ID: ${finalId})`);
         showToast('Cập nhật bài viết thành công!', 'success');
       }
@@ -3976,11 +3991,10 @@ export default function AdminPanel({
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nội dung bài viết (Dạng văn bản báo chí)</label>
-                      <textarea 
+                      <RichTextEditor
                         value={articleForm.content || ''}
-                        onChange={e => setArticleForm({ ...articleForm, content: e.target.value })}
-                        rows={8}
-                        className="w-full text-sm border p-2 rounded-lg font-sans" required
+                        onChange={content => setArticleForm(current => ({ ...current, content }))}
+                        placeholder="Nhập nội dung bài báo..."
                       />
                     </div>
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
