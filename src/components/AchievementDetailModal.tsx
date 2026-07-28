@@ -101,7 +101,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
   return (
     <>
     <div
-      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 overflow-hidden"
       id={`modal-achievement-${achievement.id}`}
       onClick={event => {
         if (event.target === event.currentTarget) onClose();
@@ -113,10 +113,10 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
         onClick={onClose}
         aria-label="Đóng cửa sổ chi tiết thành tích"
       />
-      <div className="relative z-10 bg-white text-slate-800 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 flex max-h-[94dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white text-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header Banner */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-950">
+        <div className="relative h-[clamp(220px,42dvh,420px)] w-full flex-shrink-0 overflow-hidden bg-slate-950">
           <DetailHeroImage
             src={achievementImage}
             alt={achievement.title}
@@ -147,7 +147,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
         </div>
 
         {/* Modal Content */}
-        <div className="detail-scrollbar p-6 sm:p-8 max-h-[60vh] overflow-y-auto space-y-6">
+        <div className="detail-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-6 sm:p-8">
           
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
