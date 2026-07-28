@@ -133,6 +133,7 @@ export default function AchievementDetailModal({ achievement, onClose }: Achieve
             alt={achievement.title}
             onClick={() => setIsImageViewerOpen(true)}
             clickTitle="Bấm để xem ảnh thành tích toàn màn hình"
+            foregroundAspectRatio="16:9"
           />
           
           <button 

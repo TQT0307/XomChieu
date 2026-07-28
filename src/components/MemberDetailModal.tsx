@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
 import { Member, Achievement, Club, getBeltStyle, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
+import PersonPhotoLightbox from './PersonPhotoLightbox';
 import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface MemberDetailModalProps {
@@ -10,7 +11,6 @@ interface MemberDetailModalProps {
   clubs: Club[];
   onClose: () => void;
   onSelectAchievement?: (achievement: Achievement) => void;
-  onZoomPhoto?: (url: string) => void;
 }
 
 export default function MemberDetailModal({
@@ -18,9 +18,9 @@ export default function MemberDetailModal({
   achievements,
   clubs,
   onClose,
-  onSelectAchievement,
-  onZoomPhoto
+  onSelectAchievement
 }: MemberDetailModalProps) {
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
   useModalScrollLock(Boolean(member));
 
   if (!member) return null;
@@ -63,6 +63,7 @@ export default function MemberDetailModal({
   };
 
   return (
+    <>
     <div
       className="modal-scroll-lock fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       id={`modal-member-${member.id}`}
@@ -90,14 +91,19 @@ export default function MemberDetailModal({
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Big Avatar with Glow Ring */}
-            <div 
+            <button
+              type="button"
               onClick={() => {
-                if (member.photo && onZoomPhoto) {
-                  onZoomPhoto(member.photo);
+                if (member.photo) {
+                  setIsPhotoViewerOpen(true);
                 }
               }}
-              className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-cyan-400 shadow-xl shadow-blue-950/40 flex-shrink-0 cursor-zoom-in hover:scale-105 active:scale-95 transition-transform"
-              title="Bấm để xem ảnh phóng to"
+              disabled={!member.photo}
+              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-cyan-400 shadow-xl shadow-blue-950/40 flex-shrink-0 transition-transform ${
+                member.photo ? 'cursor-zoom-in hover:scale-105 active:scale-95' : 'cursor-default'
+              }`}
+              title={member.photo ? 'Bấm để xem ảnh chi tiết' : undefined}
+              aria-label={member.photo ? `Xem ảnh chi tiết thành viên ${member.fullName}` : undefined}
             >
               <PersonAvatar
                 src={member.photo}
@@ -105,7 +111,7 @@ export default function MemberDetailModal({
                 className="w-full h-full rounded-full object-cover bg-slate-800"
                 iconClassName="w-12 h-12"
               />
-            </div>
+            </button>
 
             <div className="text-center sm:text-left space-y-2">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -290,5 +296,14 @@ export default function MemberDetailModal({
 
       </div>
     </div>
+    {isPhotoViewerOpen && member.photo && (
+      <PersonPhotoLightbox
+        src={member.photo}
+        alt={member.fullName}
+        personType="Thành viên"
+        onClose={() => setIsPhotoViewerOpen(false)}
+      />
+    )}
+    </>
   );
 }

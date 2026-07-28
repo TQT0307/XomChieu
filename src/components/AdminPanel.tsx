@@ -237,6 +237,7 @@ function ImageInput({
   const [panX, setPanX] = useState<number>(0);
   const [panY, setPanY] = useState<number>(0);
   const [rotation, setRotation] = useState<number>(0);
+  const [isCropMode, setIsCropMode] = useState(false);
 
   // Sync aspect ratio when it changes from parent
   useEffect(() => {
@@ -258,6 +259,7 @@ function ImageInput({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (!isCropMode) return;
     e.preventDefault();
     const startX = e.clientX;
     const startY = e.clientY;
@@ -282,6 +284,7 @@ function ImageInput({
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isCropMode) return;
     if (e.touches.length !== 1) return;
     const startX = e.touches[0].clientX;
     const startY = e.touches[0].clientY;
@@ -318,6 +321,7 @@ function ImageInput({
           setPanX(0);
           setPanY(0);
           setRotation(0);
+          setIsCropMode(false);
         }
       };
       reader.readAsDataURL(file);
@@ -470,6 +474,7 @@ function ImageInput({
                   setPanX(0);
                   setPanY(0);
                   setRotation(0);
+                  setIsCropMode(false);
                 }}
                 className="text-[10px] text-[#0054A6] hover:underline font-bold bg-blue-50 px-2 py-1.5 rounded-lg border border-blue-100 cursor-pointer"
               >
@@ -499,6 +504,7 @@ function ImageInput({
                   setPanX(0);
                   setPanY(0);
                   setRotation(0);
+                  setIsCropMode(false);
                 }}
                 className="text-[10px] text-[#0054A6] hover:underline font-bold bg-blue-50 px-2 py-1.5 rounded-lg border border-blue-100 cursor-pointer"
               >
@@ -533,7 +539,9 @@ function ImageInput({
               {/* Left Side: Live Preview Area */}
               <div className="flex flex-col items-center justify-center space-y-3">
                 <span className="text-[10px] uppercase font-black tracking-widest text-[#FFF200] bg-[#FFF200]/10 border border-[#FFF200]/20 px-2.5 py-1 rounded-full">
-                  KHUNG HIỂN THỊ THỰC TẾ TRÊN WEB (Tỉ lệ {selectedRatio})
+                  {isCropMode
+                    ? `BƯỚC 2: CĂN CHỈNH KHUNG ${selectedRatio}`
+                    : 'BƯỚC 1: XEM TOÀN BỘ ẢNH GỐC'}
                 </span>
                 
                 {/* Visual crop frame wrapper */}
@@ -541,25 +549,33 @@ function ImageInput({
                   <div 
                     onMouseDown={handleMouseDown}
                     onTouchStart={handleTouchStart}
-                    className={`relative overflow-hidden border-2 border-dashed border-[#FFF200]/50 shadow-2xl bg-slate-900 cursor-move select-none ${
+                    className={`relative overflow-hidden border-2 border-dashed border-[#FFF200]/50 shadow-2xl bg-slate-900 select-none ${
+                      isCropMode ? 'cursor-move' : 'cursor-default'
+                    } ${
                       selectedRatio === '16:9' ? 'aspect-video w-full max-w-[400px]' :
                       selectedRatio === '4:3' ? 'aspect-[4/3] w-full max-w-[360px]' :
                       'aspect-square w-full max-w-[280px] rounded-2xl'
                     }`}
-                    title="Kéo thả trực tiếp để di chuyển ảnh vừa khung"
+                    title={isCropMode ? 'Kéo thả trực tiếp để di chuyển ảnh vừa khung' : 'Xem đầy đủ ảnh gốc'}
                   >
                     <img
                       src={rawImage}
                       alt="Crop target"
                       referrerPolicy="no-referrer"
-                      className="absolute max-w-none origin-center pointer-events-none transition-none select-none"
-                      style={{
+                      className={`absolute origin-center pointer-events-none transition-none select-none ${
+                        isCropMode ? 'max-w-none' : 'inset-0 max-h-full max-w-full'
+                      }`}
+                      style={isCropMode ? {
                         top: '50%',
                         left: '50%',
                         transform: `translate(calc(-50% + ${panX}px), calc(-50% + ${panY}px)) scale(${previewGeometry.scale}) rotate(${rotation}deg)`,
                         width: '100%',
                         height: '100%',
                         objectFit: 'cover'
+                      } : {
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain'
                       }}
                     />
                     
@@ -578,15 +594,33 @@ function ImageInput({
                   </div>
                 </div>
                 <p className="text-[10px] text-[#FFF200]/90 italic text-center font-bold">
-                  💡 MẸO: Nhấn giữ và KÉO THẢ chuột/tay trực tiếp lên ảnh để di chuyển vừa khung hình
+                  {isCropMode
+                    ? '💡 MẸO: Nhấn giữ và KÉO THẢ chuột/tay trực tiếp lên ảnh để di chuyển vừa khung hình'
+                    : 'Ảnh đang được hiển thị đầy đủ, chưa cắt mất phần nào.'}
                 </p>
                 <p className="text-[9px] text-slate-500 italic text-center">
-                    Ảnh luôn được khóa phủ kín khung; hệ thống không cho kéo hoặc thu nhỏ tạo khoảng trống
+                  {isCropMode
+                    ? 'Ảnh được khóa phủ kín khung để giao diện người dùng không xuất hiện khoảng trống.'
+                    : 'Sau khi kiểm tra ảnh gốc, bấm “Bắt đầu căn chỉnh” để phóng to và chọn vùng hiển thị phù hợp.'}
                 </p>
               </div>
 
               {/* Right Side: Controllers */}
               <div className="space-y-5 bg-slate-950/40 p-5 rounded-2xl border border-white/5">
+                <div className="rounded-2xl border border-[#FFF200]/20 bg-[#FFF200]/5 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-[#FFF200]">
+                    {isCropMode ? 'Đang căn chỉnh ảnh theo khung đã chọn' : 'Kiểm tra toàn bộ ảnh gốc trước khi cắt'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsCropMode(current => !current)}
+                    className="mt-3 w-full rounded-xl bg-[#0054A6] px-4 py-2.5 text-xs font-black uppercase text-white transition-colors hover:bg-blue-700"
+                  >
+                    {isCropMode ? 'Xem lại toàn bộ ảnh gốc' : 'Bắt đầu căn chỉnh'}
+                  </button>
+                </div>
+
+                <div className={`space-y-5 transition-opacity ${isCropMode ? '' : 'pointer-events-none opacity-35'}`}>
                 {/* Ratio Selection */}
                 <div>
                   <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">1. Chọn tỉ lệ khung hình</span>
@@ -606,7 +640,7 @@ function ImageInput({
                             : 'bg-slate-800 text-slate-300 border-white/5 hover:bg-slate-700'
                         }`}
                       >
-                        {ratio === '16:9' ? '16:9 (Bài viết/CLB)' : ratio === '4:3' ? '4:3 (Thành tích)' : '1:1 (HLV/Môn sinh)'}
+                        {ratio === '16:9' ? '16:9 (Bài viết/CLB/Thành tích)' : ratio === '4:3' ? '4:3 (Ảnh truyền thống)' : '1:1 (HLV/Môn sinh)'}
                       </button>
                     ))}
                   </div>
@@ -740,6 +774,7 @@ function ImageInput({
                     Reset về mặc định
                   </button>
                 </div>
+                </div>
               </div>
             </div>
 
@@ -754,10 +789,17 @@ function ImageInput({
               </button>
               <button
                 type="button"
-                onClick={cropImage}
+                onClick={() => {
+                  if (isCropMode) {
+                    cropImage();
+                  } else {
+                    setIsCropMode(true);
+                  }
+                }}
                 className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-xl font-black cursor-pointer shadow-lg shadow-emerald-900/20 transition-all flex items-center gap-1.5 uppercase"
               >
-                <Check className="w-4 h-4" /> Xác nhận cắt & lưu
+                <Check className="w-4 h-4" />
+                {isCropMode ? 'Xác nhận cắt & lưu' : 'Tiếp tục căn chỉnh'}
               </button>
             </div>
           </div>
@@ -4569,7 +4611,7 @@ export default function AdminPanel({
                           value={achievementForm.image || ''}
                           onChange={val => setAchievementForm({ ...achievementForm, image: val })}
                           id="achievement-image-uploader"
-                          aspectRatio="4:3"
+                          aspectRatio="16:9"
                         />
                       </div>
                       <div>

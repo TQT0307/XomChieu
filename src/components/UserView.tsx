@@ -141,7 +141,6 @@ export default function UserView({
   const [currentBanner, setCurrentBanner] = useState(0);
   const safeCurrentBanner = currentBanner >= banners.length ? 0 : currentBanner;
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
 
   const openMemberDetail = (member: Member) => {
     pushDetailRoute('member', member.id);
@@ -1813,18 +1812,7 @@ export default function UserView({
                   className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                 >
                   <div>
-                    <div 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (m.photo) {
-                          setZoomedPhoto(m.photo);
-                        } else {
-                          openMemberDetail(m);
-                        }
-                      }}
-                      className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
-                      title="Bấm vào ảnh để phóng to chi tiết"
-                    >
+                    <div className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden group-hover:scale-105 group-hover:border-[#FFF200] transition-all duration-300 shadow-md">
                       <PersonAvatar
                         src={m.photo} 
                         alt={m.fullName} 
@@ -1898,18 +1886,7 @@ export default function UserView({
                     className="w-[200px] sm:w-[240px] shrink-0 snap-start bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                   >
                     <div>
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (m.photo) {
-                            setZoomedPhoto(m.photo);
-                          } else {
-                            openMemberDetail(m);
-                          }
-                        }}
-                        className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden hover:scale-110 hover:border-[#FFF200] transition-all duration-300 shadow-md cursor-zoom-in"
-                        title="Bấm vào ảnh để phóng to chi tiết"
-                      >
+                      <div className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden group-hover:scale-105 group-hover:border-[#FFF200] transition-all duration-300 shadow-md">
                         <PersonAvatar
                           src={m.photo} 
                           alt={m.fullName} 
@@ -2197,38 +2174,9 @@ export default function UserView({
           achievements={achievements} 
           clubs={clubs} 
           onClose={closeMemberDetail}
-          onZoomPhoto={(url) => setZoomedPhoto(url)}
         />
       )}
       </Suspense>
-
-      {zoomedPhoto && (
-        <div 
-          className="fixed inset-0 bg-black/95 z-50 flex flex-col items-center justify-center p-4 animate-in fade-in duration-200"
-          onClick={() => setZoomedPhoto(null)}
-        >
-          <button 
-            onClick={() => setZoomedPhoto(null)}
-            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white p-3 rounded-full transition-all border border-white/20 cursor-pointer"
-          >
-            <X className="w-6 h-6" />
-          </button>
-          
-          <div className="max-w-3xl max-h-[80vh] overflow-hidden rounded-2xl border border-white/15 shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
-            <img 
-              src={zoomedPhoto} 
-              alt="Môn sinh" 
-              className="w-full max-h-[75vh] object-contain mx-auto rounded-xl"
-              referrerPolicy="no-referrer"
-            />
-            <div className="absolute bottom-4 left-4 right-4 text-center">
-              <span className="bg-black/70 text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-sm border border-white/10">
-                Chi tiết ảnh môn sinh CLB Vovinam Xóm Chiếu
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

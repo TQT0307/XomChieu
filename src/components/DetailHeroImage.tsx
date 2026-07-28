@@ -5,6 +5,7 @@ interface DetailHeroImageProps {
   alt: string;
   onClick?: () => void;
   clickTitle?: string;
+  foregroundAspectRatio?: 'natural' | '16:9';
 }
 
 /**
@@ -16,8 +17,26 @@ export default function DetailHeroImage({
   src,
   alt,
   onClick,
-  clickTitle
+  clickTitle,
+  foregroundAspectRatio = 'natural'
 }: DetailHeroImageProps) {
+  const foregroundImage = (
+    <img
+      src={src}
+      alt={alt}
+      onClick={onClick}
+      title={clickTitle}
+      className={`h-full w-full ${
+        foregroundAspectRatio === '16:9' ? 'object-cover' : 'object-contain'
+      } ${
+        onClick ? 'cursor-zoom-in transition-transform duration-300 hover:scale-[1.015]' : 'pointer-events-none'
+      }`}
+      referrerPolicy="no-referrer"
+      decoding="async"
+      draggable={false}
+    />
+  );
+
   return (
     <>
       <img
@@ -32,18 +51,17 @@ export default function DetailHeroImage({
         className="pointer-events-none absolute inset-0 bg-slate-950/35"
         aria-hidden="true"
       />
-      <img
-        src={src}
-        alt={alt}
-        onClick={onClick}
-        title={clickTitle}
-        className={`relative h-full w-full object-contain ${
-          onClick ? 'cursor-zoom-in transition-transform duration-300 hover:scale-[1.015]' : 'pointer-events-none'
-        }`}
-        referrerPolicy="no-referrer"
-        decoding="async"
-        draggable={false}
-      />
+      {foregroundAspectRatio === '16:9' ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="relative aspect-video h-full max-h-full max-w-full overflow-hidden">
+            {foregroundImage}
+          </div>
+        </div>
+      ) : (
+        <div className="relative h-full w-full">
+          {foregroundImage}
+        </div>
+      )}
     </>
   );
 }

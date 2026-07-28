@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, MapPin, Award, Star, Quote, Trophy } from 'lucide-react';
 import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
+import PersonPhotoLightbox from './PersonPhotoLightbox';
 import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface CoachDetailModalProps {
@@ -19,6 +20,7 @@ export default function CoachDetailModal({
   onClose,
   onSelectAchievement
 }: CoachDetailModalProps) {
+  const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
   useModalScrollLock(Boolean(coach));
 
   if (!coach) return null;
@@ -83,6 +85,7 @@ export default function CoachDetailModal({
     });
 
   return (
+    <>
     <div
       className="modal-scroll-lock fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4 animate-in fade-in duration-200"
       id={`modal-coach-${coach.id}`}
@@ -110,7 +113,20 @@ export default function CoachDetailModal({
 
           <div className="flex flex-col sm:flex-row items-center gap-6">
             {/* Big Avatar with Glow Ring */}
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-orange-400 shadow-xl shadow-blue-950/40 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (coach.photo) {
+                  setIsPhotoViewerOpen(true);
+                }
+              }}
+              disabled={!coach.photo}
+              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#FFF200] to-orange-400 shadow-xl shadow-blue-950/40 flex-shrink-0 transition-transform ${
+                coach.photo ? 'cursor-zoom-in hover:scale-105 active:scale-95' : 'cursor-default'
+              }`}
+              title={coach.photo ? 'Bấm để xem ảnh chi tiết' : undefined}
+              aria-label={coach.photo ? `Xem ảnh chi tiết huấn luyện viên ${coach.fullName}` : undefined}
+            >
               <div className="w-full h-full rounded-full overflow-hidden bg-slate-800">
                 <PersonAvatar
                   src={coach.photo}
@@ -119,7 +135,7 @@ export default function CoachDetailModal({
                   iconClassName="w-12 h-12"
                 />
               </div>
-            </div>
+            </button>
 
             <div className="text-center sm:text-left space-y-2">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
@@ -316,5 +332,14 @@ export default function CoachDetailModal({
 
       </div>
     </div>
+    {isPhotoViewerOpen && coach.photo && (
+      <PersonPhotoLightbox
+        src={coach.photo}
+        alt={coach.fullName}
+        personType="Huấn luyện viên"
+        onClose={() => setIsPhotoViewerOpen(false)}
+      />
+    )}
+    </>
   );
 }
