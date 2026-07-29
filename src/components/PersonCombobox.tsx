@@ -93,6 +93,24 @@ export default function PersonCombobox({
           ))}
         </div>
       )}
+      {multiple && selectedPeople.length > 0 && (
+        <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {selectedPeople.map(person => (
+            <div key={`confirmed-${person.profileType}-${person.id}`} className="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[9px] font-black text-emerald-700">
+                {person.photo ? (
+                  <img src={person.photo} alt="" className="h-full w-full object-cover" loading="eager" decoding="async" fetchPriority="high" />
+                ) : person.profileType === 'coach' ? 'HLV' : 'TV'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-emerald-900">{person.fullName}</p>
+                <p className="truncate text-[10px] text-emerald-700">{person.profileType === 'coach' ? 'Huấn luyện viên' : 'Thành viên'} · ID {person.id}{person.rank ? ` · ${person.rank}` : ''}</p>
+              </div>
+              <Check className="h-4 w-4 shrink-0 text-emerald-600" />
+            </div>
+          ))}
+        </div>
+      )}
       <div className={`flex items-center rounded-xl border bg-white transition ${isOpen ? 'border-[#0054A6] ring-2 ring-[#0054A6]/15' : 'border-slate-300 hover:border-[#0054A6]/50'}`}>
         <Search className="ml-3 h-4 w-4 shrink-0 text-slate-400" />
         <input
@@ -126,7 +144,7 @@ export default function PersonCombobox({
       {!multiple && selectedPeople[0] && !query && (
         <div className="mt-2 flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-emerald-100 text-[10px] font-black text-emerald-700">
-            {selectedPeople[0].photo ? <img src={selectedPeople[0].photo} alt="" className="h-full w-full object-cover" /> : selectedPeople[0].profileType === 'coach' ? 'HLV' : 'TV'}
+            {selectedPeople[0].photo ? <img src={selectedPeople[0].photo} alt="" className="h-full w-full object-cover" loading="eager" decoding="async" fetchPriority="high" /> : selectedPeople[0].profileType === 'coach' ? 'HLV' : 'TV'}
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-emerald-900">{selectedPeople[0].fullName}</p>
@@ -154,7 +172,7 @@ export default function PersonCombobox({
                   className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition ${selected ? 'bg-blue-50 text-[#0054A6]' : 'hover:bg-slate-50'}`}
                 >
                   <span className={`flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-[9px] font-black ${person.profileType === 'coach' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                    {person.photo ? <img src={person.photo} alt="" className="h-full w-full object-cover" loading="lazy" /> : person.profileType === 'coach' ? 'HLV' : 'TV'}
+                    {person.photo ? <img src={person.photo} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" /> : person.profileType === 'coach' ? 'HLV' : 'TV'}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-bold text-slate-800">{person.fullName}</span>

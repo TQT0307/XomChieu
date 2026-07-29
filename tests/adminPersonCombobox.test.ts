@@ -17,3 +17,8 @@ test('person menu is bounded and does not render the entire database at once', (
   assert.match(comboboxSource, /max-h-64 overflow-y-auto/);
   assert.match(comboboxSource, /removeEventListener\('pointerdown'/);
 });
+test('multi-select achievements render full confirmation cards', () => {
+  assert.match(comboboxSource, /confirmed-\$\{person\.profileType\}/);
+  assert.match(comboboxSource, /border-emerald-100 bg-emerald-50/);
+  assert.match(comboboxSource, /Huấn luyện viên.*Thành viên/s);
+});

@@ -39,6 +39,45 @@ const app = express();
 const PORT = 3000;
 const MEDIA_COLLECTION = "vovinam_media";
 const MAX_STORED_IMAGE_BYTES = 650 * 1024;
+const MEDIA_MEMORY_CACHE_MAX_BYTES = 24 * 1024 * 1024;
+type CachedMedia = { buffer: Buffer; contentType: string };
+const mediaMemoryCache = new Map<string, CachedMedia>();
+let mediaMemoryCacheBytes = 0;
+
+function getCachedMedia(id: string): CachedMedia | undefined {
+  const cached = mediaMemoryCache.get(id);
+  if (!cached) return undefined;
+  // Refresh insertion order so the bounded Map behaves as a small LRU cache.
+  mediaMemoryCache.delete(id);
+  mediaMemoryCache.set(id, cached);
+  return cached;
+}
+
+function cacheMedia(id: string, buffer: Buffer, contentType: string) {
+  const existing = mediaMemoryCache.get(id);
+  if (existing) mediaMemoryCacheBytes -= existing.buffer.length;
+  mediaMemoryCache.delete(id);
+  mediaMemoryCache.set(id, { buffer, contentType });
+  mediaMemoryCacheBytes += buffer.length;
+
+  while (mediaMemoryCacheBytes > MEDIA_MEMORY_CACHE_MAX_BYTES && mediaMemoryCache.size > 1) {
+    const oldestId = mediaMemoryCache.keys().next().value as string | undefined;
+    if (!oldestId) break;
+    const oldest = mediaMemoryCache.get(oldestId);
+    mediaMemoryCache.delete(oldestId);
+    mediaMemoryCacheBytes -= oldest?.buffer.length || 0;
+  }
+}
+
+function sendMediaResponse(res: express.Response, media: CachedMedia) {
+  res.setHeader("Content-Type", media.contentType);
+  res.setHeader("Content-Length", String(media.buffer.length));
+  res.setHeader("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
+  res.setHeader("Vary", "Accept-Encoding");
+  res.removeHeader("Pragma");
+  res.removeHeader("Expires");
+  return res.send(media.buffer);
+}
 const FIREBASE_BACKUP_SLOT_COUNT = 5;
 const AUTO_BACKUP_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const ADMIN_SESSION_COOKIE = "vovinam_admin_session";
@@ -2808,6 +2847,7 @@ app.post("/api/media/image", requireSameOrigin, requireAdminSession, async (req,
       "Firebase image upload timed out"
     );
 
+    cacheMedia(id, imageBuffer, detectedContentType);
     res.status(201).json({
       success: true,
       id,
@@ -2831,6 +2871,9 @@ app.get("/api/media/image/:id", async (req, res) => {
       return res.status(400).json({ error: "Mã ảnh không hợp lệ." });
     }
 
+    const cached = getCachedMedia(id);
+    if (cached) return sendMediaResponse(res, cached);
+
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
       return res.status(503).json({ error: "Firebase Firestore chưa sẵn sàng." });
@@ -2852,12 +2895,8 @@ app.get("/api/media/image/:id", async (req, res) => {
       return res.status(500).json({ error: "Dữ liệu ảnh lưu trên Firebase không hợp lệ." });
     }
 
-    res.setHeader("Content-Type", contentType);
-    res.setHeader("Content-Length", String(imageBuffer.length));
-    res.setHeader("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
-    res.removeHeader("Pragma");
-    res.removeHeader("Expires");
-    res.send(imageBuffer);
+    cacheMedia(id, imageBuffer, contentType);
+    return sendMediaResponse(res, { buffer: imageBuffer, contentType });
   } catch (err: any) {
     console.error("[media/image GET]", err);
     res.status(500).json({

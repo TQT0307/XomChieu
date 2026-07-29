@@ -97,7 +97,7 @@ export default function AdminItemDetailModal({
             <div className="space-y-4">
               {item.image && (
                 <div className="h-48 sm:h-64 rounded-2xl overflow-hidden border bg-slate-100">
-                  <img src={item.image} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={item.image} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               )}
               <div>
@@ -179,7 +179,7 @@ export default function AdminItemDetailModal({
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-6 items-center bg-slate-50 p-5 rounded-2xl border border-slate-100">
                 <div className="w-24 h-24 rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-md flex-shrink-0">
-                  <img src={item.photo} alt={item.fullName} className="w-full h-full object-cover rounded-full bg-white" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={item.photo} alt={item.fullName} className="w-full h-full object-cover rounded-full bg-white" referrerPolicy="no-referrer" />
                 </div>
                 <div className="text-center sm:text-left space-y-1">
                   <span className="text-[9px] bg-[#0054A6] text-[#FFF200] px-2.5 py-1 rounded-md font-black tracking-widest uppercase">
@@ -221,7 +221,7 @@ export default function AdminItemDetailModal({
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-6 items-center bg-slate-50 p-5 rounded-2xl border border-slate-100">
                 <div className="w-24 h-24 rounded-full overflow-hidden p-1 bg-slate-250 flex-shrink-0 border">
-                  <img src={item.photo} alt={item.fullName} className="w-full h-full object-cover rounded-full bg-white" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={item.photo} alt={item.fullName} className="w-full h-full object-cover rounded-full bg-white" referrerPolicy="no-referrer" />
                 </div>
                 <div className="text-center sm:text-left space-y-1">
                   <span className="text-[9px] bg-emerald-600 text-white px-2.5 py-1 rounded-md font-black tracking-widest uppercase">
@@ -326,7 +326,7 @@ export default function AdminItemDetailModal({
                   <div className="grid grid-cols-2 gap-2">
                     {members.filter(m => item.memberIds?.includes(m.id)).map(m => (
                       <div key={m.id} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border text-xs">
-                        <img src={m.photo} alt={m.fullName} className="w-8 h-8 rounded-full object-cover bg-white border" referrerPolicy="no-referrer" />
+                        <img loading="lazy" decoding="async" src={m.photo} alt={m.fullName} className="w-8 h-8 rounded-full object-cover bg-white border" referrerPolicy="no-referrer" />
                         <div className="min-w-0 flex-1">
                           <h5 className="font-bold text-slate-800 truncate">{m.fullName}</h5>
                           <p className="text-[9px] text-slate-400 truncate">{m.rank} • ID: {m.id}</p>
@@ -341,7 +341,7 @@ export default function AdminItemDetailModal({
                 <div className="space-y-1.5 pt-2">
                   <span className="block text-slate-400 font-bold uppercase text-[10px] tracking-wider">Hình ảnh chứng nhận</span>
                   <div className="h-44 rounded-xl overflow-hidden border">
-                    <img src={item.image} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <img loading="lazy" decoding="async" src={item.image} alt={item.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                 </div>
               )}
@@ -353,7 +353,7 @@ export default function AdminItemDetailModal({
             <div className="space-y-4">
               {item.image && (
                 <div className="h-48 sm:h-64 rounded-2xl overflow-hidden border bg-slate-100">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               )}
               
@@ -389,7 +389,7 @@ export default function AdminItemDetailModal({
             <div className="space-y-4">
               {item.image && (
                 <div className="h-48 sm:h-64 rounded-2xl overflow-hidden border bg-slate-100">
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
               )}
               
@@ -433,7 +433,7 @@ export default function AdminItemDetailModal({
             <div className="space-y-4">
               {item.thumbnail && (
                 <div className="h-48 sm:h-64 rounded-2xl overflow-hidden border bg-slate-900 relative">
-                  <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover opacity-80" referrerPolicy="no-referrer" />
+                  <img loading="lazy" decoding="async" src={item.thumbnail} alt={item.title} className="w-full h-full object-cover opacity-80" referrerPolicy="no-referrer" />
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     {item.mediaType === 'video' && (
                       <div className="w-14 h-14 bg-[#FFF200] text-slate-950 rounded-full flex items-center justify-center pl-1 shadow-lg">

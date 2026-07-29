@@ -566,7 +566,7 @@ function ImageInput({
           />
           {value && (
             <div className="flex items-center gap-1.5">
-              <img src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0" referrerPolicy="no-referrer" />
+              <img loading="lazy" decoding="async" src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0" referrerPolicy="no-referrer" />
               <button
                 type="button"
                 onClick={() => {
@@ -596,7 +596,7 @@ function ImageInput({
           />
           {value && (
             <div className="flex items-center gap-1.5">
-              <img src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0 text-xs" referrerPolicy="no-referrer" />
+              <img loading="lazy" decoding="async" src={value} alt="Preview" className="w-10 h-10 object-cover rounded-lg border flex-shrink-0 text-xs" referrerPolicy="no-referrer" />
               <button
                 type="button"
                 onClick={() => {
@@ -5389,7 +5389,7 @@ export default function AdminPanel({
                                 className="w-4 h-4 text-[#0054A6] rounded focus:ring-[#0054A6]"
                               />
                               {coach.photo ? (
-                                <img src={coach.photo} alt={coach.fullName} className="w-8 h-8 rounded-full object-cover border" referrerPolicy="no-referrer" />
+                                <img loading="lazy" decoding="async" src={coach.photo} alt={coach.fullName} className="w-8 h-8 rounded-full object-cover border" referrerPolicy="no-referrer" />
                               ) : (
                                 <div className="w-8 h-8 rounded-full bg-[#0054A6]/10 text-[#0054A6] font-bold text-xs flex items-center justify-center border">
                                   VS
@@ -5659,7 +5659,7 @@ export default function AdminPanel({
                                   ) : (
                                     <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1.5">
                                       <span>🖼️ Xem trước ảnh:</span>
-                                      <img src={url} alt="Preview" className="w-12 h-12 object-cover rounded border bg-slate-50" referrerPolicy="no-referrer" />
+                                      <img loading="lazy" decoding="async" src={url} alt="Preview" className="w-12 h-12 object-cover rounded border bg-slate-50" referrerPolicy="no-referrer" />
                                     </div>
                                   )}
                                 </div>
