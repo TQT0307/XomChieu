@@ -227,7 +227,7 @@ export default function Header({
         <div 
           onClick={handleLogoClick}
           className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none active:scale-95 transition-transform"
-          title="CLB Vovinam Xóm Chiếu"
+          title="Vovinam Xóm Chiếu"
         >
           <div className="w-12 h-12 md:w-14 md:h-14 bg-[#0054A6] rounded-full flex items-center justify-center flex-shrink-0 p-[1px] ring-2 ring-[#FFF200] shadow-md hover:rotate-6 transition-transform duration-300">
             {webConfig.logo && !logoLoadFailed ? (
