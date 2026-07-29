@@ -20,6 +20,7 @@ import {
   getLatestNewsExpiryMs,
   isArticleInLatestNews
 } from '../utils/latestNews';
+import { matchesSmartSearch } from '../utils/smartSearch';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
 
@@ -373,30 +374,84 @@ export default function UserView({
   
   const [searchCoachQuery, setSearchCoachQuery] = useState<string>('');
   const [searchMemberQuery, setSearchMemberQuery] = useState<string>('');
+  const clubById = useMemo(
+    () => new Map(clubs.map(item => [item.id, item])),
+    [clubs]
+  );
+  const tournamentById = useMemo(
+    () => new Map(tournaments.map(item => [item.id, item])),
+    [tournaments]
+  );
+  const memberById = useMemo(
+    () => new Map(members.map(item => [item.id, item])),
+    [members]
+  );
+  const coachById = useMemo(
+    () => new Map(coaches.map(item => [item.id, item])),
+    [coaches]
+  );
+  const achievementsByPersonId = useMemo(() => {
+    const index = new Map<string, Achievement[]>();
+    achievements.forEach(achievement => {
+      (achievement.memberIds || []).forEach(personId => {
+        const current = index.get(personId) || [];
+        current.push(achievement);
+        index.set(personId, current);
+      });
+    });
+    return index;
+  }, [achievements]);
 
   const visibleCoaches = useMemo(() => coaches.filter(c => {
     if (c.status === false) return false;
-    const q = searchCoachQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      c.id.toLowerCase().includes(q) ||
-      c.fullName.toLowerCase().includes(q) ||
-      (c.rank && c.rank.toLowerCase().includes(q)) ||
-      (c.experience && c.experience.toLowerCase().includes(q)) ||
-      (c.birthYear && String(c.birthYear).includes(q))
+    const club = clubById.get(c.clubId);
+    const relatedAchievements = achievementsByPersonId.get(c.id) || [];
+    return matchesSmartSearch(
+      searchCoachQuery,
+      c.id,
+      c.fullName,
+      c.rank,
+      c.experience,
+      c.birthYear,
+      c.clubId,
+      club?.name,
+      club?.address,
+      relatedAchievements.map(item => [
+        item.id,
+        item.title,
+        item.medalType,
+        item.date,
+        item.year,
+        item.tournamentId,
+        item.tournamentName
+      ])
     );
-  }), [coaches, searchCoachQuery]);
+  }), [achievementsByPersonId, clubById, coaches, searchCoachQuery]);
 
   const visibleMembers = useMemo(() => members
     .filter(m => {
       if (m.status === false) return false;
-      const q = searchMemberQuery.toLowerCase().trim();
-      if (!q) return true;
-      return (
-        m.id.toLowerCase().includes(q) ||
-        m.fullName.toLowerCase().includes(q) ||
-        (m.rank && m.rank.toLowerCase().includes(q)) ||
-        (m.birthYear && String(m.birthYear).includes(q))
+      const club = clubById.get(m.clubId);
+      const relatedAchievements = achievementsByPersonId.get(m.id) || [];
+      return matchesSmartSearch(
+        searchMemberQuery,
+        m.id,
+        m.displayOrder,
+        m.fullName,
+        m.rank,
+        m.birthYear,
+        m.clubId,
+        club?.name,
+        club?.address,
+        relatedAchievements.map(item => [
+          item.id,
+          item.title,
+          item.medalType,
+          item.date,
+          item.year,
+          item.tournamentId,
+          item.tournamentName
+        ])
       );
     })
     .sort((a, b) => {
@@ -405,7 +460,7 @@ export default function UserView({
       return orderDifference !== 0
         ? orderDifference
         : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
-    }), [members, searchMemberQuery]);
+    }), [achievementsByPersonId, clubById, members, searchMemberQuery]);
   
   const [tournamentStatusFilter, setTournamentStatusFilter] = useState<string>('all');
   const visibleTournaments = useMemo(() => tournaments
@@ -416,12 +471,8 @@ export default function UserView({
     .sort(compareTournamentsByStatus), [tournamentStatusFilter, tournaments]);
 
   // Filter state for achievements section
-  const [selectedTournamentFilter, setSelectedTournamentFilter] = useState<string>('');
-  const [selectedYearFilter, setSelectedYearFilter] = useState<string>('');
   const [searchAchievementQuery, setSearchAchievementQuery] = useState<string>('');
-  const [searchAthleteQuery, setSearchAthleteQuery] = useState<string>(''); // For filtering by athlete name (e.g., "Thiện")
   const [searchHighlightQuery, setSearchHighlightQuery] = useState<string>('');
-  const [selectedHighlightTournament, setSelectedHighlightTournament] = useState<string>('');
   const [showAllCoaches, setShowAllCoaches] = useState<boolean>(false);
   const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
 
@@ -436,42 +487,6 @@ export default function UserView({
     return '';
   };
 
-  const uniqueYears = useMemo(() => Array.from(
-    new Set(
-      achievements
-        .map(a => getYearFromAchievement(a))
-        .filter(Boolean)
-    )
-  ).sort((a, b) => b.localeCompare(a)), [achievements]);
-
-  const uniqueTournaments = useMemo(() => Array.from(
-    new Set(
-      achievements
-        .map(a => {
-          if (a.tournamentName) return a.tournamentName;
-          if (a.tournamentId) {
-            const tour = tournaments.find(t => t.id === a.tournamentId);
-            if (tour) return tour.name;
-          }
-          return '';
-        })
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b)), [achievements, tournaments]);
-
-  const highlightTournamentOptions = useMemo(() => Array.from(
-    new Set(
-      [
-        ...achievements.map(achievement => achievement.tournamentName?.trim() ||
-          (achievement.tournamentId ? tournaments.find(t => t.id === achievement.tournamentId)?.name?.trim() : '')),
-        ...tournaments.map(tournament => tournament.name?.trim()),
-        ...highlights.map(highlight => highlight.tournamentName?.trim() ||
-          (highlight.tournamentId ? tournaments.find(t => t.id === highlight.tournamentId)?.name?.trim() : ''))
-      ]
-        .filter((name): name is string => Boolean(name))
-    )
-  ).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
-
   // Use the achievement image consistently in both the card and detail modal.
   // Mixing profile photos here with achievement photos in the modal made one
   // record appear to have two different images.
@@ -481,59 +496,58 @@ export default function UserView({
 
   const visibleAchievements = useMemo(() => achievements.filter(a => {
     if (a.status === false) return false;
-    
-    // Search query match (achievement title or unit)
-    if (searchAchievementQuery.trim()) {
-      const q = searchAchievementQuery.toLowerCase();
-      const titleMatch = a.title.toLowerCase().includes(q);
-      const unitMatch = a.unit && a.unit.toLowerCase().includes(q);
-      if (!titleMatch && !unitMatch) return false;
-    }
+    const tournament = a.tournamentId ? tournamentById.get(a.tournamentId) : undefined;
+    const linkedPeople = (a.memberIds || []).flatMap(id => {
+      const member = memberById.get(id);
+      const coach = coachById.get(id);
+      return [id, member?.fullName, coach?.fullName];
+    });
 
-    // Search by athlete name ("ví dụ thiện, không nhất thiết họ và tên")
-    if (searchAthleteQuery.trim()) {
-      const q = searchAthleteQuery.toLowerCase();
-      const athleteMatch = a.athleteName && a.athleteName.toLowerCase().includes(q);
-      if (!athleteMatch) return false;
-    }
-    
-    // Tournament match ("theo giải (dựa vào tên giải đấu bên admin tạo)")
-    if (selectedTournamentFilter) {
-      const tName = a.tournamentName || (a.tournamentId ? tournaments.find(t => t.id === a.tournamentId)?.name : '');
-      if (!tName || tName !== selectedTournamentFilter) return false;
-    }
-    
-    // Year match ("theo năm (dựa vào ngày tháng năm bên admin chọn)")
-    if (selectedYearFilter) {
-      const aYear = getYearFromAchievement(a);
-      if (aYear !== selectedYearFilter) return false;
-    }
-    
-    return true;
+    return matchesSmartSearch(
+      searchAchievementQuery,
+      a.id,
+      a.title,
+      a.athleteName,
+      a.memberIds,
+      linkedPeople,
+      a.unit,
+      a.medalType,
+      a.date,
+      getYearFromAchievement(a),
+      a.tournamentId,
+      a.tournamentName,
+      tournament?.name,
+      tournament?.location,
+      a.meaning,
+      a.journey,
+      a.honorTitle,
+      a.honorQuote,
+      a.honorAttribution
+    );
   }), [
     achievements,
+    coachById,
+    memberById,
     searchAchievementQuery,
-    searchAthleteQuery,
-    selectedTournamentFilter,
-    selectedYearFilter,
-    tournaments
+    tournamentById
   ]);
   const visibleHighlights = useMemo(() => highlights.filter(h => {
     if (h.status === false) return false;
-    if (selectedHighlightTournament) {
-      const linkedTournamentName = h.tournamentName ||
-        (h.tournamentId ? tournaments.find(t => t.id === h.tournamentId)?.name : '');
-      if (!linkedTournamentName?.toLowerCase().includes(selectedHighlightTournament.trim().toLowerCase())) return false;
-    }
-    if (searchHighlightQuery.trim()) {
-      const q = searchHighlightQuery.toLowerCase();
-      const titleMatch = h.title.toLowerCase().includes(q);
-      const athleteMatch = h.athleteName.toLowerCase().includes(q);
-      const tournamentMatch = (h.tournamentName || '').toLowerCase().includes(q);
-      return titleMatch || athleteMatch || tournamentMatch;
-    }
-    return true;
-  }), [highlights, searchHighlightQuery, selectedHighlightTournament, tournaments]);
+    const tournament = h.tournamentId ? tournamentById.get(h.tournamentId) : undefined;
+    return matchesSmartSearch(
+      searchHighlightQuery,
+      h.id,
+      h.title,
+      h.athleteName,
+      h.mediaType,
+      h.tournamentId,
+      h.tournamentName,
+      tournament?.name,
+      tournament?.date,
+      tournament?.location,
+      h.mediaNotes
+    );
+  }), [highlights, searchHighlightQuery, tournamentById]);
   const visibleClubs = clubs;
 
   const configHeight = webConfig.bannerHeight || 'medium';
@@ -1234,17 +1248,18 @@ export default function UserView({
           </p>
         </div>
 
-        {/* Search input for Highlights */}
-        <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* One smart search field for all Highlight information */}
+        <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0">
           <div className="relative group/search flex items-center bg-slate-900 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all duration-300 shadow-xl shadow-slate-950/40">
             <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#FFF200] transition-colors" />
             </span>
             <input
               type="text"
-              placeholder="Tìm theo tên VĐV, giải đấu hoặc tiêu đề..."
+              placeholder="Tìm thông minh: tên VĐV, tên giải, năm, tiêu đề, ghi chú..."
               value={searchHighlightQuery}
               onChange={(e) => setSearchHighlightQuery(e.target.value)}
+              aria-label="Tìm kiếm thông minh trong Highlights"
               className="w-full text-xs sm:text-sm pl-11 pr-16 py-3.5 bg-transparent text-slate-100 rounded-2xl outline-none transition-all placeholder:text-slate-500"
             />
             
@@ -1264,34 +1279,9 @@ export default function UserView({
               </span>
             </div>
           </div>
-          <div className="relative group/tournament-search">
-            <input
-              type="text"
-              list="highlight-achievement-tournament-names"
-              value={selectedHighlightTournament}
-              onChange={(e) => setSelectedHighlightTournament(e.target.value)}
-              placeholder={`Chọn hoặc nhập tên giải (${highlightTournamentOptions.length} gợi ý)`}
-              className="w-full h-full min-h-12 text-xs sm:text-sm pl-4 pr-10 py-3.5 bg-slate-900 text-slate-100 border border-slate-800 hover:border-slate-700 focus:border-[#FFF200] focus:ring-4 focus:ring-[#FFF200]/10 rounded-2xl outline-none transition-all shadow-xl shadow-slate-950/40"
-              aria-label="Lọc Highlights theo giải đấu"
-            />
-            <datalist id="highlight-achievement-tournament-names">
-              {highlightTournamentOptions.map(name => <option key={name} value={name} />)}
-            </datalist>
-            {selectedHighlightTournament && (
-              <button
-                type="button"
-                onClick={() => setSelectedHighlightTournament('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
-                title="Xóa lọc giải đấu"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-          {(searchHighlightQuery || selectedHighlightTournament) && (
-            <p className="sm:col-span-2 text-center text-[10px] text-slate-500 mt-1">
-              Đang hiển thị {visibleHighlights.length} highlight
-              {selectedHighlightTournament ? ` khớp tên giải “${selectedHighlightTournament}”` : ''}
+          {searchHighlightQuery && (
+            <p className="text-center text-[10px] text-slate-500 mt-2">
+              Tìm thấy <strong className="text-[#FFF200]">{visibleHighlights.length}</strong> highlight phù hợp với các từ khóa đã nhập
             </p>
           )}
         </div>
@@ -1383,83 +1373,43 @@ export default function UserView({
             </p>
           </div>
 
-          {/* Interactive filter and search controls */}
-          <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-3xl shadow-2xl mb-10 max-w-5xl mx-auto backdrop-blur-md relative z-20">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Search by Athlete Name */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-[#FFF200]">Tìm theo tên môn sinh</label>
-                <input 
-                  type="text" 
-                  value={searchAthleteQuery}
-                  onChange={e => setSearchAthleteQuery(e.target.value)}
-                  placeholder="Ví dụ: thiện, hải..."
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white outline-none focus:border-[#FFF200] placeholder-slate-600 transition-all font-semibold"
-                />
-              </div>
-
-              {/* Search Input (general query) */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Tìm tên thành tích</label>
-                <input 
-                  type="text" 
-                  value={searchAchievementQuery}
-                  onChange={e => setSearchAchievementQuery(e.target.value)}
-                  placeholder="Nhập tên thành tích, đơn vị..."
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white outline-none focus:border-[#FFF200] placeholder-slate-600 transition-all font-semibold"
-                />
-              </div>
-
-              {/* Tournament Filter */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Lọc theo Giải đấu</label>
-                <select 
-                  value={selectedTournamentFilter}
-                  onChange={e => setSelectedTournamentFilter(e.target.value)}
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white outline-none focus:border-[#FFF200] font-semibold"
-                >
-                  <option value="">Tất cả giải đấu ({uniqueTournaments.length})</option>
-                  {uniqueTournaments.map((name, idx) => (
-                    <option key={idx} value={name}>{name}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Year Filter */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400">Lọc theo Năm</label>
-                <select 
-                  value={selectedYearFilter}
-                  onChange={e => setSelectedYearFilter(e.target.value)}
-                  className="w-full text-xs bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white outline-none focus:border-[#FFF200] font-semibold"
-                >
-                  <option value="">Tất cả các năm ({uniqueYears.length})</option>
-                  {uniqueYears.map(y => (
-                    <option key={y} value={y}>Năm {y}</option>
-                  ))}
-                </select>
+          {/* One smart search field replaces four separate filters */}
+          <div className="bg-slate-900/80 border border-slate-800 p-4 sm:p-5 rounded-3xl shadow-2xl mb-10 max-w-4xl mx-auto backdrop-blur-md relative z-20">
+            <label htmlFor="achievement-smart-search" className="block text-[10px] font-black uppercase tracking-wider text-[#FFF200] mb-2">
+              Tìm kiếm thông minh
+            </label>
+            <div className="relative group/search flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all">
+              <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="w-4 h-4 text-slate-500 group-focus-within/search:text-[#FFF200] transition-colors" />
+              </span>
+              <input
+                id="achievement-smart-search"
+                type="text"
+                value={searchAchievementQuery}
+                onChange={event => setSearchAchievementQuery(event.target.value)}
+                placeholder="Nhập điều bạn nhớ: 2026, tên VĐV, ID, huy chương, tên giải, đơn vị..."
+                className="w-full text-xs sm:text-sm bg-transparent rounded-2xl pl-11 pr-20 py-3.5 text-white outline-none placeholder-slate-600 font-semibold"
+              />
+              <div className="absolute right-3 flex items-center gap-1.5">
+                {searchAchievementQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchAchievementQuery('')}
+                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
+                    title="Xóa tìm kiếm"
+                    aria-label="Xóa tìm kiếm thành tích"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <span className="min-w-7 text-center text-[10px] font-black text-[#FFF200] bg-slate-900 px-2 py-1 rounded-md border border-slate-800">
+                  {visibleAchievements.length}
+                </span>
               </div>
             </div>
-
-            {/* Clear Filters Indicator */}
-            {(searchAchievementQuery || searchAthleteQuery || selectedTournamentFilter || selectedYearFilter) && (
-              <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-800/80 text-[10px]">
-                <p className="text-slate-400 font-medium">
-                  Đang lọc hiển thị: <strong className="text-[#FFF200]">{visibleAchievements.length}</strong> kết quả phù hợp.
-                </p>
-                <button 
-                  onClick={() => {
-                    setSearchAchievementQuery('');
-                    setSearchAthleteQuery('');
-                    setSelectedTournamentFilter('');
-                    setSelectedYearFilter('');
-                  }}
-                  className="text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider transition-colors cursor-pointer"
-                >
-                  Thiết lập lại (Xóa bộ lọc)
-                </button>
-              </div>
-            )}
+            <p className="text-[10px] text-slate-500 mt-2">
+              Không phân biệt chữ hoa, chữ thường hoặc dấu tiếng Việt. Có thể nhập nhiều từ khóa cùng lúc.
+            </p>
           </div>
 
           {visibleAchievements.length === 0 ? (
@@ -1467,15 +1417,10 @@ export default function UserView({
               <span className="text-4xl">🔍</span>
               <p className="text-sm font-bold text-slate-400 mt-3">Không tìm thấy thành tích nào phù hợp với bộ lọc!</p>
               <button 
-                onClick={() => {
-                  setSearchAchievementQuery('');
-                  setSearchAthleteQuery('');
-                  setSelectedTournamentFilter('');
-                  setSelectedYearFilter('');
-                }}
+                onClick={() => setSearchAchievementQuery('')}
                 className="mt-4 text-xs font-black text-[#FFF200] uppercase tracking-wider border border-[#FFF200]/30 px-4 py-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
               >
-                Xóa các bộ lọc tìm kiếm
+                Xóa tìm kiếm
               </button>
             </div>
           ) : (
@@ -1594,7 +1539,7 @@ export default function UserView({
             </span>
             <input
               type="text"
-              placeholder="Nhập ID, Họ tên, Đai hoặc Năm sinh võ sư..."
+              placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
               value={searchCoachQuery}
               onChange={(e) => setSearchCoachQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-3 bg-transparent text-slate-800 text-xs sm:text-sm outline-none font-medium placeholder:text-slate-400"
@@ -1810,7 +1755,7 @@ export default function UserView({
             </span>
             <input
               type="text"
-              placeholder="Nhập ID, Họ tên, Đai hoặc Năm sinh môn sinh..."
+              placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
               value={searchMemberQuery}
               onChange={(e) => setSearchMemberQuery(e.target.value)}
               className="w-full pl-10 pr-10 py-3 bg-transparent text-slate-800 text-xs sm:text-sm outline-none font-medium placeholder:text-slate-400"

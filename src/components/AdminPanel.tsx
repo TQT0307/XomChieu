@@ -33,6 +33,7 @@ import {
   MIN_LATEST_NEWS_DAYS,
   normalizeLatestNewsDays
 } from '../utils/latestNews';
+import { matchesSmartSearch } from '../utils/smartSearch';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -1095,7 +1096,6 @@ export default function AdminPanel({
   // Tab & Filter states
   const [activeTab, setActiveTab] = useState<AdminTab>('articles');
   const [searchQuery, setSearchQuery] = useState('');
-  const [alphabetFilter, setAlphabetFilter] = useState<string>('');
 
   // Editing & adding states
   const [isEditing, setIsEditing] = useState(false);
@@ -2266,22 +2266,68 @@ export default function AdminPanel({
     }
   };
 
-  // Alphabetic lookup for Articles
-  const alphabet = 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z'.split(' ');
+  // Small in-memory indexes keep smart searching responsive as data grows.
+  const categoryById = useMemo(
+    () => new Map(categories.map(item => [item.id, item])),
+    [categories]
+  );
+  const clubById = useMemo(
+    () => new Map(clubs.map(item => [item.id, item])),
+    [clubs]
+  );
+  const tournamentById = useMemo(
+    () => new Map(tournaments.map(item => [item.id, item])),
+    [tournaments]
+  );
+  const memberById = useMemo(
+    () => new Map(members.map(item => [item.id, item])),
+    [members]
+  );
+  const coachById = useMemo(
+    () => new Map(coaches.map(item => [item.id, item])),
+    [coaches]
+  );
+  const achievementsByPersonId = useMemo(() => {
+    const index = new Map<string, Achievement[]>();
+    achievements.forEach(achievement => {
+      (achievement.memberIds || []).forEach(personId => {
+        const current = index.get(personId) || [];
+        current.push(achievement);
+        index.set(personId, current);
+      });
+    });
+    return index;
+  }, [achievements]);
+  const coachesByClubId = useMemo(() => {
+    const index = new Map<string, Coach[]>();
+    coaches.forEach(coach => {
+      const current = index.get(coach.clubId) || [];
+      current.push(coach);
+      index.set(coach.clubId, current);
+    });
+    return index;
+  }, [coaches]);
 
   // Filtered lists for rendering
   const getFilteredData = () => {
-    const q = searchQuery.toLowerCase().trim();
     switch (activeTab) {
       case 'articles': {
         const filteredArticles = articles.filter(a => {
-          const matchSearch = !q ? true : (
-            a.title.toLowerCase().includes(q) || 
-            (a.content && a.content.toLowerCase().includes(q))
+          const category = categoryById.get(a.categoryId);
+          return matchesSmartSearch(
+            searchQuery,
+            a.id,
+            a.title,
+            a.content,
+            a.categoryId,
+            category?.name,
+            category?.description,
+            a.date,
+            a.views,
+            a.status ? 'hiển thị hoạt động' : 'đang ẩn',
+            a.showInNews ? 'tin tức mới nhất nổi bật' : '',
+            a.featuredDays
           );
-          if (!alphabetFilter) return matchSearch;
-          const firstChar = a.title.trim().charAt(0).toUpperCase();
-          return matchSearch && firstChar === alphabetFilter;
         });
         return filteredArticles.sort((a, b) => {
           const idA = parseInt(String(a.id), 10);
@@ -2293,26 +2339,67 @@ export default function AdminPanel({
         });
       }
       case 'categories':
-        return categories.filter(c => !q ? true : (
-          c.name.toLowerCase().includes(q) ||
-          (c.description && c.description.toLowerCase().includes(q))
+        return categories.filter(c => matchesSmartSearch(
+          searchQuery,
+          c.id,
+          c.name,
+          c.order,
+          c.description,
+          c.status ? 'hiển thị hoạt động' : 'đang ẩn'
         ));
       case 'coaches':
-        return coaches.filter(c => !q ? true : (
-          c.fullName.toLowerCase().includes(q) ||
-          (c.experience && c.experience.toLowerCase().includes(q)) ||
-          (c.rank && c.rank.toLowerCase().includes(q)) ||
-          (c.birthYear && String(c.birthYear).includes(q))
-        ));
+        return coaches.filter(c => {
+          const club = clubById.get(c.clubId);
+          const relatedAchievements = achievementsByPersonId.get(c.id) || [];
+          return matchesSmartSearch(
+            searchQuery,
+            c.id,
+            c.fullName,
+            c.experience,
+            c.rank,
+            c.birthYear,
+            c.clubId,
+            club?.name,
+            club?.address,
+            relatedAchievements.map(item => [
+              item.id,
+              item.title,
+              item.medalType,
+              item.year,
+              item.date,
+              item.tournamentId,
+              item.tournamentName
+            ]),
+            c.status ? 'hiển thị hoạt động' : 'đang ẩn'
+          );
+        });
       case 'members':
         return members
-          .filter(m => !q ? true : (
-            m.id.toLowerCase().includes(q) ||
-            m.fullName.toLowerCase().includes(q) ||
-            (m.rank && m.rank.toLowerCase().includes(q)) ||
-            (m.birthYear && String(m.birthYear).includes(q)) ||
-            (m.displayOrder && String(m.displayOrder).includes(q))
-          ))
+          .filter(m => {
+            const club = clubById.get(m.clubId);
+            const relatedAchievements = achievementsByPersonId.get(m.id) || [];
+            return matchesSmartSearch(
+              searchQuery,
+              m.id,
+              m.displayOrder,
+              m.fullName,
+              m.rank,
+              m.birthYear,
+              m.clubId,
+              club?.name,
+              club?.address,
+              relatedAchievements.map(item => [
+                item.id,
+                item.title,
+                item.medalType,
+                item.year,
+                item.date,
+                item.tournamentId,
+                item.tournamentName
+              ]),
+              m.status ? 'hiển thị hoạt động' : 'đang ẩn'
+            );
+          })
           .sort((a, b) => {
             const orderDifference = Number(a.displayOrder ?? Number.MAX_SAFE_INTEGER) -
               Number(b.displayOrder ?? Number.MAX_SAFE_INTEGER);
@@ -2321,37 +2408,92 @@ export default function AdminPanel({
               : a.id.localeCompare(b.id, undefined, { numeric: true, sensitivity: 'base' });
           });
       case 'achievements':
-        return achievements.filter(a => !q ? true : (
-          a.title.toLowerCase().includes(q) ||
-          (a.athleteName && a.athleteName.toLowerCase().includes(q)) ||
-          a.medalType.toLowerCase().includes(q) ||
-          (a.year && String(a.year).includes(q)) ||
-          a.unit.toLowerCase().includes(q) ||
-          (a.tournamentName && a.tournamentName.toLowerCase().includes(q))
-        ));
+        return achievements.filter(a => {
+          const tournament = a.tournamentId ? tournamentById.get(a.tournamentId) : undefined;
+          const linkedPeople = (a.memberIds || []).flatMap(id => {
+            const member = memberById.get(id);
+            const coach = coachById.get(id);
+            return [id, member?.fullName, coach?.fullName];
+          });
+          return matchesSmartSearch(
+            searchQuery,
+            a.id,
+            a.title,
+            a.athleteName,
+            a.memberIds,
+            linkedPeople,
+            a.medalType,
+            a.year,
+            a.date,
+            a.unit,
+            a.tournamentId,
+            a.tournamentName,
+            tournament?.name,
+            tournament?.location,
+            a.meaning,
+            a.journey,
+            a.honorTitle,
+            a.honorQuote,
+            a.honorAttribution,
+            a.status ? 'hiển thị hoạt động' : 'đang ẩn'
+          );
+        });
       case 'tournaments':
         return tournaments
-          .filter(t => !q ? true : (
-            t.name.toLowerCase().includes(q) ||
-            t.location.toLowerCase().includes(q) ||
-            (t.date && t.date.toLowerCase().includes(q)) ||
-            String(t.status ?? '').toLowerCase().includes(q)
+          .filter(t => matchesSmartSearch(
+            searchQuery,
+            t.id,
+            t.name,
+            t.location,
+            t.googleMapPlaceName,
+            t.date,
+            t.status,
+            t.introduction,
+            t.schedule,
+            t.rules
           ))
           .sort(compareTournamentsByStatus);
       case 'clubs':
-        return clubs.filter(c => !q ? true : (
-          c.name.toLowerCase().includes(q) ||
-          c.address.toLowerCase().includes(q) ||
-          c.headCoach.toLowerCase().includes(q) ||
-          (c.trainingDays && c.trainingDays.toLowerCase().includes(q)) ||
-          (c.trainingHours && c.trainingHours.toLowerCase().includes(q))
-        ));
+        return clubs.filter(c => {
+          const linkedCoaches = [
+            ...(coachesByClubId.get(c.id) || []),
+            ...(c.coachIds || [])
+              .map(coachId => coachById.get(coachId))
+              .filter((coach): coach is Coach => Boolean(coach))
+          ]
+            .map(coach => [coach.id, coach.fullName]);
+          return matchesSmartSearch(
+            searchQuery,
+            c.id,
+            c.name,
+            c.address,
+            c.googleMapPlaceName,
+            c.headCoach,
+            c.coachIds,
+            linkedCoaches,
+            c.trainingDays,
+            c.trainingHours,
+            c.status ? 'hiển thị hoạt động' : 'ngừng hoạt động đang ẩn'
+          );
+        });
       case 'highlights':
-        return highlights.filter(h => !q ? true : (
-          h.title.toLowerCase().includes(q) ||
-          h.athleteName.toLowerCase().includes(q) ||
-          h.mediaType.toLowerCase().includes(q)
-        ));
+        return highlights.filter(h => {
+          const tournament = h.tournamentId ? tournamentById.get(h.tournamentId) : undefined;
+          return matchesSmartSearch(
+            searchQuery,
+            h.id,
+            h.title,
+            h.athleteName,
+            h.mediaType,
+            h.tournamentId,
+            h.tournamentName,
+            tournament?.name,
+            tournament?.date,
+            tournament?.location,
+            h.mediaNotes,
+            h.status ? 'hiển thị hoạt động' : 'đang ẩn'
+          );
+        });
       default:
         return [];
     }
@@ -2359,7 +2501,7 @@ export default function AdminPanel({
 
   const renderedData = useMemo(
     () => getFilteredData(),
-    [activeTab, searchQuery, alphabetFilter, articles, categories, coaches, members, achievements, tournaments, clubs, highlights]
+    [activeTab, searchQuery, articles, categories, coaches, members, achievements, tournaments, clubs, highlights]
   );
   const [crudPage, setCrudPage] = useState(1);
   const CRUD_PAGE_SIZE = 25;
@@ -2371,7 +2513,7 @@ export default function AdminPanel({
 
   useEffect(() => {
     setCrudPage(1);
-  }, [activeTab, alphabetFilter, searchQuery]);
+  }, [activeTab, searchQuery]);
 
   useEffect(() => {
     if (crudPage > crudPageCount) setCrudPage(crudPageCount);
@@ -2860,14 +3002,14 @@ export default function AdminPanel({
                       </thead>
                       <tbody className="divide-y text-slate-600">
                         {adminAccounts
-                          .filter(acc => {
-                            const q = searchQuery.toLowerCase().trim();
-                            if (!q) return true;
-                            return (
-                              acc.name.toLowerCase().includes(q) || 
-                              acc.username.toLowerCase().includes(q)
-                            );
-                          })
+                          .filter(acc => matchesSmartSearch(
+                            searchQuery,
+                            acc.id,
+                            acc.name,
+                            acc.username,
+                            acc.role === 'super' ? 'admin chính' : 'admin phụ',
+                            acc.permissions
+                          ))
                           .map(acc => (
                             <tr key={acc.id} className="hover:bg-slate-50 transition-colors">
                               <td className="p-3 font-bold text-slate-800">{acc.name}</td>
@@ -2998,13 +3140,14 @@ export default function AdminPanel({
                   <tbody className="divide-y text-slate-600 font-medium">
                     {(() => {
                       const filteredLogs = editHistories.filter(log => {
-                        const q = searchQuery.toLowerCase().trim();
-                        if (!q) return true;
-                        return (
-                          log.username.toLowerCase().includes(q) ||
-                          log.action.toLowerCase().includes(q) ||
-                          log.tab.toLowerCase().includes(q) ||
-                          log.details.toLowerCase().includes(q)
+                        return matchesSmartSearch(
+                          searchQuery,
+                          log.id,
+                          log.timestamp,
+                          log.username,
+                          log.action,
+                          log.tab,
+                          log.details
                         );
                       });
 
@@ -4946,9 +5089,17 @@ export default function AdminPanel({
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-60 overflow-y-auto p-2 border rounded-xl bg-slate-50/50">
                             {[...members.map(person => ({ ...person, profileType: 'member' as const })), ...coaches.map(person => ({ ...person, profileType: 'coach' as const }))]
                               .filter(person => {
-                                if (!memberSearchQuery) return true;
-                                const term = memberSearchQuery.toLowerCase().trim();
-                                return person.fullName.toLowerCase().includes(term) || person.id.toLowerCase().includes(term);
+                                const club = clubById.get(person.clubId);
+                                return matchesSmartSearch(
+                                  memberSearchQuery,
+                                  person.id,
+                                  person.fullName,
+                                  person.birthYear,
+                                  person.rank,
+                                  person.clubId,
+                                  club?.name,
+                                  person.profileType === 'coach' ? 'huấn luyện viên hlv' : 'thành viên môn sinh'
+                                );
                               })
                               .map(person => {
                                 const isChecked = achievementForm.memberIds?.includes(person.id) || false;
@@ -5815,47 +5966,34 @@ export default function AdminPanel({
                 </button>
               </div>
 
-              {/* Alphabet Filter for Articles (only when Articles tab is selected) */}
-              {activeTab === 'articles' && (
-                <div className="mb-6 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <span className="block text-[10px] uppercase font-bold text-slate-400 mb-2">Tìm kiếm nhanh bài viết theo chữ cái:</span>
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      onClick={() => setAlphabetFilter('')}
-                      className={`px-2 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                        !alphabetFilter ? 'bg-[#0054A6] text-white' : 'bg-white text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      TẤT CẢ
-                    </button>
-                    {alphabet.map(letter => (
-                      <button
-                        key={letter}
-                        onClick={() => setAlphabetFilter(letter)}
-                        className={`px-1.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
-                          alphabetFilter === letter ? 'bg-[#FFF200] text-slate-900 shadow-sm scale-110' : 'bg-white text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {letter}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Generic Search Input */}
-              <div className="relative mb-6">
+              {/* One smart search input for every data table */}
+              <div className="relative mb-2">
                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-slate-400" />
                 </span>
                 <input
                   type="text"
-                  placeholder={`Tìm kiếm nhanh theo tên / tiêu đề...`}
+                  placeholder="Tìm thông minh theo ID, tên, năm, giải đấu hoặc nội dung bạn nhớ..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full text-xs pl-9 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border rounded-xl"
+                  aria-label="Tìm kiếm thông minh trong bảng quản trị"
+                  className="w-full text-xs pl-9 pr-12 py-3 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border rounded-xl focus:outline-none focus:ring-4 focus:ring-[#0054A6]/10 focus:border-[#0054A6]"
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-[#0054A6] cursor-pointer"
+                    title="Xóa tìm kiếm"
+                    aria-label="Xóa tìm kiếm"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
               </div>
+              <p className="mb-6 text-[10px] text-slate-400">
+                Không phân biệt dấu hoặc chữ hoa/thường. Có thể nhập nhiều ý cùng lúc, ví dụ: <strong>2026 Thiện vàng</strong>.
+              </p>
 
               {/* Data Table */}
               <div className="overflow-x-auto border rounded-xl">
