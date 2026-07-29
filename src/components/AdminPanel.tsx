@@ -23,6 +23,10 @@ import {
   normalizeArticleContentForStorage,
 } from '../utils/articleContent';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
+import {
+  getHighQualityCropOutputSize,
+  getRecommendedMaxZoom
+} from '../utils/imageQuality';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -36,8 +40,8 @@ const resolveAdminBannerImage = (image?: string) =>
   (image && adminBundledBannerImages[image]) || image || defaultBanner1;
 
 const MAX_HIGHLIGHT_IMAGES = 50;
-const MAX_SOURCE_IMAGE_BYTES = 5 * 1024 * 1024;
-const TARGET_STORED_IMAGE_BYTES = 560 * 1024;
+const MAX_SOURCE_IMAGE_BYTES = 15 * 1024 * 1024;
+const TARGET_STORED_IMAGE_BYTES = 620 * 1024;
 const HARD_STORED_IMAGE_BYTES = 650 * 1024;
 
 const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
@@ -63,12 +67,51 @@ const canvasToWebpBlob = (canvas: HTMLCanvasElement, quality: number) =>
     );
   });
 
+const resizeCanvas = (
+  source: HTMLCanvasElement,
+  scale: number
+): HTMLCanvasElement => {
+  const resized = document.createElement('canvas');
+  resized.width = Math.max(1, Math.round(source.width * scale));
+  resized.height = Math.max(1, Math.round(source.height * scale));
+  const context = resized.getContext('2d');
+  if (!context) throw new Error('Trình duyệt không hỗ trợ xử lý ảnh.');
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(source, 0, 0, resized.width, resized.height);
+  return resized;
+};
+
+const encodeCanvasForStorage = async (
+  sourceCanvas: HTMLCanvasElement
+): Promise<Blob> => {
+  const qualities = [0.95, 0.92, 0.89, 0.86, 0.82, 0.78, 0.72];
+  let workingCanvas = sourceCanvas;
+  let smallestBlob: Blob | null = null;
+
+  for (let resizePass = 0; resizePass < 7; resizePass += 1) {
+    for (const quality of qualities) {
+      const blob = await canvasToWebpBlob(workingCanvas, quality);
+      if (!smallestBlob || blob.size < smallestBlob.size) smallestBlob = blob;
+      if (blob.size <= TARGET_STORED_IMAGE_BYTES) return blob;
+    }
+
+    if (workingCanvas.width <= 640 || workingCanvas.height <= 360) break;
+    workingCanvas = resizeCanvas(workingCanvas, 0.86);
+  }
+
+  if (!smallestBlob || smallestBlob.size > HARD_STORED_IMAGE_BYTES) {
+    throw new Error('Ảnh quá phức tạp để lưu rõ nét dưới giới hạn 650 KB.');
+  }
+  return smallestBlob;
+};
+
 async function compressHighlightImage(file: File): Promise<string> {
   if (!file.type.startsWith('image/')) {
     throw new Error('Chỉ được tải ảnh từ máy. Video hãy dùng đường dẫn URL/YouTube.');
   }
   if (file.size > MAX_SOURCE_IMAGE_BYTES) {
-    throw new Error('Mỗi ảnh gốc tối đa 5 MB.');
+    throw new Error('Mỗi ảnh gốc tối đa 15 MB.');
   }
 
   const objectUrl = URL.createObjectURL(file);
@@ -78,7 +121,7 @@ async function compressHighlightImage(file: File): Promise<string> {
     // Preserve more source pixels so the public gallery can zoom up to the
     // original resolution without CSS upscaling or visible stretching.
     const maxSides = [2200, 1920, 1600, 1280, 1024, 800, 640];
-    const qualities = [0.86, 0.8, 0.74, 0.68, 0.62, 0.56];
+    const qualities = [0.94, 0.9, 0.86, 0.82, 0.78, 0.72, 0.66];
     let smallestBlob: Blob | null = null;
     let previousSize = '';
 
@@ -238,11 +281,40 @@ function ImageInput({
   const [panY, setPanY] = useState<number>(0);
   const [rotation, setRotation] = useState<number>(0);
   const [isCropMode, setIsCropMode] = useState(false);
+  const [sourceDimensions, setSourceDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Sync aspect ratio when it changes from parent
   useEffect(() => {
     setSelectedRatio(aspectRatio);
   }, [aspectRatio]);
+
+  useEffect(() => {
+    if (!rawImage) {
+      setSourceDimensions(null);
+      return;
+    }
+    const source = new Image();
+    source.onload = () => {
+      setSourceDimensions({
+        width: source.naturalWidth || source.width,
+        height: source.naturalHeight || source.height
+      });
+    };
+    source.onerror = () => setSourceDimensions(null);
+    source.src = rawImage;
+  }, [rawImage]);
+
+  const qualityMaxZoom = sourceDimensions
+    ? getRecommendedMaxZoom(
+        sourceDimensions.width,
+        sourceDimensions.height,
+        selectedRatio,
+        rotation
+      )
+    : 300;
 
   const clampPan = (
     nextPanX: number,
@@ -257,6 +329,13 @@ function ImageInput({
       y: Math.round(clampNumber(nextPanY, -maxPanY, maxPanY))
     };
   };
+
+  useEffect(() => {
+    if (zoom <= qualityMaxZoom) return;
+    setZoom(qualityMaxZoom);
+    setPanX(0);
+    setPanY(0);
+  }, [qualityMaxZoom, zoom]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isCropMode) return;
@@ -332,25 +411,28 @@ function ImageInput({
     if (!rawImage) return;
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => {
+    img.onload = async () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // high-quality dimensions
-      let targetWidth = 800;
-      let targetHeight = 450; // 16:9
-      if (selectedRatio === '1:1') {
-        targetWidth = 600;
-        targetHeight = 600;
-      } else if (selectedRatio === '4:3') {
-        targetWidth = 800;
-        targetHeight = 600;
-      }
+      // Export from the real source crop pixels, up to 1920px. Never enlarge
+      // a small crop to a fake fixed size because that creates blur.
+      const outputSize = getHighQualityCropOutputSize(
+        img.naturalWidth || img.width,
+        img.naturalHeight || img.height,
+        selectedRatio,
+        zoom,
+        rotation
+      );
+      const targetWidth = outputSize.width;
+      const targetHeight = outputSize.height;
 
       canvas.width = targetWidth;
       canvas.height = targetHeight;
 
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       ctx.save();
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, targetWidth, targetHeight);
@@ -408,15 +490,19 @@ function ImageInput({
       ctx.restore();
 
       try {
-        const resultBase64 = canvas.toDataURL('image/jpeg', 0.85);
-        onChange(resultBase64);
+        const imageBlob = await encodeCanvasForStorage(canvas);
+        onChange(await blobToDataUrl(imageBlob));
         setRawImage(null);
       } catch (err) {
         console.error("Canvas export failed:", err);
-        // Fallback for CORS
-        onChange(rawImage);
-        setRawImage(null);
-        alert("Lưu ý: Không thể cắt trực tiếp ảnh từ link ngoài do chính sách bảo mật CORS. Gốc của ảnh đã được lưu.");
+        if (rawImage.startsWith('http')) {
+          // Fallback for external images blocked by CORS.
+          onChange(rawImage);
+          setRawImage(null);
+          alert("Không thể cắt ảnh từ link ngoài do chính sách CORS. Link ảnh gốc đã được giữ nguyên.");
+        } else {
+          alert(err instanceof Error ? err.message : 'Không thể xuất ảnh chất lượng cao.');
+        }
       }
     };
     img.onerror = () => {
@@ -665,7 +751,7 @@ function ImageInput({
                   <input
                     type="range"
                     min="100"
-                    max="300"
+                    max={qualityMaxZoom}
                     value={zoom}
                     onChange={e => {
                       const nextZoom = Math.max(100, parseInt(e.target.value));
@@ -676,6 +762,21 @@ function ImageInput({
                     }}
                     className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FFF200]"
                   />
+                  {sourceDimensions && (
+                    <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[9px] font-semibold leading-relaxed ${
+                      qualityMaxZoom <= 100
+                        ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
+                        : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
+                    }`}>
+                      Ảnh gốc: {sourceDimensions.width}×{sourceDimensions.height}px
+                      {' • '}Zoom rõ nét tối đa: {qualityMaxZoom}%
+                      {qualityMaxZoom <= 100 && (
+                        <span className="block mt-0.5 text-amber-300">
+                          Ảnh nguồn chưa đủ lớn để phóng thêm mà vẫn giữ độ nét.
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Pan X Controller */}
@@ -3564,28 +3665,31 @@ export default function AdminPanel({
                                       if (typeof reader.result === 'string') {
                                         const img = new Image();
                                         img.onload = async () => {
-                                          // Simple canvas resize to avoid massive base64 in localstorage
+                                          // Keep a high-resolution source and only reduce it when
+                                          // required by the cloud image-size limit.
                                           const canvas = document.createElement('canvas');
-                                          let width = img.width;
-                                          let height = img.height;
-                                          
-                                          // Keep every Firestore banner document safely
-                                          // below its 1 MiB limit, including base64 overhead.
-                                          if (width > 1000) {
-                                            height = Math.round((height * 1000) / width);
-                                            width = 1000;
-                                          }
+                                          const scale = Math.min(
+                                            1,
+                                            2200 / img.width,
+                                            1400 / img.height
+                                          );
+                                          const width = Math.max(1, Math.round(img.width * scale));
+                                          const height = Math.max(1, Math.round(img.height * scale));
                                           
                                           canvas.width = width;
                                           canvas.height = height;
                                           const ctx = canvas.getContext('2d');
                                           if (ctx) {
+                                            ctx.imageSmoothingEnabled = true;
+                                            ctx.imageSmoothingQuality = 'high';
                                             ctx.drawImage(img, 0, 0, width, height);
-                                            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.62);
                                             try {
-                                              const uploadedBanner = await uploadHighlightImageDataUrl(compressedBase64);
+                                              const bannerBlob = await encodeCanvasForStorage(canvas);
+                                              const uploadedBanner = await uploadHighlightImageDataUrl(
+                                                await blobToDataUrl(bannerBlob)
+                                              );
                                               setBannerForm(prev => ({ ...prev, image: uploadedBanner }));
-                                              showToast('Đã nén và tải ảnh banner lên kho ảnh.', 'success');
+                                              showToast('Đã tải banner chất lượng cao lên kho ảnh.', 'success');
                                             } catch (error) {
                                               showToast(
                                                 error instanceof Error ? error.message : 'Không thể tải banner lên kho ảnh.',
@@ -5434,7 +5538,7 @@ export default function AdminPanel({
                       </h4>
                       <p className="text-[10px] text-slate-500 mb-3">
                         Ảnh từ máy sẽ được tự nén và lưu từng ảnh riêng trong Firebase. Tối đa 50 ảnh/Highlight,
-                        mỗi ảnh gốc tối đa 5 MB. Video vui lòng dùng đường dẫn URL/YouTube.
+                        mỗi ảnh gốc tối đa 15 MB. Video vui lòng dùng đường dẫn URL/YouTube.
                       </p>
 
                       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -5459,7 +5563,7 @@ export default function AdminPanel({
                           Chọn nhiều ảnh từ máy
                         </label>
                         <span className="text-[10px] font-semibold text-slate-500">
-                          JPEG, PNG, WebP hoặc GIF • ưu tiên độ nét, tự nén còn khoảng 560 KB/ảnh
+                          JPEG, PNG, WebP hoặc GIF • giữ độ phân giải cao, tự tối ưu dưới 650 KB/ảnh
                         </span>
                       </div>
 
