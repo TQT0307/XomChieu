@@ -879,7 +879,7 @@ export default function UserView({
                         <span>Tin tức mới nhất</span>
                       </h3>
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-orange-500/80">
-                        Nổi bật liên tục trong 3 ngày
+                        Nổi bật liên tục trong những ngày qua
                       </p>
                     </div>
                   </div>

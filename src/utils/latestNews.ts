@@ -1,6 +1,22 @@
 import type { Article } from '../types';
 
-export const LATEST_NEWS_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_LATEST_NEWS_DAYS = 3;
+export const MIN_LATEST_NEWS_DAYS = 1;
+export const MAX_LATEST_NEWS_DAYS = 365;
+export const LATEST_NEWS_DURATION_MS = DEFAULT_LATEST_NEWS_DAYS * DAY_MS;
+
+export const normalizeLatestNewsDays = (value: unknown): number => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return DEFAULT_LATEST_NEWS_DAYS;
+  return Math.min(
+    MAX_LATEST_NEWS_DAYS,
+    Math.max(MIN_LATEST_NEWS_DAYS, Math.round(numericValue))
+  );
+};
+
+export const getLatestNewsDurationMs = (article: Article): number =>
+  normalizeLatestNewsDays(article.featuredDays) * DAY_MS;
 
 const parseDateMs = (value?: string): number | null => {
   const text = String(value || '').trim();
@@ -16,7 +32,7 @@ export const getLatestNewsStartMs = (article: Article): number | null =>
 
 export const getLatestNewsExpiryMs = (article: Article): number | null => {
   const startMs = getLatestNewsStartMs(article);
-  return startMs === null ? null : startMs + LATEST_NEWS_DURATION_MS;
+  return startMs === null ? null : startMs + getLatestNewsDurationMs(article);
 };
 
 export const getLatestNewsRemainingMs = (
@@ -26,7 +42,7 @@ export const getLatestNewsRemainingMs = (
   if (!article.showInNews) return 0;
   const startMs = getLatestNewsStartMs(article);
   if (startMs === null || startMs > nowMs) return 0;
-  return Math.max(0, startMs + LATEST_NEWS_DURATION_MS - nowMs);
+  return Math.max(0, startMs + getLatestNewsDurationMs(article) - nowMs);
 };
 
 export const isArticleInLatestNews = (

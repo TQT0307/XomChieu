@@ -2,9 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   compareLatestNewsByExpiry,
+  getLatestNewsDurationMs,
   getLatestNewsRemainingMs,
   isArticleInLatestNews,
-  LATEST_NEWS_DURATION_MS
+  LATEST_NEWS_DURATION_MS,
+  normalizeLatestNewsDays
 } from '../src/utils/latestNews';
 import type { Article } from '../src/types';
 
@@ -31,6 +33,26 @@ test('latest news stays visible for exactly three days from promotion time', () 
   );
   assert.equal(isArticleInLatestNews(item, start + LATEST_NEWS_DURATION_MS - 1), true);
   assert.equal(isArticleInLatestNews(item, start + LATEST_NEWS_DURATION_MS), false);
+});
+
+test('each article can use its own latest-news duration', () => {
+  const start = Date.parse('2026-07-28T10:00:00+07:00');
+  const sevenDays = 7 * 24 * 60 * 60 * 1000;
+  const item = article({
+    featuredAt: new Date(start).toISOString(),
+    featuredDays: 7
+  });
+
+  assert.equal(getLatestNewsDurationMs(item), sevenDays);
+  assert.equal(isArticleInLatestNews(item, start + sevenDays - 1), true);
+  assert.equal(isArticleInLatestNews(item, start + sevenDays), false);
+});
+
+test('latest-news day input is normalized to a safe range', () => {
+  assert.equal(normalizeLatestNewsDays(undefined), 3);
+  assert.equal(normalizeLatestNewsDays(0), 1);
+  assert.equal(normalizeLatestNewsDays(8.6), 9);
+  assert.equal(normalizeLatestNewsDays(999), 365);
 });
 
 test('unchecked articles never appear in latest news', () => {
@@ -65,4 +87,3 @@ test('latest news with less remaining time is ordered first', () => {
     ['earlier', 'later']
   );
 });
-

@@ -131,7 +131,7 @@ export default function AdminItemDetailModal({
                 <div>
                   <span className="block text-slate-400 font-bold uppercase text-[9px] tracking-wider">Hiển thị ở Tin tức mới nhất</span>
                   <span className="font-semibold text-slate-700">
-                    {item.showInNews ? 'Có (Tối đa 3 ngày)' : 'Không'}
+                    {item.showInNews ? `Có (${item.featuredDays || 3} ngày)` : 'Không'}
                   </span>
                 </div>
                 <div className="col-span-2">

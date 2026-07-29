@@ -27,6 +27,12 @@ import {
   getHighQualityCropOutputSize,
   getRecommendedMaxZoom
 } from '../utils/imageQuality';
+import {
+  DEFAULT_LATEST_NEWS_DAYS,
+  MAX_LATEST_NEWS_DAYS,
+  MIN_LATEST_NEWS_DAYS,
+  normalizeLatestNewsDays
+} from '../utils/latestNews';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -925,14 +931,19 @@ export default function AdminPanel({
 }: AdminPanelProps) {
 
   // Releases before V34 stored only the boolean flag. Assign a real promotion
-  // timestamp once when an Admin opens the upgraded panel so already-selected
-  // articles appear immediately and receive a full, deterministic 72 hours.
+  // timestamp and the default duration once, without changing newer articles.
   useEffect(() => {
-    if (!articles.some(article => article.showInNews && !article.featuredAt)) return;
+    if (!articles.some(article =>
+      article.showInNews && (!article.featuredAt || article.featuredDays === undefined)
+    )) return;
     const promotedAt = new Date().toISOString();
     setArticles(current => current.map(article =>
-      article.showInNews && !article.featuredAt
-        ? { ...article, featuredAt: promotedAt }
+      article.showInNews && (!article.featuredAt || article.featuredDays === undefined)
+        ? {
+            ...article,
+            featuredAt: article.featuredAt || promotedAt,
+            featuredDays: normalizeLatestNewsDays(article.featuredDays)
+          }
         : article
     ));
   }, [articles, setArticles]);
@@ -1490,7 +1501,7 @@ export default function AdminPanel({
     setEditId(null);
     setTypedClubCoachId('');
     setTypedHighlightAthleteId('');
-    setArticleForm({ title: '', content: '', categoryId: categories[0]?.id || '', image: '', status: true, date: new Date().toISOString().split('T')[0], views: 0, showInNews: false });
+    setArticleForm({ title: '', content: '', categoryId: categories[0]?.id || '', image: '', status: true, date: new Date().toISOString().split('T')[0], views: 0, showInNews: false, featuredDays: DEFAULT_LATEST_NEWS_DAYS });
     setCategoryForm({ id: '', name: '', order: categories.length + 1, status: true, description: '' });
     setCoachForm({ id: '', fullName: '', birthYear: 1990, rank: 'Hoàng Đai', clubId: clubs[0]?.id || '', experience: '', status: true, photo: '' });
     setMemberForm({
@@ -1688,6 +1699,7 @@ export default function AdminPanel({
           views: articleForm.views || 0,
           status: articleForm.status !== undefined ? articleForm.status : true,
           showInNews: articleForm.showInNews || false,
+          featuredDays: normalizeLatestNewsDays(articleForm.featuredDays),
           featuredAt: articleForm.showInNews
             ? (articleForm.featuredAt || new Date().toISOString())
             : undefined,
@@ -1705,6 +1717,7 @@ export default function AdminPanel({
           ...articleForm,
           id: finalId,
           content: normalizedContent,
+          featuredDays: normalizeLatestNewsDays(articleForm.featuredDays),
           featuredAt: articleForm.showInNews
             ? (articleForm.featuredAt || new Date().toISOString())
             : undefined,
@@ -4336,6 +4349,7 @@ export default function AdminPanel({
                             setArticleForm(current => ({
                               ...current,
                               showInNews: checked,
+                              featuredDays: normalizeLatestNewsDays(current.featuredDays),
                               featuredAt: checked
                                 ? (current.featuredAt || new Date().toISOString())
                                 : undefined
@@ -4348,10 +4362,36 @@ export default function AdminPanel({
                             Đẩy lên mục "Tin tức mới nhất"
                           </label>
                           <span className="text-[10px] text-slate-500 block font-normal normal-case mt-0.5">
-                            Bài viết sẽ hiển thị trong phần "Tin tức mới nhất" ngoài trang chủ đủ 3 ngày kể từ lúc bật tùy chọn này. Sau 3 ngày, bài chỉ tự ẩn khỏi khu vực nổi bật và vẫn giữ nguyên ở danh mục gốc.
+                            Mỗi bài có thể chọn số ngày nổi bật riêng. Khi hết thời gian, bài chỉ tự ẩn khỏi khu vực nổi bật và vẫn giữ nguyên ở danh mục gốc.
                           </span>
                         </div>
                       </div>
+                      {articleForm.showInNews && (
+                        <div className="ml-6 max-w-xs">
+                          <label htmlFor="art-featuredDays" className="block text-xs font-bold text-slate-600 mb-1">
+                            Số ngày hiển thị
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              id="art-featuredDays"
+                              min={MIN_LATEST_NEWS_DAYS}
+                              max={MAX_LATEST_NEWS_DAYS}
+                              step={1}
+                              value={normalizeLatestNewsDays(articleForm.featuredDays)}
+                              onChange={event => setArticleForm(current => ({
+                                ...current,
+                                featuredDays: normalizeLatestNewsDays(event.target.value)
+                              }))}
+                              className="w-28 text-sm border border-slate-200 bg-white p-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0054A6]/20 focus:border-[#0054A6]"
+                            />
+                            <span className="text-xs font-semibold text-slate-500">ngày</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            Nhập từ {MIN_LATEST_NEWS_DAYS} đến {MAX_LATEST_NEWS_DAYS} ngày.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
