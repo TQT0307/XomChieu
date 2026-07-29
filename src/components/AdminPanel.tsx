@@ -822,6 +822,19 @@ export default function AdminPanel({
   applyCloudSnapshot,
   onBackToWebsite
 }: AdminPanelProps) {
+
+  // Releases before V34 stored only the boolean flag. Assign a real promotion
+  // timestamp once when an Admin opens the upgraded panel so already-selected
+  // articles appear immediately and receive a full, deterministic 72 hours.
+  useEffect(() => {
+    if (!articles.some(article => article.showInNews && !article.featuredAt)) return;
+    const promotedAt = new Date().toISOString();
+    setArticles(current => current.map(article =>
+      article.showInNews && !article.featuredAt
+        ? { ...article, featuredAt: promotedAt }
+        : article
+    ));
+  }, [articles, setArticles]);
   
   // Custom Toasts and Deletion Confirms
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -1574,6 +1587,9 @@ export default function AdminPanel({
           views: articleForm.views || 0,
           status: articleForm.status !== undefined ? articleForm.status : true,
           showInNews: articleForm.showInNews || false,
+          featuredAt: articleForm.showInNews
+            ? (articleForm.featuredAt || new Date().toISOString())
+            : undefined,
         };
         setArticles(prev => [newArt, ...prev]);
         addLog('Thêm', 'articles', `Đã thêm bài viết mới: "${newArt.title}" (ID: ${finalId})`);
@@ -1588,6 +1604,9 @@ export default function AdminPanel({
           ...articleForm,
           id: finalId,
           content: normalizedContent,
+          featuredAt: articleForm.showInNews
+            ? (articleForm.featuredAt || new Date().toISOString())
+            : undefined,
         } as Article : a));
         addLog('Sửa', 'articles', `Đã cập nhật bài viết: "${articleForm.title}" (ID: ${finalId})`);
         showToast('Cập nhật bài viết thành công!', 'success');
@@ -2347,8 +2366,8 @@ export default function AdminPanel({
 
   // Permitted tabs list for the sidebar
   const tabsList = [
-    { id: 'articles', label: 'Quản lý Bài viết', icon: FileText, color: 'text-[#0054A6]' },
     { id: 'categories', label: 'Quản lý Danh mục', icon: FolderOpen, color: 'text-sky-600' },
+    { id: 'articles', label: 'Quản lý Bài viết', icon: FileText, color: 'text-[#0054A6]' },
     { id: 'coaches', label: 'Huấn luyện viên', icon: Users, color: 'text-indigo-600' },
     { id: 'members', label: 'Thành viên CLB', icon: Users, color: 'text-emerald-600' },
     { id: 'achievements', label: 'Thành tích đạt được', icon: Award, color: 'text-amber-500' },
@@ -4206,7 +4225,16 @@ export default function AdminPanel({
                           type="checkbox" 
                           id="art-showInNews"
                           checked={!!articleForm.showInNews}
-                          onChange={e => setArticleForm({ ...articleForm, showInNews: e.target.checked })}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setArticleForm(current => ({
+                              ...current,
+                              showInNews: checked,
+                              featuredAt: checked
+                                ? (current.featuredAt || new Date().toISOString())
+                                : undefined
+                            }));
+                          }}
                           className="w-4 h-4 mt-0.5 text-[#0054A6]"
                         />
                         <div>
@@ -4214,7 +4242,7 @@ export default function AdminPanel({
                             Đẩy lên mục "Tin tức mới nhất"
                           </label>
                           <span className="text-[10px] text-slate-500 block font-normal normal-case mt-0.5">
-                            Bài viết sẽ tự động hiển thị trong phần "Tin tức mới nhất" ngoài trang chủ trong vòng 2 ngày kể từ ngày đăng, sau đó tự ẩn khỏi mục này nhưng vẫn giữ nguyên ở danh mục gốc.
+                            Bài viết sẽ hiển thị trong phần "Tin tức mới nhất" ngoài trang chủ đủ 3 ngày kể từ lúc bật tùy chọn này. Sau 3 ngày, bài chỉ tự ẩn khỏi khu vực nổi bật và vẫn giữ nguyên ở danh mục gốc.
                           </span>
                         </div>
                       </div>

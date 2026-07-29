@@ -15,8 +15,49 @@ import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
 import { articleContentToPlainText } from '../utils/articleContent';
 import { closeDetailRoute, parseDetailHash, pushDetailRoute } from '../utils/detailRoutes';
+import {
+  getLatestNewsExpiryMs,
+  isArticleInLatestNews
+} from '../utils/latestNews';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
+
+const LatestNewsCountdown = ({ expiresAt }: { expiresAt: number }) => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const remaining = Math.max(0, expiresAt - now);
+  const totalSeconds = Math.floor(remaining / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, '0');
+
+  return (
+    <div
+      className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-xl border border-white/40 bg-slate-950/80 px-2.5 py-1.5 text-white shadow-lg backdrop-blur-md"
+      title="Thời gian còn lại trong mục Tin tức mới nhất"
+      aria-label={`Còn ${days} ngày ${hours} giờ ${minutes} phút ${seconds} giây`}
+    >
+      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 shadow-inner">
+        <Clock className="h-3.5 w-3.5 animate-pulse" />
+      </span>
+      <div className="leading-none">
+        <span className="block text-[7px] font-black uppercase tracking-[0.16em] text-amber-300">
+          Còn nổi bật
+        </span>
+        <span className="mt-1 block font-mono text-[10px] font-black tracking-wider">
+          {days}N {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+        </span>
+      </div>
+    </div>
+  );
+};
 
 const bundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -319,6 +360,12 @@ export default function UserView({
     () => articles.filter(a => a.status !== false),
     [articles]
   );
+  const [latestNewsClock, setLatestNewsClock] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setLatestNewsClock(Date.now()), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   
   const [searchCoachQuery, setSearchCoachQuery] = useState<string>('');
   const [searchMemberQuery, setSearchMemberQuery] = useState<string>('');
@@ -813,14 +860,7 @@ export default function UserView({
             {/* 1. LATEST ARTICLES (TIN MỚI NHẤT) SECTION */}
             {(() => {
               const latestArticles = visibleArticles.filter(article => {
-                if (!article.showInNews) return false;
-                const itemDate = new Date(article.date);
-                const now = new Date();
-                const d1 = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate());
-                const d2 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-                const diffTime = d2.getTime() - d1.getTime();
-                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays >= 0 && diffDays <= 2;
+                return isArticleInLatestNews(article, latestNewsClock);
               });
 
               if (latestArticles.length === 0) return null;
@@ -832,8 +872,11 @@ export default function UserView({
                       <span className="text-amber-600 text-[10px] font-black uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Hot News</span>
                       <h3 className="text-lg font-black text-slate-800 uppercase italic mt-1 tracking-tight font-display flex items-center gap-2">
                         <span className="text-amber-500 animate-pulse">🔥</span>
-                        <span>Tin tức mới nhất (2 ngày qua)</span>
+                        <span>Tin tức mới nhất</span>
                       </h3>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-orange-500/80">
+                        Nổi bật liên tục trong 3 ngày
+                      </p>
                     </div>
                   </div>
 
@@ -856,6 +899,7 @@ export default function UserView({
                     >
                       {latestArticles.map((article) => {
                         const catName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
+                        const expiresAt = getLatestNewsExpiryMs(article);
                         return (
                           <article
                             key={`latest-${article.id}`}
@@ -872,9 +916,12 @@ export default function UserView({
                                 referrerPolicy="no-referrer"
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent"></div>
-                              <span className="absolute top-4 left-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border border-orange-400/20 shadow-lg">
+                              <span className="absolute top-4 left-4 max-w-[43%] truncate bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest border border-orange-400/20 shadow-lg">
                                 {catName}
                               </span>
+                              {expiresAt !== null && (
+                                <LatestNewsCountdown expiresAt={expiresAt} />
+                              )}
                             </div>
 
                             <div className="p-5 flex-1 flex flex-col justify-between space-y-3">

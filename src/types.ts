@@ -15,7 +15,8 @@ export interface Article {
   date: string;
   views: number;
   status: boolean; // true = hiển thị, false = ẩn
-  showInNews?: boolean; // Hiển thị ở Tin tức mới nhất (Tối đa 2 ngày)
+  showInNews?: boolean; // Hiển thị ở Tin tức mới nhất (Tối đa 3 ngày)
+  featuredAt?: string; // Thời điểm bắt đầu đếm 3 ngày nổi bật
 }
 
 export interface Member {
