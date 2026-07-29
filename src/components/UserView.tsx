@@ -21,7 +21,7 @@ import {
   getLatestNewsExpiryMs,
   isArticleInLatestNews
 } from '../utils/latestNews';
-import { matchesSmartSearch } from '../utils/smartSearch';
+import { matchesSmartSearch, normalizeSmartSearchText } from '../utils/smartSearch';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
 
@@ -550,29 +550,46 @@ export default function UserView({
     );
   }), [highlights, searchHighlightQuery, tournamentById]);
   const visibleClubs = clubs;
-  const highlightSearchOptions = useMemo(() => highlights
-    .filter(item => item.status !== false)
-    .map(item => ({
-      key: String(item.id),
-      value: String(item.id),
-      label: item.title,
-      meta: [item.athleteName, item.tournamentName].filter(Boolean).join(' • ')
-    })), [highlights]);
-  const achievementSearchOptions = useMemo(() => achievements
-    .filter(item => item.status !== false)
-    .map(item => ({
-      key: String(item.id),
-      value: String(item.id),
-      label: item.title,
-      meta: [
-        item.athleteName || (item.memberIds || [])
-          .map(id => memberById.get(id)?.fullName || coachById.get(id)?.fullName)
-          .filter(Boolean)
-          .join(', '),
-        item.year || getYearFromAchievement(item),
-        item.medalType
-      ].filter(Boolean).join(' • ')
-    })), [achievements, coachById, memberById]);
+  const highlightSearchOptions = useMemo(() => {
+    const tournamentCounts = new Map<string, { name: string; count: number }>();
+    highlights.filter(item => item.status !== false).forEach(item => {
+      const name = String(
+        tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
+      ).trim();
+      if (!name) return;
+      const key = normalizeSmartSearchText(name);
+      const current = tournamentCounts.get(key);
+      tournamentCounts.set(key, { name, count: (current?.count || 0) + 1 });
+    });
+    return Array.from(tournamentCounts.entries())
+      .map(([key, item]) => ({
+        key: `highlight-tournament-${key}`,
+        value: item.name,
+        label: item.name,
+        meta: `${item.count} highlight`
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+  }, [highlights, tournamentById]);
+  const achievementSearchOptions = useMemo(() => {
+    const tournamentCounts = new Map<string, { name: string; count: number }>();
+    achievements.filter(item => item.status !== false).forEach(item => {
+      const name = String(
+        tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
+      ).trim();
+      if (!name) return;
+      const key = normalizeSmartSearchText(name);
+      const current = tournamentCounts.get(key);
+      tournamentCounts.set(key, { name, count: (current?.count || 0) + 1 });
+    });
+    return Array.from(tournamentCounts.entries())
+      .map(([key, item]) => ({
+        key: `achievement-tournament-${key}`,
+        value: item.name,
+        label: item.name,
+        meta: `${item.count} thành tích`
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+  }, [achievements, tournamentById]);
   const coachSearchOptions = useMemo(() => coaches
     .filter(item => item.status !== false)
     .map(item => ({

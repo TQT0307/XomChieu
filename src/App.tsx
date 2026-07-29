@@ -33,6 +33,7 @@ import {
 } from './utils/detailRoutes';
 import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
 import { formatBrowserTitle } from './utils/browserTitle';
+import { isAdminHash } from './utils/adminRoute';
 
 type SyncKey =
   | 'categories'
@@ -104,7 +105,7 @@ export default function App() {
   });
 
   // Mode & navigation
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(() => isAdminHash(window.location.hash));
   const [isDownloading, setIsDownloading] = useState(false);
 
   // Keep the browser tab icon and title synchronized with Admin web settings.
@@ -128,6 +129,15 @@ export default function App() {
     document.title = formatBrowserTitle(webConfig.seoTitle, webConfig.clbName);
   }, [webConfig.logo, webConfig.seoTitle, webConfig.clbName]);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
+
+  useEffect(() => {
+    const openAdminFromDirectUrl = () => {
+      if (isAdminHash(window.location.hash)) setIsAdmin(true);
+    };
+    window.addEventListener('hashchange', openAdminFromDirectUrl);
+    openAdminFromDirectUrl();
+    return () => window.removeEventListener('hashchange', openAdminFromDirectUrl);
+  }, []);
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
   const hasLoadedServerDataRef = useRef(false);
 
@@ -855,7 +865,14 @@ export default function App() {
               serverKeyVersionsRef.current = data.keyVersions || {};
               localStorage.setItem('vovinam_last_updated', String(data.lastUpdated || 0));
             }}
-            onBackToWebsite={() => setIsAdmin(false)}
+            onBackToWebsite={() => {
+              setIsAdmin(false);
+              window.history.replaceState(
+                { vovinamSection: 'section-about' },
+                '',
+                '#section-about'
+              );
+            }}
           />
           </Suspense>
         ) : (

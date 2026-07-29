@@ -34,7 +34,7 @@ import {
   MIN_LATEST_NEWS_DAYS,
   normalizeLatestNewsDays
 } from '../utils/latestNews';
-import { matchesSmartSearch } from '../utils/smartSearch';
+import { matchesSmartSearch, normalizeSmartSearchText } from '../utils/smartSearch';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -2535,20 +2535,23 @@ export default function AdminPanel({
           meta: `${item.id} • ${item.rank} • ${item.birthYear}`
         }));
       case 'achievements':
-        return achievements.map(item => ({
-          key: `achievement-${item.id}`,
-          value: String(item.id),
-          label: item.title,
-          meta: [
-            item.id,
-            item.athleteName || (item.memberIds || [])
-              .map(id => memberById.get(id)?.fullName || coachById.get(id)?.fullName)
-              .filter(Boolean)
-              .join(', '),
-            item.year,
-            item.medalType
-          ].filter(Boolean).join(' • ')
-        }));
+        return Array.from(achievements.reduce((result, item) => {
+          const name = String(
+            tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
+          ).trim();
+          if (!name) return result;
+          const key = normalizeSmartSearchText(name);
+          const current = result.get(key);
+          result.set(key, { name, count: (current?.count || 0) + 1 });
+          return result;
+        }, new Map<string, { name: string; count: number }>()).entries())
+          .map(([key, item]) => ({
+            key: `achievement-tournament-${key}`,
+            value: item.name,
+            label: item.name,
+            meta: `${item.count} thành tích`
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
       case 'tournaments':
         return tournaments.map(item => ({
           key: `tournament-${item.id}`,
@@ -2564,12 +2567,23 @@ export default function AdminPanel({
           meta: `${item.id} • ${item.address}`
         }));
       case 'highlights':
-        return highlights.map(item => ({
-          key: `highlight-${item.id}`,
-          value: String(item.id),
-          label: item.title,
-          meta: [item.id, item.athleteName, item.tournamentName].filter(Boolean).join(' • ')
-        }));
+        return Array.from(highlights.reduce((result, item) => {
+          const name = String(
+            tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
+          ).trim();
+          if (!name) return result;
+          const key = normalizeSmartSearchText(name);
+          const current = result.get(key);
+          result.set(key, { name, count: (current?.count || 0) + 1 });
+          return result;
+        }, new Map<string, { name: string; count: number }>()).entries())
+          .map(([key, item]) => ({
+            key: `highlight-tournament-${key}`,
+            value: item.name,
+            label: item.name,
+            meta: `${item.count} highlight`
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
       default:
         return [];
     }
@@ -2583,6 +2597,7 @@ export default function AdminPanel({
     tournaments,
     clubs,
     highlights,
+    tournamentById,
     memberById,
     coachById
   ]);

@@ -10,6 +10,7 @@ import {
   advanceAdminShortcut,
   type AdminShortcutState
 } from '../utils/adminShortcut';
+import { ADMIN_HASH } from '../utils/adminRoute';
 
 const PUBLIC_SECTION_IDS = [
   'section-about',
@@ -191,6 +192,7 @@ export default function Header({
     const shortcut = advanceAdminShortcut(adminShortcutRef.current, now);
     adminShortcutRef.current = shortcut.state;
     if (shortcut.shouldOpenAdmin) {
+      window.history.pushState({ vovinamAdmin: true }, '', ADMIN_HASH);
       setIsAdmin(true);
       return;
     }
