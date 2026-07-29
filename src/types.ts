@@ -263,16 +263,55 @@ const TOURNAMENT_STATUS_PRIORITY: Record<ReturnType<typeof getNormalizedTourname
   'đã kết thúc': 2
 };
 
+export function getTournamentStartTimestamp(dateValue?: string): number {
+  const value = String(dateValue || '').trim();
+  if (!value) return 0;
+
+  const isoDate = value.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+  if (isoDate) {
+    return Date.UTC(
+      Number(isoDate[1]),
+      Number(isoDate[2]) - 1,
+      Number(isoDate[3])
+    );
+  }
+
+  const dateParts = [
+    ...value.matchAll(/\b(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?\b/g)
+  ];
+  if (dateParts.length > 0) {
+    const first = dateParts[0];
+    const explicitYear = first[3]
+      || [...dateParts].reverse().find(part => part[3])?.[3]
+      || value.match(/\b(20\d{2})\b/)?.[1];
+    if (explicitYear) {
+      return Date.UTC(
+        Number(explicitYear),
+        Number(first[2]) - 1,
+        Number(first[1])
+      );
+    }
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 /**
- * Public tournament order: ongoing first, upcoming second, completed last.
- * Returning 0 inside the same group preserves the order set by Admin.
+ * Shared Admin/public order: ongoing first, upcoming second, completed last.
+ * Inside each status group, the newest tournament date comes first.
  */
 export function compareTournamentsByStatus(
-  first: Pick<Tournament, 'status'>,
-  second: Pick<Tournament, 'status'>
+  first: Pick<Tournament, 'status' | 'date'>,
+  second: Pick<Tournament, 'status' | 'date'>
 ) {
-  return TOURNAMENT_STATUS_PRIORITY[getNormalizedTournamentStatus(first.status)] -
+  const statusDifference =
+    TOURNAMENT_STATUS_PRIORITY[getNormalizedTournamentStatus(first.status)] -
     TOURNAMENT_STATUS_PRIORITY[getNormalizedTournamentStatus(second.status)];
+  if (statusDifference !== 0) return statusDifference;
+
+  return getTournamentStartTimestamp(second.date) -
+    getTournamentStartTimestamp(first.date);
 }
 
 export interface BeltRankDetails {

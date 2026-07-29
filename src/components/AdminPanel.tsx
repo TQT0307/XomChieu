@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig,
-  AdminAccount, EditHistory, extractLegacyAchievementHonor
+  AdminAccount, EditHistory, compareTournamentsByStatus, extractLegacyAchievementHonor
 } from '../types';
 import AdminItemDetailModal from './AdminItemDetailModal';
 import RichTextEditor from './RichTextEditor';
@@ -2317,12 +2317,14 @@ export default function AdminPanel({
           (a.tournamentName && a.tournamentName.toLowerCase().includes(q))
         ));
       case 'tournaments':
-        return tournaments.filter(t => !q ? true : (
-          t.name.toLowerCase().includes(q) ||
-          t.location.toLowerCase().includes(q) ||
-          (t.date && t.date.toLowerCase().includes(q)) ||
-          (t.status && t.status.toLowerCase().includes(q))
-        ));
+        return tournaments
+          .filter(t => !q ? true : (
+            t.name.toLowerCase().includes(q) ||
+            t.location.toLowerCase().includes(q) ||
+            (t.date && t.date.toLowerCase().includes(q)) ||
+            String(t.status ?? '').toLowerCase().includes(q)
+          ))
+          .sort(compareTournamentsByStatus);
       case 'clubs':
         return clubs.filter(c => !q ? true : (
           c.name.toLowerCase().includes(q) ||
