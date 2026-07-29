@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   FileText, FolderOpen, Users, Award, Trophy, Film, Settings, 
-  Plus, Edit2, Trash2, Save, X, Search, Map, CheckCircle2, ShieldAlert,
+  Plus, Edit2, Trash2, Save, X, Map, CheckCircle2, ShieldAlert,
   Shield, History, Key, LogOut, Lock, ShieldCheck, Swords,
   User, Eye, EyeOff, ClipboardList, Info, Check, UserCheck,
   ChevronLeft, ChevronRight
@@ -12,6 +12,7 @@ import {
 } from '../types';
 import AdminItemDetailModal from './AdminItemDetailModal';
 import RichTextEditor from './RichTextEditor';
+import SmartSearchInput from './SmartSearchInput';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
@@ -2503,6 +2504,100 @@ export default function AdminPanel({
     () => getFilteredData(),
     [activeTab, searchQuery, articles, categories, coaches, members, achievements, tournaments, clubs, highlights]
   );
+  const adminSearchOptions = useMemo(() => {
+    switch (activeTab) {
+      case 'articles':
+        return articles.map(item => ({
+          key: `article-${item.id}`,
+          value: String(item.id),
+          label: item.title,
+          meta: `ID ${item.id} • ${item.date}`
+        }));
+      case 'categories':
+        return categories.map(item => ({
+          key: `category-${item.id}`,
+          value: String(item.id),
+          label: item.name,
+          meta: `ID ${item.id} • Thứ tự ${item.order}`
+        }));
+      case 'coaches':
+        return coaches.map(item => ({
+          key: `coach-${item.id}`,
+          value: String(item.id),
+          label: item.fullName,
+          meta: `${item.id} • ${item.rank} • ${item.birthYear}`
+        }));
+      case 'members':
+        return members.map(item => ({
+          key: `member-${item.id}`,
+          value: String(item.id),
+          label: item.fullName,
+          meta: `${item.id} • ${item.rank} • ${item.birthYear}`
+        }));
+      case 'achievements':
+        return achievements.map(item => ({
+          key: `achievement-${item.id}`,
+          value: String(item.id),
+          label: item.title,
+          meta: [
+            item.id,
+            item.athleteName || (item.memberIds || [])
+              .map(id => memberById.get(id)?.fullName || coachById.get(id)?.fullName)
+              .filter(Boolean)
+              .join(', '),
+            item.year,
+            item.medalType
+          ].filter(Boolean).join(' • ')
+        }));
+      case 'tournaments':
+        return tournaments.map(item => ({
+          key: `tournament-${item.id}`,
+          value: String(item.id),
+          label: item.name,
+          meta: `${item.id} • ${item.date} • ${item.status}`
+        }));
+      case 'clubs':
+        return clubs.map(item => ({
+          key: `club-${item.id}`,
+          value: String(item.id),
+          label: item.name,
+          meta: `${item.id} • ${item.address}`
+        }));
+      case 'highlights':
+        return highlights.map(item => ({
+          key: `highlight-${item.id}`,
+          value: String(item.id),
+          label: item.title,
+          meta: [item.id, item.athleteName, item.tournamentName].filter(Boolean).join(' • ')
+        }));
+      default:
+        return [];
+    }
+  }, [
+    activeTab,
+    articles,
+    categories,
+    coaches,
+    members,
+    achievements,
+    tournaments,
+    clubs,
+    highlights,
+    memberById,
+    coachById
+  ]);
+  const adminAccountSearchOptions = useMemo(() => adminAccounts.map(account => ({
+    key: `admin-${account.id}`,
+    value: account.username,
+    label: account.name,
+    meta: `${account.username} • ${account.role === 'super' ? 'Admin chính' : 'Admin phụ'}`
+  })), [adminAccounts]);
+  const historySearchOptions = useMemo(() => editHistories.map(log => ({
+    key: `history-${log.id}`,
+    value: String(log.id),
+    label: `${log.username} • ${log.action}`,
+    meta: log.details
+  })), [editHistories]);
   const [crudPage, setCrudPage] = useState(1);
   const CRUD_PAGE_SIZE = 25;
   const crudPageCount = Math.max(1, Math.ceil(renderedData.length / CRUD_PAGE_SIZE));
@@ -2975,18 +3070,24 @@ export default function AdminPanel({
                   </div>
 
                   {/* Search input for admin accounts */}
-                  <div className="relative mb-5">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-4 w-4 text-slate-400" />
-                    </span>
-                    <input
-                      type="text"
-                      placeholder="Tìm kiếm tài khoản admin phụ theo tên hoặc tên đăng nhập..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full text-xs pl-9 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border rounded-xl outline-none"
-                    />
-                  </div>
+                  <SmartSearchInput
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    options={adminAccountSearchOptions}
+                    placeholder="Tìm tài khoản theo ID, tên, tên đăng nhập hoặc quyền..."
+                    ariaLabel="Tìm kiếm tài khoản quản trị"
+                    resultCount={adminAccounts.filter(account => matchesSmartSearch(
+                      searchQuery,
+                      account.id,
+                      account.name,
+                      account.username,
+                      account.role,
+                      account.permissions
+                    )).length}
+                    helperText="Bấm mũi tên để xem toàn bộ tài khoản."
+                    theme="admin"
+                    className="mb-5"
+                  />
 
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
@@ -3113,18 +3214,25 @@ export default function AdminPanel({
               </div>
 
               {/* Search bar for audit logs */}
-              <div className="relative mb-5">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-slate-400" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm lịch sử theo tài khoản, hành động, mục phân hệ hoặc nội dung chi tiết..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full text-xs pl-9 pr-4 py-2.5 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border rounded-xl outline-none"
-                />
-              </div>
+              <SmartSearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                options={historySearchOptions}
+                placeholder="Tìm lịch sử theo tài khoản, hành động, phân hệ hoặc nội dung..."
+                ariaLabel="Tìm kiếm lịch sử quản trị"
+                resultCount={editHistories.filter(log => matchesSmartSearch(
+                  searchQuery,
+                  log.id,
+                  log.timestamp,
+                  log.username,
+                  log.action,
+                  log.tab,
+                  log.details
+                )).length}
+                helperText="Bấm mũi tên để xem toàn bộ lịch sử thao tác."
+                theme="admin"
+                className="mb-5"
+              />
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse text-xs">
@@ -5967,33 +6075,17 @@ export default function AdminPanel({
               </div>
 
               {/* One smart search input for every data table */}
-              <div className="relative mb-2">
-                <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-slate-400" />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Tìm thông minh theo ID, tên, năm, giải đấu hoặc nội dung bạn nhớ..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  aria-label="Tìm kiếm thông minh trong bảng quản trị"
-                  className="w-full text-xs pl-9 pr-12 py-3 bg-slate-50 hover:bg-slate-100/50 focus:bg-white border rounded-xl focus:outline-none focus:ring-4 focus:ring-[#0054A6]/10 focus:border-[#0054A6]"
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-[#0054A6] cursor-pointer"
-                    title="Xóa tìm kiếm"
-                    aria-label="Xóa tìm kiếm"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              <p className="mb-6 text-[10px] text-slate-400">
-                Không phân biệt dấu hoặc chữ hoa/thường. Có thể nhập nhiều ý cùng lúc, ví dụ: <strong>2026 Thiện vàng</strong>.
-              </p>
+              <SmartSearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                options={adminSearchOptions}
+                placeholder="Tìm thông minh theo ID, tên, năm, giải đấu hoặc nội dung bạn nhớ..."
+                ariaLabel="Tìm kiếm thông minh trong bảng quản trị"
+                resultCount={renderedData.length}
+                helperText="Không phân biệt dấu hoặc chữ hoa/thường. Bấm mũi tên để xem toàn bộ bản ghi; có thể nhập nhiều ý như 2026 Thiện vàng."
+                theme="admin"
+                className="mb-6"
+              />
 
               {/* Data Table */}
               <div className="overflow-x-auto border rounded-xl">

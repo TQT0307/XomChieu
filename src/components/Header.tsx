@@ -5,6 +5,11 @@ import {
 } from 'lucide-react';
 import { WebConfig } from '../types';
 import { getSectionIdFromHash } from '../utils/detailRoutes';
+import {
+  ADMIN_SHORTCUT_MAX_GAP_MS,
+  advanceAdminShortcut,
+  type AdminShortcutState
+} from '../utils/adminShortcut';
 
 const PUBLIC_SECTION_IDS = [
   'section-about',
@@ -66,8 +71,7 @@ export default function Header({
   setActiveNavSection
 }: HeaderProps) {
 
-  const [clickCount, setClickCount] = useState(0);
-  const [lastClickTime, setLastClickTime] = useState(0);
+  const adminShortcutRef = useRef<AdminShortcutState>({ count: 0, lastClickAt: 0 });
   const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyNavigationFrameRef = useRef<number | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
@@ -184,27 +188,21 @@ export default function Header({
       logoReloadTimerRef.current = null;
     }
 
-    if (now - lastClickTime < 3000) {
-      const newCount = clickCount + 1;
-      setClickCount(newCount);
-      if (newCount >= 5) {
-        setIsAdmin(!isAdmin);
-        setClickCount(0);
-        setLastClickTime(now);
-        return;
-      }
-    } else {
-      setClickCount(1);
+    const shortcut = advanceAdminShortcut(adminShortcutRef.current, now);
+    adminShortcutRef.current = shortcut.state;
+    if (shortcut.shouldOpenAdmin) {
+      setIsAdmin(true);
+      return;
     }
-    setLastClickTime(now);
 
     // On the public site, a normal logo click returns to the homepage and forces
     // a fresh data load. The short delay preserves the existing five-click admin
     // shortcut when the logo is clicked repeatedly.
     if (!isAdmin) {
       logoReloadTimerRef.current = setTimeout(() => {
+        adminShortcutRef.current = { count: 0, lastClickAt: 0 };
         window.location.assign('/');
-      }, 650);
+      }, ADMIN_SHORTCUT_MAX_GAP_MS);
     }
   };
 
@@ -226,8 +224,17 @@ export default function Header({
         {/* Brand Logo and Name - Left Aligned */}
         <div 
           onClick={handleLogoClick}
-          className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none active:scale-95 transition-transform"
+          onDoubleClick={event => event.preventDefault()}
+          className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none touch-manipulation active:scale-95 transition-transform"
           title="CLB Vovinam Xóm Chiếu"
+          role="button"
+          tabIndex={0}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              handleLogoClick();
+            }
+          }}
         >
           <div className="w-12 h-12 md:w-14 md:h-14 bg-[#0054A6] rounded-full flex items-center justify-center flex-shrink-0 p-[1px] ring-2 ring-[#FFF200] shadow-md hover:rotate-6 transition-transform duration-300">
             {webConfig.logo && !logoLoadFailed ? (

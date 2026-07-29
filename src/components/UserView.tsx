@@ -2,12 +2,13 @@ import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
-  Info, Newspaper, X, Search
+  Info, Newspaper
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, compareTournamentsByStatus, getBeltStyle, getNormalizedTournamentStatus
 } from '../types';
 import PersonAvatar from './PersonAvatar';
+import SmartSearchInput from './SmartSearchInput';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
@@ -549,6 +550,45 @@ export default function UserView({
     );
   }), [highlights, searchHighlightQuery, tournamentById]);
   const visibleClubs = clubs;
+  const highlightSearchOptions = useMemo(() => highlights
+    .filter(item => item.status !== false)
+    .map(item => ({
+      key: String(item.id),
+      value: String(item.id),
+      label: item.title,
+      meta: [item.athleteName, item.tournamentName].filter(Boolean).join(' • ')
+    })), [highlights]);
+  const achievementSearchOptions = useMemo(() => achievements
+    .filter(item => item.status !== false)
+    .map(item => ({
+      key: String(item.id),
+      value: String(item.id),
+      label: item.title,
+      meta: [
+        item.athleteName || (item.memberIds || [])
+          .map(id => memberById.get(id)?.fullName || coachById.get(id)?.fullName)
+          .filter(Boolean)
+          .join(', '),
+        item.year || getYearFromAchievement(item),
+        item.medalType
+      ].filter(Boolean).join(' • ')
+    })), [achievements, coachById, memberById]);
+  const coachSearchOptions = useMemo(() => coaches
+    .filter(item => item.status !== false)
+    .map(item => ({
+      key: String(item.id),
+      value: String(item.id),
+      label: item.fullName,
+      meta: [item.id, item.rank, item.birthYear].filter(Boolean).join(' • ')
+    })), [coaches]);
+  const memberSearchOptions = useMemo(() => members
+    .filter(item => item.status !== false)
+    .map(item => ({
+      key: String(item.id),
+      value: String(item.id),
+      label: item.fullName,
+      meta: [item.id, item.rank, item.birthYear].filter(Boolean).join(' • ')
+    })), [members]);
 
   const configHeight = webConfig.bannerHeight || 'medium';
   const zaloPhoneMatch = String(webConfig.phone || '').match(/(?:\+?84|0)(?:[\s.-]?\d){8,9}(?![\s.-]?\d)/);
@@ -1250,35 +1290,15 @@ export default function UserView({
 
         {/* One smart search field for all Highlight information */}
         <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0">
-          <div className="relative group/search flex items-center bg-slate-900 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all duration-300 shadow-xl shadow-slate-950/40">
-            <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#FFF200] transition-colors" />
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm thông minh: tên VĐV, tên giải, năm, tiêu đề, ghi chú..."
-              value={searchHighlightQuery}
-              onChange={(e) => setSearchHighlightQuery(e.target.value)}
-              aria-label="Tìm kiếm thông minh trong Highlights"
-              className="w-full text-xs sm:text-sm pl-11 pr-16 py-3.5 bg-transparent text-slate-100 rounded-2xl outline-none transition-all placeholder:text-slate-500"
-            />
-            
-            <div className="absolute right-3 flex items-center gap-1.5">
-              {searchHighlightQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchHighlightQuery('')}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-all cursor-pointer"
-                  title="Xóa tìm kiếm"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-950 px-2 py-1 rounded-md border border-slate-850">
-                {visibleHighlights.length}
-              </span>
-            </div>
-          </div>
+          <SmartSearchInput
+            value={searchHighlightQuery}
+            onChange={setSearchHighlightQuery}
+            options={highlightSearchOptions}
+            placeholder="Tìm thông minh: tên VĐV, tên giải, năm, tiêu đề, ghi chú..."
+            ariaLabel="Tìm kiếm thông minh trong Highlights"
+            resultCount={visibleHighlights.length}
+            theme="dark"
+          />
           {searchHighlightQuery && (
             <p className="text-center text-[10px] text-slate-500 mt-2">
               Tìm thấy <strong className="text-[#FFF200]">{visibleHighlights.length}</strong> highlight phù hợp với các từ khóa đã nhập
@@ -1375,41 +1395,17 @@ export default function UserView({
 
           {/* One smart search field replaces four separate filters */}
           <div className="bg-slate-900/80 border border-slate-800 p-4 sm:p-5 rounded-3xl shadow-2xl mb-10 max-w-4xl mx-auto backdrop-blur-md relative z-20">
-            <label htmlFor="achievement-smart-search" className="block text-[10px] font-black uppercase tracking-wider text-[#FFF200] mb-2">
-              Tìm kiếm thông minh
-            </label>
-            <div className="relative group/search flex items-center bg-slate-950 border border-slate-800 hover:border-slate-700 focus-within:border-[#FFF200] focus-within:ring-4 focus-within:ring-[#FFF200]/10 rounded-2xl transition-all">
-              <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-slate-500 group-focus-within/search:text-[#FFF200] transition-colors" />
-              </span>
-              <input
-                id="achievement-smart-search"
-                type="text"
-                value={searchAchievementQuery}
-                onChange={event => setSearchAchievementQuery(event.target.value)}
-                placeholder="Nhập điều bạn nhớ: 2026, tên VĐV, ID, huy chương, tên giải, đơn vị..."
-                className="w-full text-xs sm:text-sm bg-transparent rounded-2xl pl-11 pr-20 py-3.5 text-white outline-none placeholder-slate-600 font-semibold"
-              />
-              <div className="absolute right-3 flex items-center gap-1.5">
-                {searchAchievementQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchAchievementQuery('')}
-                    className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-all cursor-pointer"
-                    title="Xóa tìm kiếm"
-                    aria-label="Xóa tìm kiếm thành tích"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <span className="min-w-7 text-center text-[10px] font-black text-[#FFF200] bg-slate-900 px-2 py-1 rounded-md border border-slate-800">
-                  {visibleAchievements.length}
-                </span>
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-500 mt-2">
-              Không phân biệt chữ hoa, chữ thường hoặc dấu tiếng Việt. Có thể nhập nhiều từ khóa cùng lúc.
-            </p>
+            <SmartSearchInput
+              value={searchAchievementQuery}
+              onChange={setSearchAchievementQuery}
+              options={achievementSearchOptions}
+              placeholder="Nhập điều bạn nhớ: 2026, tên VĐV, ID, huy chương, tên giải, đơn vị..."
+              ariaLabel="Tìm kiếm thông minh trong thành tích"
+              resultCount={visibleAchievements.length}
+              label="Tìm kiếm thông minh"
+              helperText="Không phân biệt chữ hoa, chữ thường hoặc dấu tiếng Việt. Bấm mũi tên để xem tất cả dữ liệu."
+              theme="dark"
+            />
           </div>
 
           {visibleAchievements.length === 0 ? (
@@ -1533,26 +1529,15 @@ export default function UserView({
 
         {/* Search input for Coaches */}
         <div className="max-w-md mx-auto mb-6 relative z-10 px-4 sm:px-0">
-          <div className="relative group/search flex items-center bg-white border border-slate-200 hover:border-slate-300 focus-within:border-[#0054A6] focus-within:ring-4 focus-within:ring-[#0054A6]/10 rounded-2xl transition-all duration-300 shadow-md">
-            <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#0054A6] transition-colors" />
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
-              value={searchCoachQuery}
-              onChange={(e) => setSearchCoachQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 bg-transparent text-slate-800 text-xs sm:text-sm outline-none font-medium placeholder:text-slate-400"
-            />
-            {searchCoachQuery && (
-              <button 
-                onClick={() => setSearchCoachQuery('')}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          <SmartSearchInput
+            value={searchCoachQuery}
+            onChange={setSearchCoachQuery}
+            options={coachSearchOptions}
+            placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
+            ariaLabel="Tìm kiếm thông minh trong huấn luyện viên"
+            resultCount={visibleCoaches.length}
+            theme="light"
+          />
           {searchCoachQuery && (
             <div className="text-center mt-2">
               <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
@@ -1749,26 +1734,15 @@ export default function UserView({
 
         {/* Search input for Members */}
         <div className="max-w-md mx-auto mb-6 relative z-10 px-4 sm:px-0">
-          <div className="relative group/search flex items-center bg-white border border-slate-200 hover:border-slate-300 focus-within:border-[#0054A6] focus-within:ring-4 focus-within:ring-[#0054A6]/10 rounded-2xl transition-all duration-300 shadow-md">
-            <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="w-4 h-4 text-slate-400 group-focus-within/search:text-[#0054A6] transition-colors" />
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
-              value={searchMemberQuery}
-              onChange={(e) => setSearchMemberQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-3 bg-transparent text-slate-800 text-xs sm:text-sm outline-none font-medium placeholder:text-slate-400"
-            />
-            {searchMemberQuery && (
-              <button 
-                onClick={() => setSearchMemberQuery('')}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
+          <SmartSearchInput
+            value={searchMemberQuery}
+            onChange={setSearchMemberQuery}
+            options={memberSearchOptions}
+            placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
+            ariaLabel="Tìm kiếm thông minh trong thành viên"
+            resultCount={visibleMembers.length}
+            theme="light"
+          />
           {searchMemberQuery && (
             <div className="text-center mt-2">
               <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
