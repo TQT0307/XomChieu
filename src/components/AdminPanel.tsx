@@ -40,6 +40,7 @@ import {
   parseStoredAdminAccount,
   parseStoredEditHistories
 } from '../utils/adminStorage';
+import { ADMIN_CONTENT_TABS } from '../utils/adminNavigation';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -972,10 +973,17 @@ export default function AdminPanel({
 
   useEffect(() => {
     const handleSyncError = (event: Event) => {
-      const detail = (event as CustomEvent<{ key?: string; message?: string }>).detail;
+      const detail = (event as CustomEvent<{
+        key?: string;
+        message?: string;
+        retrying?: boolean;
+        retryCount?: number;
+      }>).detail;
       showToast(
-        detail?.message || `Không thể lưu ${detail?.key || 'dữ liệu'} lên Firebase. Vui lòng thử lại!`,
-        'error'
+        detail?.retrying
+          ? `Kết nối tạm thời gián đoạn. Hệ thống đang tự lưu lại ${detail?.key || 'dữ liệu'} (lần ${detail.retryCount || 1}/5).`
+          : detail?.message || `Không thể lưu ${detail?.key || 'dữ liệu'} lên Firebase. Vui lòng thử lại!`,
+        detail?.retrying ? 'info' : 'error'
       );
     };
     const handleMergedSyncSuccess = (event: Event) => {
@@ -2712,17 +2720,7 @@ export default function AdminPanel({
   }
 
   // Permitted tabs list for the sidebar
-  const tabsList = [
-    { id: 'categories', label: 'Quản lý Danh mục', icon: FolderOpen, color: 'text-sky-600' },
-    { id: 'articles', label: 'Quản lý Bài viết', icon: FileText, color: 'text-[#0054A6]' },
-    { id: 'coaches', label: 'Huấn luyện viên', icon: Users, color: 'text-indigo-600' },
-    { id: 'members', label: 'Thành viên CLB', icon: Users, color: 'text-emerald-600' },
-    { id: 'achievements', label: 'Thành tích đạt được', icon: Award, color: 'text-amber-500' },
-    { id: 'tournaments', label: 'Giải đấu tham gia', icon: Trophy, color: 'text-orange-500' },
-    { id: 'clubs', label: 'Câu lạc bộ', icon: Map, color: 'text-teal-600' },
-    { id: 'highlights', label: 'Video Highlights', icon: Film, color: 'text-purple-600' },
-    { id: 'webConfig', label: 'Cấu hình Website', icon: Settings, color: 'text-rose-500' },
-  ];
+  const tabsList = ADMIN_CONTENT_TABS;
 
   // Filters out tabs that are not permitted for this admin (if they are assistant)
   const visibleTabs = tabsList.filter(tab => {

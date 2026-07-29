@@ -5,12 +5,11 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "crypto";
-import { MongoClient } from "mongodb";
+import type { MongoClient as MongoClientType } from "mongodb";
 import { createClient } from "@vercel/kv";
 import { createClient as createRedisRawClient } from "redis";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
 import {
   canAccessAdminPermission,
   hashPassword,
@@ -195,15 +194,18 @@ async function runRedisCommand<T>(commandFn: (client: any) => Promise<T>): Promi
 }
 
 // MongoDB Setup
-let mongoClient: MongoClient | null = null;
+let mongoClient: MongoClientType | null = null;
 let mongoFailed = false;
 const MONGODB_URI = isValidEnvVar(process.env.MONGODB_URI) ? process.env.MONGODB_URI : null;
 
-async function getMongoClient(): Promise<MongoClient | null> {
+async function getMongoClient(): Promise<MongoClientType | null> {
   if (!MONGODB_URI) return null;
   if (mongoClient) return mongoClient;
   if (mongoFailed) return null;
   try {
+    // MongoDB is an optional fallback. Load its driver only when configured so
+    // normal Firebase/Redis serverless cold starts do less work.
+    const { MongoClient } = await import("mongodb");
     const client = new MongoClient(MONGODB_URI, {
       connectTimeoutMS: 2000,
       socketTimeoutMS: 2000,
@@ -728,6 +730,9 @@ async function storeImageInFirebaseStorage(
   contentType: string
 ) {
   if (!firebaseStorageBucketName) return null;
+  // Firebase Storage is optional. Avoid initializing its Google Cloud client
+  // for ordinary API requests while media still uses Firestore documents.
+  const { getStorage } = await import("firebase-admin/storage");
   const bucket = getStorage().bucket(firebaseStorageBucketName);
   const objectPath = `vovinam-media/${id}`;
   const downloadToken = randomUUID();
@@ -2421,6 +2426,7 @@ app.get("/api/db-status", requireAdminSession, requireSuperAdmin, async (req, re
       tests.push((async () => {
         try {
           const start = Date.now();
+          const { getStorage } = await import("firebase-admin/storage");
           await withTimeout(
             getStorage().bucket(firebaseStorageBucketName).getMetadata(),
             3000,

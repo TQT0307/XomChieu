@@ -149,6 +149,8 @@ export default function App() {
   const syncQueuesRef = useRef<Record<string, {
     running: boolean;
     queuedData?: any;
+    retryCount?: number;
+    retryTimer?: ReturnType<typeof setTimeout>;
   }>>({});
 
   // Track timestamps of the last local write of each key to prevent overwriting with older server polling replies
@@ -159,6 +161,16 @@ export default function App() {
   // dirty. Server polling, initial bundled data, and ordinary visitors must
   // never write anything back to Firebase.
   const adminDirtyKeysRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => () => {
+    Object.keys(localStorageTimersRef.current).forEach(key => {
+      clearTimeout(localStorageTimersRef.current[key]);
+    });
+    Object.keys(syncQueuesRef.current).forEach(key => {
+      const queue = syncQueuesRef.current[key];
+      if (queue.retryTimer) clearTimeout(queue.retryTimer);
+    });
+  }, []);
 
   const applyServerKeyData = (key: SyncKey, incomingData: any, force = false) => {
     lastServerDataRef.current[key] = incomingData;
@@ -369,9 +381,13 @@ export default function App() {
   const syncKeyWithServer = (key: SyncKey, data: any) => {
     if (!hasLoadedServerData || !initialSyncCompletedRef.current) return;
     latestStateRef.current[key] = data;
-    const queue = syncQueuesRef.current[key] || { running: false };
+    const queue = syncQueuesRef.current[key] || { running: false, retryCount: 0 };
     queue.queuedData = data;
     syncQueuesRef.current[key] = queue;
+    if (queue.retryTimer) {
+      clearTimeout(queue.retryTimer);
+      queue.retryTimer = undefined;
+    }
     if (queue.running) return;
 
     queue.running = true;
@@ -435,7 +451,8 @@ export default function App() {
             break;
           }
 
-          const savedData = payload.data ?? normalizedData;
+           const savedData = payload.data ?? normalizedData;
+          queue.retryCount = 0;
           lastServerDataRef.current[key] = savedData;
           serverKeyVersionsRef.current[key] = Number(payload.keyVersion || payload.lastUpdated || Date.now());
           localStorage.setItem('vovinam_last_updated', String(payload.lastUpdated || Date.now()));
@@ -471,17 +488,34 @@ export default function App() {
       } catch (error) {
         console.error(`Network error syncing ${key} to server API:`, error);
         localStorage.setItem('vovinam_last_updated', '0');
+        // Keep the newest unsaved Admin state and retry with bounded exponential
+        // backoff. A temporary Firebase/Redis/network failure must not silently
+        // discard the edit after the UI has already shown it locally.
+        const retryData = latestStateRef.current[key];
+        if (retryData !== undefined) queue.queuedData = retryData;
+        queue.retryCount = Number(queue.retryCount || 0) + 1;
+        if (queue.queuedData !== undefined && queue.retryCount <= 5) {
+          const retryDelay = Math.min(15000, 1000 * (2 ** (queue.retryCount - 1)));
+          queue.retryTimer = setTimeout(() => {
+            queue.retryTimer = undefined;
+            const pendingData = queue.queuedData;
+            queue.queuedData = undefined;
+            if (pendingData !== undefined) syncKeyWithServer(key, pendingData);
+          }, retryDelay);
+        }
         window.dispatchEvent(new CustomEvent('vovinam-sync-error', {
           detail: {
             key,
-            message: error instanceof Error ? error.message : String(error)
+            message: error instanceof Error ? error.message : String(error),
+            retrying: Boolean(queue.retryTimer),
+            retryCount: queue.retryCount
           }
         }));
       } finally {
         queue.running = false;
         delete pendingSyncsRef.current[key];
         // An edit may have arrived between the final loop check and cleanup.
-        if (queue.queuedData !== undefined) {
+        if (queue.queuedData !== undefined && !queue.retryTimer) {
           const pendingData = queue.queuedData;
           queue.queuedData = undefined;
           syncKeyWithServer(key, pendingData);
