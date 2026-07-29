@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  compareLatestNewsByExpiry,
   getLatestNewsRemainingMs,
   isArticleInLatestNews,
   LATEST_NEWS_DURATION_MS
@@ -47,5 +48,21 @@ test('legacy articles without featuredAt use their publication date', () => {
   const withinThreeDays = Date.parse('2026-07-30T12:00:00+07:00');
 
   assert.equal(isArticleInLatestNews(item, withinThreeDays), true);
+});
+
+test('latest news with less remaining time is ordered first', () => {
+  const earlier = article({
+    id: 'earlier',
+    featuredAt: '2026-07-28T01:00:00.000Z'
+  });
+  const later = article({
+    id: 'later',
+    featuredAt: '2026-07-28T05:00:00.000Z'
+  });
+
+  assert.deepEqual(
+    [later, earlier].sort(compareLatestNewsByExpiry).map(item => item.id),
+    ['earlier', 'later']
+  );
 });
 

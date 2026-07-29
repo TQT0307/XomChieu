@@ -16,6 +16,7 @@ import defaultBanner5 from '../assets/images/banner5.jpg';
 import { articleContentToPlainText } from '../utils/articleContent';
 import { closeDetailRoute, parseDetailHash, pushDetailRoute } from '../utils/detailRoutes';
 import {
+  compareLatestNewsByExpiry,
   getLatestNewsExpiryMs,
   isArticleInLatestNews
 } from '../utils/latestNews';
@@ -40,41 +41,24 @@ const LatestNewsCountdown = ({ expiresAt }: { expiresAt: number }) => {
 
   return (
     <div
-      className="absolute bottom-2 right-2 z-10 w-[180px] overflow-hidden rounded-xl border border-[#FFF200]/70 bg-gradient-to-r from-[#003b78]/95 via-[#0054A6]/95 to-[#0876c9]/95 px-2 py-1.5 text-white shadow-[0_7px_20px_rgba(0,84,166,0.38)] backdrop-blur-lg sm:w-[195px]"
+      className="absolute bottom-2 right-2 z-10 inline-flex h-8 items-center gap-1.5 overflow-hidden rounded-full border border-[#FFF200]/75 bg-gradient-to-r from-[#003b78]/95 via-[#0054A6]/95 to-[#0876c9]/95 py-1 pl-1 pr-2 text-white shadow-[0_5px_16px_rgba(0,84,166,0.36)] backdrop-blur-lg"
       title="Thời gian còn lại trong mục Tin tức mới nhất"
       aria-label={`Còn ${days} ngày ${hours} giờ ${minutes} phút ${seconds} giây`}
     >
-      <span className="pointer-events-none absolute -right-3 -top-5 h-12 w-12 rounded-full bg-[#FFF200]/20 blur-xl" />
-
-      <div className="relative flex items-center gap-1.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/30 bg-gradient-to-br from-[#FFF200] to-orange-500 text-[#003b78] shadow-[0_0_12px_rgba(255,242,0,0.35)]">
-          <Clock className="h-4 w-4 animate-pulse" strokeWidth={2.6} />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-1 leading-none">
-            <span className="truncate text-[6px] font-black uppercase tracking-[0.14em] text-[#FFF200]">
-              Còn nổi bật
-            </span>
-            <span className="flex shrink-0 items-center gap-1 text-[5px] font-black uppercase tracking-wider text-white/90">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#FFF200] opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#FFF200]" />
-              </span>
-              Live
-            </span>
-          </div>
-
-          <div className="mt-1 flex items-baseline gap-1 rounded-md border border-white/10 bg-slate-950/20 px-1.5 py-1 font-mono leading-none shadow-inner">
-            <span className="text-[10px] font-black text-white">{pad(days)}</span>
-            <span className="text-[6px] font-bold uppercase text-blue-100/75">ngày</span>
-            <span className="text-[8px] font-bold text-[#FFF200]/80">•</span>
-            <span className="text-[10px] font-black tracking-wider text-white">
-              {pad(hours)}:{pad(minutes)}:{pad(seconds)}
-            </span>
-          </div>
-        </div>
-      </div>
+      <span className="pointer-events-none absolute -right-2 -top-3 h-9 w-9 rounded-full bg-[#FFF200]/20 blur-lg" />
+      <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FFF200] to-orange-500 text-[#003b78] shadow-[0_0_10px_rgba(255,242,0,0.32)]">
+        <Clock className="h-3.5 w-3.5 animate-pulse" strokeWidth={2.7} />
+      </span>
+      <span className="relative whitespace-nowrap font-mono text-[9px] font-black tracking-wide">
+        {pad(days)}N&nbsp; {pad(hours)}:{pad(minutes)}:{pad(seconds)}
+      </span>
+      <span className="relative flex shrink-0 items-center gap-1 rounded-full bg-white/12 px-1.5 py-1 text-[5px] font-black uppercase tracking-wider text-[#FFF200]">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#FFF200] opacity-75" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#FFF200]" />
+        </span>
+        Live
+      </span>
     </div>
   );
 };
@@ -879,9 +863,9 @@ export default function UserView({
           <div className="space-y-16 relative z-10">
             {/* 1. LATEST ARTICLES (TIN MỚI NHẤT) SECTION */}
             {(() => {
-              const latestArticles = visibleArticles.filter(article => {
-                return isArticleInLatestNews(article, latestNewsClock);
-              });
+              const latestArticles = visibleArticles
+                .filter(article => isArticleInLatestNews(article, latestNewsClock))
+                .sort(compareLatestNewsByExpiry);
 
               if (latestArticles.length === 0) return null;
 

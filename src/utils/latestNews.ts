@@ -34,3 +34,11 @@ export const isArticleInLatestNews = (
   nowMs = Date.now()
 ): boolean => getLatestNewsRemainingMs(article, nowMs) > 0;
 
+export const compareLatestNewsByExpiry = (
+  left: Article,
+  right: Article
+): number => {
+  const leftExpiry = getLatestNewsExpiryMs(left) ?? Number.MAX_SAFE_INTEGER;
+  const rightExpiry = getLatestNewsExpiryMs(right) ?? Number.MAX_SAFE_INTEGER;
+  return leftExpiry - rightExpiry;
+};
