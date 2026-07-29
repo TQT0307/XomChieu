@@ -21,7 +21,8 @@ import {
   getLatestNewsExpiryMs,
   isArticleInLatestNews
 } from '../utils/latestNews';
-import { matchesSmartSearch, normalizeSmartSearchText } from '../utils/smartSearch';
+import { matchesSmartSearch } from '../utils/smartSearch';
+import { buildTournamentSearchOptions } from '../utils/tournamentSearchOptions';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
 
@@ -550,61 +551,41 @@ export default function UserView({
     );
   }), [highlights, searchHighlightQuery, tournamentById]);
   const visibleClubs = clubs;
-  const highlightSearchOptions = useMemo(() => {
-    const tournamentCounts = new Map<string, { name: string; count: number }>();
-    highlights.filter(item => item.status !== false).forEach(item => {
-      const name = String(
-        tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
-      ).trim();
-      if (!name) return;
-      const key = normalizeSmartSearchText(name);
-      const current = tournamentCounts.get(key);
-      tournamentCounts.set(key, { name, count: (current?.count || 0) + 1 });
-    });
-    return Array.from(tournamentCounts.entries())
-      .map(([key, item]) => ({
-        key: `highlight-tournament-${key}`,
-        value: item.name,
-        label: item.name,
-        meta: `${item.count} highlight`
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
-  }, [highlights, tournamentById]);
-  const achievementSearchOptions = useMemo(() => {
-    const tournamentCounts = new Map<string, { name: string; count: number }>();
-    achievements.filter(item => item.status !== false).forEach(item => {
-      const name = String(
-        tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
-      ).trim();
-      if (!name) return;
-      const key = normalizeSmartSearchText(name);
-      const current = tournamentCounts.get(key);
-      tournamentCounts.set(key, { name, count: (current?.count || 0) + 1 });
-    });
-    return Array.from(tournamentCounts.entries())
-      .map(([key, item]) => ({
-        key: `achievement-tournament-${key}`,
-        value: item.name,
-        label: item.name,
-        meta: `${item.count} thành tích`
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
-  }, [achievements, tournamentById]);
+  const highlightSearchOptions = useMemo(
+    () => buildTournamentSearchOptions(
+      highlights,
+      tournamentById,
+      'highlight',
+      'highlight',
+      true
+    ),
+    [highlights, tournamentById]
+  );
+  const achievementSearchOptions = useMemo(
+    () => buildTournamentSearchOptions(
+      achievements,
+      tournamentById,
+      'achievement',
+      'thành tích',
+      true
+    ),
+    [achievements, tournamentById]
+  );
   const coachSearchOptions = useMemo(() => coaches
     .filter(item => item.status !== false)
     .map(item => ({
       key: String(item.id),
-      value: String(item.id),
+      value: item.fullName,
       label: item.fullName,
-      meta: [item.id, item.rank, item.birthYear].filter(Boolean).join(' • ')
+      meta: [item.rank, item.birthYear].filter(Boolean).join(' • ')
     })), [coaches]);
   const memberSearchOptions = useMemo(() => members
     .filter(item => item.status !== false)
     .map(item => ({
       key: String(item.id),
-      value: String(item.id),
+      value: item.fullName,
       label: item.fullName,
-      meta: [item.id, item.rank, item.birthYear].filter(Boolean).join(' • ')
+      meta: [item.rank, item.birthYear].filter(Boolean).join(' • ')
     })), [members]);
 
   const configHeight = webConfig.bannerHeight || 'medium';
@@ -1306,7 +1287,7 @@ export default function UserView({
         </div>
 
         {/* One smart search field for all Highlight information */}
-        <div className="max-w-3xl mx-auto mb-12 relative z-10 px-4 sm:px-0">
+        <div className="max-w-xl mx-auto mb-8 relative z-10 px-4 sm:px-0">
           <SmartSearchInput
             value={searchHighlightQuery}
             onChange={setSearchHighlightQuery}
@@ -1411,12 +1392,12 @@ export default function UserView({
           </div>
 
           {/* One smart search field replaces four separate filters */}
-          <div className="bg-slate-900/80 border border-slate-800 p-4 sm:p-5 rounded-3xl shadow-2xl mb-10 max-w-4xl mx-auto backdrop-blur-md relative z-20">
+          <div className="bg-slate-900/80 border border-slate-800 p-3 sm:p-4 rounded-2xl shadow-xl mb-8 max-w-2xl mx-auto backdrop-blur-md relative z-20">
             <SmartSearchInput
               value={searchAchievementQuery}
               onChange={setSearchAchievementQuery}
               options={achievementSearchOptions}
-              placeholder="Nhập điều bạn nhớ: 2026, tên VĐV, ID, huy chương, tên giải, đơn vị..."
+              placeholder="Nhập điều bạn nhớ: 2026, tên VĐV, huy chương, tên giải..."
               ariaLabel="Tìm kiếm thông minh trong thành tích"
               resultCount={visibleAchievements.length}
               label="Tìm kiếm thông minh"
@@ -1545,12 +1526,12 @@ export default function UserView({
         </div>
 
         {/* Search input for Coaches */}
-        <div className="max-w-md mx-auto mb-6 relative z-10 px-4 sm:px-0">
+        <div className="max-w-sm mx-auto mb-6 relative z-10 px-4 sm:px-0">
           <SmartSearchInput
             value={searchCoachQuery}
             onChange={setSearchCoachQuery}
             options={coachSearchOptions}
-            placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
+            placeholder="Tìm theo tên, năm sinh, đai, CLB, thành tích..."
             ariaLabel="Tìm kiếm thông minh trong huấn luyện viên"
             resultCount={visibleCoaches.length}
             theme="light"
@@ -1750,12 +1731,12 @@ export default function UserView({
           </div>
 
         {/* Search input for Members */}
-        <div className="max-w-md mx-auto mb-6 relative z-10 px-4 sm:px-0">
+        <div className="max-w-sm mx-auto mb-6 relative z-10 px-4 sm:px-0">
           <SmartSearchInput
             value={searchMemberQuery}
             onChange={setSearchMemberQuery}
             options={memberSearchOptions}
-            placeholder="Tìm thông minh: ID, tên, năm sinh, đai, CLB, thành tích..."
+            placeholder="Tìm theo tên, năm sinh, đai, CLB, thành tích..."
             ariaLabel="Tìm kiếm thông minh trong thành viên"
             resultCount={visibleMembers.length}
             theme="light"

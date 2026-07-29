@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { 
   FileText, FolderOpen, Users, Award, Trophy, Film, Settings, 
-  Plus, Edit2, Trash2, Save, X, Map, CheckCircle2, ShieldAlert,
+  Plus, Edit2, Trash2, Save, X, CheckCircle2, ShieldAlert,
   Shield, History, Key, LogOut, Lock, ShieldCheck, Swords,
   User, Eye, EyeOff, ClipboardList, Info, Check, UserCheck,
   ChevronLeft, ChevronRight
@@ -34,7 +34,8 @@ import {
   MIN_LATEST_NEWS_DAYS,
   normalizeLatestNewsDays
 } from '../utils/latestNews';
-import { matchesSmartSearch, normalizeSmartSearchText } from '../utils/smartSearch';
+import { matchesSmartSearch } from '../utils/smartSearch';
+import { buildTournamentSearchOptions } from '../utils/tournamentSearchOptions';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -2535,23 +2536,12 @@ export default function AdminPanel({
           meta: `${item.id} • ${item.rank} • ${item.birthYear}`
         }));
       case 'achievements':
-        return Array.from(achievements.reduce((result, item) => {
-          const name = String(
-            tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
-          ).trim();
-          if (!name) return result;
-          const key = normalizeSmartSearchText(name);
-          const current = result.get(key);
-          result.set(key, { name, count: (current?.count || 0) + 1 });
-          return result;
-        }, new Map<string, { name: string; count: number }>()).entries())
-          .map(([key, item]) => ({
-            key: `achievement-tournament-${key}`,
-            value: item.name,
-            label: item.name,
-            meta: `${item.count} thành tích`
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+        return buildTournamentSearchOptions(
+          achievements,
+          tournamentById,
+          'achievement',
+          'thành tích'
+        );
       case 'tournaments':
         return tournaments.map(item => ({
           key: `tournament-${item.id}`,
@@ -2567,23 +2557,12 @@ export default function AdminPanel({
           meta: `${item.id} • ${item.address}`
         }));
       case 'highlights':
-        return Array.from(highlights.reduce((result, item) => {
-          const name = String(
-            tournamentById.get(item.tournamentId || '')?.name || item.tournamentName || ''
-          ).trim();
-          if (!name) return result;
-          const key = normalizeSmartSearchText(name);
-          const current = result.get(key);
-          result.set(key, { name, count: (current?.count || 0) + 1 });
-          return result;
-        }, new Map<string, { name: string; count: number }>()).entries())
-          .map(([key, item]) => ({
-            key: `highlight-tournament-${key}`,
-            value: item.name,
-            label: item.name,
-            meta: `${item.count} highlight`
-          }))
-          .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+        return buildTournamentSearchOptions(
+          highlights,
+          tournamentById,
+          'highlight',
+          'highlight'
+        );
       default:
         return [];
     }
@@ -6099,7 +6078,7 @@ export default function AdminPanel({
                 resultCount={renderedData.length}
                 helperText="Không phân biệt dấu hoặc chữ hoa/thường. Bấm mũi tên để xem toàn bộ bản ghi; có thể nhập nhiều ý như 2026 Thiện vàng."
                 theme="admin"
-                className="mb-6"
+                className="mb-6 max-w-3xl"
               />
 
               {/* Data Table */}

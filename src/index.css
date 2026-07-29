@@ -48,6 +48,50 @@ html {
   background-clip: padding-box;
 }
 
+/* Compact search dropdowns use the same slim, rounded scrollbar everywhere.
+   Keeping this in one shared class prevents browser-native arrows/tracks from
+   changing the layout between Highlights, coaches, members and Admin. */
+.smart-search-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 84, 166, 0.72) transparent;
+  scrollbar-gutter: stable;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 34px;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: rgba(0, 84, 166, 0.72);
+  background-clip: padding-box;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 84, 166, 0.96);
+  background-clip: padding-box;
+}
+
+.smart-search-scrollbar-dark {
+  scrollbar-color: rgba(255, 242, 0, 0.62) transparent;
+}
+
+.smart-search-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: rgba(255, 242, 0, 0.62);
+  background-clip: padding-box;
+}
+
+.smart-search-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 242, 0, 0.9);
+  background-clip: padding-box;
+}
+
 /* A detail dialog owns the wheel/touch gesture while it is open. This avoids
    scroll chaining from the dialog to the page behind it at either boundary. */
 .modal-scroll-lock {

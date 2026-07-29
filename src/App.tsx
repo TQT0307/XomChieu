@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import UserView from './components/UserView';
+import AdminErrorBoundary from './components/AdminErrorBoundary';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
@@ -791,6 +792,15 @@ export default function App() {
     };
   }, [isAdmin, articles, highlights, clubs, coaches, tournaments, achievements]);
 
+  const handleBackToWebsite = () => {
+    setIsAdmin(false);
+    window.history.replaceState(
+      { vovinamSection: 'section-about' },
+      '',
+      '#section-about'
+    );
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 font-sans antialiased text-slate-800">
       
@@ -808,6 +818,7 @@ export default function App() {
       {/* Primary views */}
       <main className="flex-1">
         {isAdmin ? (
+          <AdminErrorBoundary onBackToWebsite={handleBackToWebsite}>
           <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center text-sm font-bold text-[#0054A6]">Đang tải trang quản trị...</div>}>
           <AdminPanel 
             categories={categories}
@@ -865,16 +876,10 @@ export default function App() {
               serverKeyVersionsRef.current = data.keyVersions || {};
               localStorage.setItem('vovinam_last_updated', String(data.lastUpdated || 0));
             }}
-            onBackToWebsite={() => {
-              setIsAdmin(false);
-              window.history.replaceState(
-                { vovinamSection: 'section-about' },
-                '',
-                '#section-about'
-              );
-            }}
+            onBackToWebsite={handleBackToWebsite}
           />
           </Suspense>
+          </AdminErrorBoundary>
         ) : (
           <UserView 
             categories={categories}
