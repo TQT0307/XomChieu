@@ -8,11 +8,13 @@ const decodeHtmlEntities = (value: string) =>
     .replace(/&quot;/gi, '"');
 
 const getCoordinates = (value: string) => {
-  const viewportMatch = value.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
-  if (viewportMatch) return `${viewportMatch[1]},${viewportMatch[2]}`;
-
+  // A shared Maps URL can contain both a shifted viewport and the real marker.
+  // Prefer the marker so it appears in the visual center of the embed.
   const placeMatch = value.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
   if (placeMatch) return `${placeMatch[1]},${placeMatch[2]}`;
+
+  const viewportMatch = value.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/);
+  if (viewportMatch) return `${viewportMatch[1]},${viewportMatch[2]}`;
 
   return '';
 };
@@ -46,9 +48,12 @@ export const buildGoogleMapsEmbedUrl = (
 
     if (!isGoogleMapsHost) return fallback;
 
-    // HTML copied from Google Maps > Share > Embed a map contains this path
-    // and a pb token that identifies the selected place precisely.
-    if (parsed.pathname.includes('/maps/embed')) return parsed.href;
+    // Coordinate queries render the selected marker in the center rather than
+    // inheriting a viewport shifted by Google's place-information panel.
+    if (parsed.pathname.includes('/maps/embed')) {
+      const coordinates = getCoordinates(rawUrl);
+      return coordinates ? createSearchEmbedUrl(coordinates) : parsed.href;
+    }
 
     const placeId = parsed.searchParams.get('query_place_id');
     if (placeId) return createSearchEmbedUrl(`place_id:${placeId}`);

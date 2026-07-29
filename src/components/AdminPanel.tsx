@@ -24,6 +24,7 @@ import {
   normalizeArticleContentForStorage,
 } from '../utils/articleContent';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
+import { findPersonByIdOrName, formatPersonLookupValue } from '../utils/personLookup';
 import {
   getHighQualityCropOutputSize,
   getRecommendedMaxZoom
@@ -5477,58 +5478,29 @@ export default function AdminPanel({
                       {/* Right Column: Head Coach Lookup & Location Details */}
                       <div className="space-y-3">
                         <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                          <label className="block text-xs font-bold text-[#0054A6] uppercase mb-1">Võ sư/HLV phụ trách chính qua ID</label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                            <input 
-                              type="text" 
-                              placeholder="Nhập ID HLV (Ví dụ: HLV_THIEN)"
+                          <label className="block text-xs font-bold text-[#0054A6] uppercase mb-1">Võ sư/HLV phụ trách chính</label>
+                          <div className="mb-2">
+                            <input
+                              type="text"
+                              list="club-head-coach-options"
+                              placeholder="Nhập ID hoặc tên HLV để tìm..."
                               value={typedClubCoachId}
                               onChange={e => {
-                                const val = e.target.value;
-                                setTypedClubCoachId(val);
-                                const found = coaches.find(c => c.id.toLowerCase() === val.trim().toLowerCase());
-                                if (found) {
-                                  setClubForm({
-                                    ...clubForm,
-                                    headCoach: found.fullName
-                                  });
-                                }
+                                const value = e.target.value;
+                                setTypedClubCoachId(value);
+                                const coach = findPersonByIdOrName(coaches, value);
+                                setClubForm({ ...clubForm, headCoach: coach?.fullName || '' });
+                                if (coach) setTypedClubCoachId(formatPersonLookupValue(coach));
                               }}
-                              className="text-xs sm:text-sm border border-[#0054A6]/30 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                              className="w-full text-xs sm:text-sm border border-[#0054A6]/30 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
                             />
-                            <select
-                              value={typedClubCoachId}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setTypedClubCoachId(val);
-                                const found = coaches.find(c => c.id === val);
-                                if (found) {
-                                  setClubForm({
-                                    ...clubForm,
-                                    headCoach: found.fullName
-                                  });
-                                }
-                              }}
-                              className="text-xs sm:text-sm border border-slate-300 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
-                            >
-                              <option value="">-- Chọn nhanh --</option>
-                              {coaches.map(c => (
-                                <option key={c.id} value={c.id}>{c.fullName} ({c.id})</option>
+                            <datalist id="club-head-coach-options">
+                              {coaches.map(coach => (
+                                <option key={coach.id} value={formatPersonLookupValue(coach)} />
                               ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-0.5">Tên Võ sư/HLV phụ trách chính</label>
-                            <input 
-                              type="text" 
-                              value={clubForm.headCoach || ''}
-                              onChange={e => setClubForm({ ...clubForm, headCoach: e.target.value })}
-                              className="w-full text-xs border p-1.5 rounded-lg bg-white" required
-                              placeholder="Tự động điền khi khớp ID hoặc nhập thủ công"
-                            />
-                          </div>
-                          {(() => {
-                            const matchedCoach = coaches.find(c => c.id.toLowerCase() === typedClubCoachId.trim().toLowerCase() || c.fullName === clubForm.headCoach);
+                            </datalist>
+                          </div>                          {(() => {
+                            const matchedCoach = findPersonByIdOrName(coaches, typedClubCoachId) || coaches.find(c => c.fullName === clubForm.headCoach);
                             if (matchedCoach) {
                               return (
                                 <div className="flex items-center gap-2 mt-2 p-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
@@ -5733,66 +5705,29 @@ export default function AdminPanel({
                       {/* Right Section: Athlete Lookup & Thumbnail */}
                       <div className="space-y-3">
                         <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                          <label className="block text-xs font-bold text-[#0054A6] uppercase mb-1">Tra cứu Vận động viên qua ID</label>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                            <input 
-                              type="text" 
-                              placeholder="Nhập ID (Ví dụ: TV001)"
+                          <label className="block text-xs font-bold text-[#0054A6] uppercase mb-1">HLV / Thành viên biểu diễn</label>
+                          <div className="mb-2">
+                            <input
+                              type="text"
+                              list="highlight-athlete-options"
+                              placeholder="Nhập ID hoặc tên HLV / thành viên để tìm..."
                               value={typedHighlightAthleteId}
                               onChange={e => {
-                                const val = e.target.value;
-                                setTypedHighlightAthleteId(val);
-                                const foundMember = members.find(m => m.id.toLowerCase() === val.trim().toLowerCase());
-                                const foundCoach = coaches.find(c => c.id.toLowerCase() === val.trim().toLowerCase());
-                                if (foundMember) {
-                                  setHighlightForm({ ...highlightForm, athleteName: foundMember.fullName });
-                                } else if (foundCoach) {
-                                  setHighlightForm({ ...highlightForm, athleteName: foundCoach.fullName });
-                                }
+                                const value = e.target.value;
+                                setTypedHighlightAthleteId(value);
+                                const person = findPersonByIdOrName([...coaches, ...members], value);
+                                setHighlightForm({ ...highlightForm, athleteName: person?.fullName || '' });
+                                if (person) setTypedHighlightAthleteId(formatPersonLookupValue(person));
                               }}
-                              className="text-xs sm:text-sm border border-[#0054A6]/30 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
+                              className="w-full text-xs sm:text-sm border border-[#0054A6]/30 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
                             />
-                            <select
-                              value={typedHighlightAthleteId}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setTypedHighlightAthleteId(val);
-                                const foundMember = members.find(m => m.id === val);
-                                const foundCoach = coaches.find(c => c.id === val);
-                                if (foundMember) {
-                                  setHighlightForm({ ...highlightForm, athleteName: foundMember.fullName });
-                                } else if (foundCoach) {
-                                  setHighlightForm({ ...highlightForm, athleteName: foundCoach.fullName });
-                                }
-                              }}
-                              className="text-xs sm:text-sm border border-slate-300 p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
-                            >
-                              <option value="">-- Chọn nhanh --</option>
-                              <optgroup label="Huấn luyện viên">
-                                {coaches.map(c => (
-                                  <option key={c.id} value={c.id}>{c.fullName} ({c.id})</option>
-                                ))}
-                              </optgroup>
-                              <optgroup label="Môn sinh">
-                                {members.map(m => (
-                                  <option key={m.id} value={m.id}>{m.fullName} ({m.id})</option>
-                                ))}
-                              </optgroup>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-black text-slate-500 uppercase mb-0.5">Tên vận động viên biểu diễn</label>
-                            <input 
-                              type="text" 
-                              value={highlightForm.athleteName || ''}
-                              onChange={e => setHighlightForm({ ...highlightForm, athleteName: e.target.value })}
-                              className="w-full text-xs border p-1.5 rounded-lg bg-white" required
-                              placeholder="Tự động điền khi khớp ID hoặc nhập thủ công"
-                            />
-                          </div>
-                          {(() => {
-                            const matchedMember = members.find(m => m.id.toLowerCase() === typedHighlightAthleteId.trim().toLowerCase() || m.fullName === highlightForm.athleteName);
-                            const matchedCoach = coaches.find(c => c.id.toLowerCase() === typedHighlightAthleteId.trim().toLowerCase() || c.fullName === highlightForm.athleteName);
+                            <datalist id="highlight-athlete-options">
+                              {coaches.map(coach => <option key={`coach-${coach.id}`} value={formatPersonLookupValue(coach)}>HLV</option>)}
+                              {members.map(member => <option key={`member-${member.id}`} value={formatPersonLookupValue(member)}>Thành viên</option>)}
+                            </datalist>
+                          </div>                          {(() => {
+                            const matchedMember = findPersonByIdOrName(members, typedHighlightAthleteId) || members.find(m => m.fullName === highlightForm.athleteName);
+                            const matchedCoach = findPersonByIdOrName(coaches, typedHighlightAthleteId) || coaches.find(c => c.fullName === highlightForm.athleteName);
                             const person = matchedMember || matchedCoach;
                             if (person) {
                               return (
