@@ -36,6 +36,10 @@ import {
 } from '../utils/latestNews';
 import { matchesSmartSearch } from '../utils/smartSearch';
 import { buildTournamentSearchOptions } from '../utils/tournamentSearchOptions';
+import {
+  parseStoredAdminAccount,
+  parseStoredEditHistories
+} from '../utils/adminStorage';
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -1002,12 +1006,10 @@ export default function AdminPanel({
     ([localStorage, sessionStorage] as Storage[]).forEach(storage => {
       const raw = storage.getItem('vovinam_current_admin');
       if (!raw) return;
-      try {
-        const safeAccount = JSON.parse(raw);
-        delete safeAccount.password;
-        delete safeAccount.passwordHash;
+      const safeAccount = parseStoredAdminAccount(raw);
+      if (safeAccount) {
         storage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
-      } catch {
+      } else {
         storage.removeItem('vovinam_current_admin');
       }
     });
@@ -1020,12 +1022,10 @@ export default function AdminPanel({
 
   // Initialize System Action Logs state from localStorage
   const [editHistories, setEditHistories] = useState<EditHistory[]>(() => {
-    const saved = localStorage.getItem('vovinam_edit_histories');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {}
-    }
+    const saved = parseStoredEditHistories(
+      localStorage.getItem('vovinam_edit_histories')
+    );
+    if (saved) return saved;
     const seedLogs: EditHistory[] = [
       {
         id: 1,
@@ -1044,15 +1044,11 @@ export default function AdminPanel({
   // Current logged in Admin state
   const [currentAdmin, setCurrentAdmin] = useState<AdminAccount | null>(() => {
     // Check local storage (Remember me) or session storage
-    const remembered = localStorage.getItem('vovinam_current_admin');
-    if (remembered) {
-      try { return JSON.parse(remembered); } catch (e) {}
-    }
-    const sessioned = sessionStorage.getItem('vovinam_current_admin');
-    if (sessioned) {
-      try { return JSON.parse(sessioned); } catch (e) {}
-    }
-    return null;
+    return parseStoredAdminAccount(
+      localStorage.getItem('vovinam_current_admin')
+    ) || parseStoredAdminAccount(
+      sessionStorage.getItem('vovinam_current_admin')
+    );
   });
 
   // Authentication UI state
@@ -1076,7 +1072,10 @@ export default function AdminPanel({
       })
       .then(payload => {
         if (!active || !payload?.session) return;
-        const safeAccount = payload.session as AdminAccount;
+        const safeAccount = parseStoredAdminAccount(
+          JSON.stringify(payload.session)
+        );
+        if (!safeAccount) throw new Error('Invalid Admin session');
         setCurrentAdmin(safeAccount);
         if (payload.session.remember === true || rememberMe) {
           localStorage.setItem('vovinam_current_admin', JSON.stringify(safeAccount));
@@ -2168,6 +2167,7 @@ export default function AdminPanel({
   }, [activeTab]);
 
   useEffect(() => {
+    if (currentAdmin?.role !== 'super') return;
     fetchBackupStatus();
     const handleSyncSuccess = () => {
       window.setTimeout(fetchBackupStatus, 800);
@@ -2178,7 +2178,7 @@ export default function AdminPanel({
       window.removeEventListener('vovinam-sync-success', handleSyncSuccess);
       window.clearInterval(interval);
     };
-  }, []);
+  }, [currentAdmin?.role]);
 
   const handleForceUploadToCloud = async () => {
     downloadLocalBackup('vovinam_before_cloud_overwrite');
