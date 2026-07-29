@@ -32,6 +32,7 @@ import {
   pushDetailRoute,
 } from './utils/detailRoutes';
 import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
+import { formatBrowserTitle } from './utils/browserTitle';
 
 type SyncKey =
   | 'categories'
@@ -124,7 +125,7 @@ export default function App() {
       document.head.appendChild(appleIcon);
     }
     appleIcon.href = logo;
-    document.title = webConfig.seoTitle?.trim() || webConfig.clbName || 'Vovinam Xóm Chiếu';
+    document.title = formatBrowserTitle(webConfig.seoTitle, webConfig.clbName);
   }, [webConfig.logo, webConfig.seoTitle, webConfig.clbName]);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);

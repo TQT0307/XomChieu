@@ -37,23 +37,53 @@ const LatestNewsCountdown = ({ expiresAt }: { expiresAt: number }) => {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   const pad = (value: number) => String(value).padStart(2, '0');
+  const units = [
+    { value: pad(days), label: 'Ngày' },
+    { value: pad(hours), label: 'Giờ' },
+    { value: pad(minutes), label: 'Phút' },
+    { value: pad(seconds), label: 'Giây' }
+  ];
 
   return (
     <div
-      className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-xl border border-white/40 bg-slate-950/80 px-2.5 py-1.5 text-white shadow-lg backdrop-blur-md"
+      className="absolute bottom-3 left-3 right-3 z-10 overflow-hidden rounded-2xl border border-[#FFF200]/70 bg-gradient-to-r from-[#003b78]/95 via-[#0054A6]/95 to-[#0876c9]/95 p-2 text-white shadow-[0_10px_30px_rgba(0,84,166,0.42)] backdrop-blur-lg"
       title="Thời gian còn lại trong mục Tin tức mới nhất"
       aria-label={`Còn ${days} ngày ${hours} giờ ${minutes} phút ${seconds} giây`}
     >
-      <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 shadow-inner">
-        <Clock className="h-3.5 w-3.5 animate-pulse" />
-      </span>
-      <div className="leading-none">
-        <span className="block text-[7px] font-black uppercase tracking-[0.16em] text-amber-300">
-          Còn nổi bật
-        </span>
-        <span className="mt-1 block font-mono text-[10px] font-black tracking-wider">
-          {days}N {pad(hours)}:{pad(minutes)}:{pad(seconds)}
-        </span>
+      <span className="pointer-events-none absolute -right-4 -top-6 h-16 w-16 rounded-full bg-[#FFF200]/20 blur-xl" />
+      <span className="pointer-events-none absolute right-2 top-2 h-1.5 w-1.5 animate-ping rounded-full bg-[#FFF200]" />
+
+      <div className="relative flex items-center gap-2">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/30 bg-gradient-to-br from-[#FFF200] to-orange-500 text-[#003b78] shadow-[0_0_18px_rgba(255,242,0,0.42)]">
+          <Clock className="h-5 w-5 animate-pulse" strokeWidth={2.6} />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="truncate text-[7px] font-black uppercase tracking-[0.18em] text-[#FFF200]">
+              Thời gian còn nổi bật
+            </span>
+            <span className="shrink-0 rounded-full bg-white/15 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-wider text-white/90">
+              Live
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1">
+            {units.map(unit => (
+              <div
+                key={unit.label}
+                className="rounded-lg border border-white/15 bg-slate-950/25 px-1 py-1 text-center shadow-inner"
+              >
+                <span className="block font-mono text-[11px] font-black leading-none text-white">
+                  {unit.value}
+                </span>
+                <span className="mt-0.5 block text-[6px] font-bold uppercase tracking-wider text-blue-100/80">
+                  {unit.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
