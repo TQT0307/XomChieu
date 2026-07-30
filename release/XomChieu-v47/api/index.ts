@@ -1,4 +1,4 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
@@ -39,45 +39,6 @@ const app = express();
 const PORT = 3000;
 const MEDIA_COLLECTION = "vovinam_media";
 const MAX_STORED_IMAGE_BYTES = 650 * 1024;
-const MEDIA_MEMORY_CACHE_MAX_BYTES = 24 * 1024 * 1024;
-type CachedMedia = { buffer: Buffer; contentType: string };
-const mediaMemoryCache = new Map<string, CachedMedia>();
-let mediaMemoryCacheBytes = 0;
-
-function getCachedMedia(id: string): CachedMedia | undefined {
-  const cached = mediaMemoryCache.get(id);
-  if (!cached) return undefined;
-  // Refresh insertion order so the bounded Map behaves as a small LRU cache.
-  mediaMemoryCache.delete(id);
-  mediaMemoryCache.set(id, cached);
-  return cached;
-}
-
-function cacheMedia(id: string, buffer: Buffer, contentType: string) {
-  const existing = mediaMemoryCache.get(id);
-  if (existing) mediaMemoryCacheBytes -= existing.buffer.length;
-  mediaMemoryCache.delete(id);
-  mediaMemoryCache.set(id, { buffer, contentType });
-  mediaMemoryCacheBytes += buffer.length;
-
-  while (mediaMemoryCacheBytes > MEDIA_MEMORY_CACHE_MAX_BYTES && mediaMemoryCache.size > 1) {
-    const oldestId = mediaMemoryCache.keys().next().value as string | undefined;
-    if (!oldestId) break;
-    const oldest = mediaMemoryCache.get(oldestId);
-    mediaMemoryCache.delete(oldestId);
-    mediaMemoryCacheBytes -= oldest?.buffer.length || 0;
-  }
-}
-
-function sendMediaResponse(res: express.Response, media: CachedMedia) {
-  res.setHeader("Content-Type", media.contentType);
-  res.setHeader("Content-Length", String(media.buffer.length));
-  res.setHeader("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
-  res.setHeader("Vary", "Accept-Encoding");
-  res.removeHeader("Pragma");
-  res.removeHeader("Expires");
-  return res.send(media.buffer);
-}
 const FIREBASE_BACKUP_SLOT_COUNT = 5;
 const AUTO_BACKUP_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const ADMIN_SESSION_COOKIE = "vovinam_admin_session";
@@ -100,10 +61,10 @@ app.use((req, res, next) => {
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   
-  // Náº¿u request Ä‘Æ°á»£c Ä‘á»‹nh tuyáº¿n tá»›i Serverless Function nÃ y bá»Ÿi Vercel,
-  // req.url cÃ³ thá»ƒ bá»‹ strip tiá»n tá»‘ /api (vÃ­ dá»¥ thÃ nh /db-status).
-  // Náº¿u req.url khÃ´ng báº¯t Ä‘áº§u báº±ng /api vÃ  khÃ´ng pháº£i trang tÄ©nh /,
-  // chÃºng ta tá»± Ä‘á»™ng thÃªm tiá»n tá»‘ /api Ä‘á»ƒ khá»›p vá»›i cÃ¡c Express routes.
+  // Nếu request được định tuyến tới Serverless Function này bởi Vercel,
+  // req.url có thể bị strip tiền tố /api (ví dụ thành /db-status).
+  // Nếu req.url không bắt đầu bằng /api và không phải trang tĩnh /,
+  // chúng ta tự động thêm tiền tố /api để khớp với các Express routes.
   if (process.env.VERCEL && req.url && !req.url.startsWith("/api") && req.url !== "/") {
     const oldUrl = req.url;
     req.url = "/api" + req.url;
@@ -339,7 +300,7 @@ function requireSameOrigin(req: any, res: any, next: any) {
     .split(",")[0]
     .trim();
   if (!isAllowedRequestOrigin(origin, host)) {
-    return res.status(403).json({ error: "Nguá»“n gá»­i yÃªu cáº§u khÃ´ng há»£p lá»‡." });
+    return res.status(403).json({ error: "Nguồn gửi yêu cầu không hợp lệ." });
   }
   next();
 }
@@ -348,7 +309,7 @@ async function requireAdminSession(req: any, res: any, next: any) {
   const session = readAdminSession(req);
   if (!session) {
     return res.status(401).json({
-      error: "PhiÃªn Ä‘Äƒng nháº­p Admin Ä‘Ã£ háº¿t háº¡n. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i."
+      error: "Phiên đăng nhập Admin đã hết hạn. Vui lòng đăng nhập lại."
     });
   }
   try {
@@ -370,7 +331,7 @@ async function requireAdminSession(req: any, res: any, next: any) {
       Number(storedAccount.credentialVersion || 0) !== Number(session.credentialVersion || 0)
     ) {
       return res.status(401).json({
-        error: "TÃ i khoáº£n hoáº·c phiÃªn Ä‘Äƒng nháº­p Ä‘Ã£ thay Ä‘á»•i. Vui lÃ²ng Ä‘Äƒng nháº­p láº¡i."
+        error: "Tài khoản hoặc phiên đăng nhập đã thay đổi. Vui lòng đăng nhập lại."
       });
     }
     req.adminSession = {
@@ -381,14 +342,14 @@ async function requireAdminSession(req: any, res: any, next: any) {
   } catch (error) {
     console.error("[Admin session validation]", error);
     return res.status(503).json({
-      error: "KhÃ´ng thá»ƒ xÃ¡c minh phiÃªn Admin vÃ¬ kho tÃ i khoáº£n Ä‘ang táº¡m thá»i khÃ´ng kháº£ dá»¥ng."
+      error: "Không thể xác minh phiên Admin vì kho tài khoản đang tạm thời không khả dụng."
     });
   }
 }
 
 function requireSuperAdmin(req: any, res: any, next: any) {
   if (req.adminSession?.role !== "super") {
-    return res.status(403).json({ error: "Chá»‰ Admin chÃ­nh Ä‘Æ°á»£c phÃ©p thá»±c hiá»‡n thao tÃ¡c nÃ y." });
+    return res.status(403).json({ error: "Chỉ Admin chính được phép thực hiện thao tác này." });
   }
   next();
 }
@@ -396,7 +357,7 @@ function requireSuperAdmin(req: any, res: any, next: any) {
 function requireRequestedKeyPermission(req: any, res: any, next: any) {
   const key = String(req.body?.key || "");
   if (!canAccessAdminPermission(req.adminSession, key)) {
-    return res.status(403).json({ error: "TÃ i khoáº£n khÃ´ng cÃ³ quyá»n cáº­p nháº­t má»¥c dá»¯ liá»‡u nÃ y." });
+    return res.status(403).json({ error: "Tài khoản không có quyền cập nhật mục dữ liệu này." });
   }
   next();
 }
@@ -504,7 +465,7 @@ const DEFAULT_ADMIN_ACCOUNTS = [{
   username: normalizeUsername(process.env.ADMIN_BOOTSTRAP_USERNAME || "admin"),
   password: process.env.ADMIN_BOOTSTRAP_PASSWORD || "",
   role: "super",
-  name: "HLV TrÆ°á»Ÿng (Admin chÃ­nh)",
+  name: "HLV Trưởng (Admin chính)",
   permissions: [
     "articles", "categories", "coaches", "members", "achievements",
     "tournaments", "clubs", "highlights", "webConfig"
@@ -2202,14 +2163,14 @@ app.get("/api/recovery-status", requireAdminSession, requireSuperAdmin, async (_
     });
   } catch (err: any) {
     console.error("[recovery-status]", err);
-    res.status(500).json({ error: "KhÃ´ng thá»ƒ quÃ©t cÃ¡c nguá»“n khÃ´i phá»¥c.", message: err?.message || String(err) });
+    res.status(500).json({ error: "Không thể quét các nguồn khôi phục.", message: err?.message || String(err) });
   }
 });
 
 app.get("/api/recovery-pitr-scan", requireAdminSession, requireSuperAdmin, async (_req, res) => {
   try {
     const projectId = getFirebaseRecoveryProjectId();
-    if (!projectId) return res.status(503).json({ error: "KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c Firebase projectId." });
+    if (!projectId) return res.status(503).json({ error: "Không xác định được Firebase projectId." });
     const accessToken = await getFirebaseRecoveryAccessToken();
     const offsets = [2, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
     const scans = await Promise.allSettled(offsets.map(async minutesAgo => {
@@ -2237,7 +2198,7 @@ app.get("/api/recovery-pitr-scan", requireAdminSession, requireSuperAdmin, async
   } catch (err: any) {
     console.error("[recovery-pitr-scan]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ quÃ©t lá»‹ch sá»­ Firestore.",
+      error: "Không thể quét lịch sử Firestore.",
       message: err?.message || String(err)
     });
   }
@@ -2248,10 +2209,10 @@ app.get("/api/recovery-pitr-export", requireAdminSession, requireSuperAdmin, asy
     const minutesAgo = Number(req.query.minutesAgo);
     const variant = String(req.query.variant || "");
     if (!Number.isInteger(minutesAgo) || minutesAgo < 1 || minutesAgo > 59) {
-      return res.status(400).json({ error: "minutesAgo pháº£i náº±m trong khoáº£ng 1-59." });
+      return res.status(400).json({ error: "minutesAgo phải nằm trong khoảng 1-59." });
     }
     if (variant !== "current" && variant !== "legacy") {
-      return res.status(400).json({ error: "variant pháº£i lÃ  current hoáº·c legacy." });
+      return res.status(400).json({ error: "variant phải là current hoặc legacy." });
     }
     const projectId = getFirebaseRecoveryProjectId();
     const accessToken = await getFirebaseRecoveryAccessToken();
@@ -2260,7 +2221,7 @@ app.get("/api/recovery-pitr-export", requireAdminSession, requireSuperAdmin, asy
     const source = `firestore-pitr-${minutesAgo}m-${variant}`;
     const candidate = rebuildPitrCandidates(documents, minutesAgo).find(item => item.source === source);
     if (!candidate) {
-      return res.status(404).json({ error: "KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u táº¡i má»‘c thá»i gian nÃ y." });
+      return res.status(404).json({ error: "Không tìm thấy dữ liệu tại mốc thời gian này." });
     }
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="vovinam-${source}-${Date.now()}.json"`);
@@ -2268,7 +2229,7 @@ app.get("/api/recovery-pitr-export", requireAdminSession, requireSuperAdmin, asy
   } catch (err: any) {
     console.error("[recovery-pitr-export]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ xuáº¥t lá»‹ch sá»­ Firestore.",
+      error: "Không thể xuất lịch sử Firestore.",
       message: err?.message || String(err)
     });
   }
@@ -2280,14 +2241,14 @@ app.get("/api/recovery-export/:source", requireAdminSession, requireSuperAdmin, 
     const candidates = await collectRecoveryCandidates();
     const candidate = candidates.find(item => item.source === source);
     if (!candidate) {
-      return res.status(404).json({ error: "KhÃ´ng tÃ¬m tháº¥y nguá»“n dá»¯ liá»‡u khÃ´i phá»¥c nÃ y." });
+      return res.status(404).json({ error: "Không tìm thấy nguồn dữ liệu khôi phục này." });
     }
     res.setHeader("Content-Type", "application/json; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="vovinam-recovery-${source}-${Date.now()}.json"`);
     res.send(JSON.stringify(candidate.data, null, 2));
   } catch (err: any) {
     console.error("[recovery-export]", err);
-    res.status(500).json({ error: "KhÃ´ng thá»ƒ xuáº¥t dá»¯ liá»‡u khÃ´i phá»¥c.", message: err?.message || String(err) });
+    res.status(500).json({ error: "Không thể xuất dữ liệu khôi phục.", message: err?.message || String(err) });
   }
 });
 
@@ -2296,7 +2257,7 @@ app.get("/api/backup-status", requireAdminSession, requireSuperAdmin, async (_re
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
       return res.status(503).json({
-        error: "Firebase Firestore chÆ°a sáºµn sÃ ng Ä‘á»ƒ kiá»ƒm tra sao lÆ°u."
+        error: "Firebase Firestore chưa sẵn sàng để kiểm tra sao lưu."
       });
     }
     const [changeStatus, stateSnapshot]: any[] = await Promise.all([
@@ -2324,7 +2285,7 @@ app.get("/api/backup-status", requireAdminSession, requireSuperAdmin, async (_re
   } catch (err: any) {
     console.error("[backup-status]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ kiá»ƒm tra tráº¡ng thÃ¡i sao lÆ°u.",
+      error: "Không thể kiểm tra trạng thái sao lưu.",
       message: err?.message || String(err)
     });
   }
@@ -2340,13 +2301,13 @@ app.post(
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
       return res.status(503).json({
-        error: "Firebase Firestore chÆ°a sáºµn sÃ ng Ä‘á»ƒ táº¡o sao lÆ°u."
+        error: "Firebase Firestore chưa sẵn sàng để tạo sao lưu."
       });
     }
     const backupAt = await createFirebaseSafetyBackup(dbInstance);
     if (!backupAt) {
       return res.status(404).json({
-        error: "KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u Firebase hiá»‡n táº¡i Ä‘á»ƒ sao lÆ°u."
+        error: "Không tìm thấy dữ liệu Firebase hiện tại để sao lưu."
       });
     }
     const current = await getDbData();
@@ -2359,7 +2320,7 @@ app.post(
   } catch (err: any) {
     console.error("[backup-now]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ táº¡o báº£n sao lÆ°u Cloud.",
+      error: "Không thể tạo bản sao lưu Cloud.",
       message: err?.message || String(err)
     });
   }
@@ -2380,15 +2341,15 @@ app.get("/api/db-status", requireAdminSession, requireSuperAdmin, async (req, re
 
     const dbInstance = await getFirebaseFirestore();
 
-    let storageType = "Local Memory / File Fallback (Máº·c Ä‘á»‹nh - Dá»¯ liá»‡u sáº½ Bá»Š Máº¤T khi Vercel khá»Ÿi Ä‘á»™ng láº¡i / Cold Start)";
+    let storageType = "Local Memory / File Fallback (Mặc định - Dữ liệu sẽ BỊ MẤT khi Vercel khởi động lại / Cold Start)";
     if (hasFirebase && dbInstance) {
-      storageType = "Firebase Firestore Cloud - Bá»n vá»¯ng lÃ¢u dÃ i";
+      storageType = "Firebase Firestore Cloud - Bền vững lâu dài";
     } else if (hasVercelKv) {
-      storageType = "Vercel KV (REST Database) - Bá»n vá»¯ng lÃ¢u dÃ i";
+      storageType = "Vercel KV (REST Database) - Bền vững lâu dài";
     } else if (hasRedis) {
-      storageType = "Vercel Redis (TCP Socket) - Bá»n vá»¯ng lÃ¢u dÃ i";
+      storageType = "Vercel Redis (TCP Socket) - Bền vững lâu dài";
     } else if (MONGODB_URI) {
-      storageType = "MongoDB Atlas Cloud - Bá»n vá»¯ng lÃ¢u dÃ i";
+      storageType = "MongoDB Atlas Cloud - Bền vững lâu dài";
     }
 
     const status: any = {
@@ -2414,8 +2375,8 @@ app.get("/api/db-status", requireAdminSession, requireSuperAdmin, async (req, re
         test: firebaseStorageBucketName ? "not_run" : "not_configured",
         error: null,
         recommendation: firebaseStorageBucketName
-          ? "áº¢nh má»›i Ä‘Æ°á»£c tÃ¡ch khá»i dá»¯ liá»‡u JSON vÃ  lÆ°u trong Firebase Storage."
-          : "NÃªn cáº¥u hÃ¬nh FIREBASE_STORAGE_BUCKET khi sá»‘ lÆ°á»£ng áº£nh tÄƒng cao."
+          ? "Ảnh mới được tách khỏi dữ liệu JSON và lưu trong Firebase Storage."
+          : "Nên cấu hình FIREBASE_STORAGE_BUCKET khi số lượng ảnh tăng cao."
       },
       vercelKvRest: {
         hasUrl: !!kvUrl,
@@ -2555,14 +2516,14 @@ app.post("/api/admin-login", requireSameOrigin, async (req, res) => {
     const password = String(req.body?.password || "");
     const remember = req.body?.remember === true;
     if (!username || !password) {
-      return res.status(400).json({ error: "Vui lÃ²ng nháº­p tÃ i khoáº£n vÃ  máº­t kháº©u." });
+      return res.status(400).json({ error: "Vui lòng nhập tài khoản và mật khẩu." });
     }
 
     const attemptKey = getLoginAttemptKey(req, username);
     if (await getFailedLoginCount(attemptKey) >= LOGIN_ATTEMPT_LIMIT) {
       res.setHeader("Retry-After", String(LOGIN_ATTEMPT_WINDOW_SECONDS));
       return res.status(429).json({
-        error: "ÄÃ£ thá»­ Ä‘Äƒng nháº­p sai quÃ¡ nhiá»u láº§n. Vui lÃ²ng chá» 15 phÃºt rá»“i thá»­ láº¡i."
+        error: "Đã thử đăng nhập sai quá nhiều lần. Vui lòng chờ 15 phút rồi thử lại."
       });
     }
 
@@ -2578,7 +2539,7 @@ app.post("/api/admin-login", requireSameOrigin, async (req, res) => {
       if (failedCount >= LOGIN_ATTEMPT_LIMIT) {
         res.setHeader("Retry-After", String(LOGIN_ATTEMPT_WINDOW_SECONDS));
       }
-      return res.status(401).json({ error: "TÃ i khoáº£n hoáº·c máº­t kháº©u khÃ´ng chÃ­nh xÃ¡c!" });
+      return res.status(401).json({ error: "Tài khoản hoặc mật khẩu không chính xác!" });
     }
 
     await clearFailedLogins(attemptKey);
@@ -2612,7 +2573,7 @@ app.post("/api/admin-login", requireSameOrigin, async (req, res) => {
     res.json({ success: true, account: toPublicAdminAccount(account) });
   } catch (error: any) {
     console.error("[admin-login]", error);
-    res.status(500).json({ error: "KhÃ´ng thá»ƒ Ä‘Äƒng nháº­p Admin.", message: error?.message || String(error) });
+    res.status(500).json({ error: "Không thể đăng nhập Admin.", message: error?.message || String(error) });
   }
 });
 
@@ -2676,7 +2637,7 @@ app.put(
           ))]
         : [];
       if (!id || !name || validateUsername(username) || seenIds.has(id) || seenUsernames.has(username)) {
-        return res.status(400).json({ error: "ThÃ´ng tin tÃ i khoáº£n Admin khÃ´ng há»£p lá»‡ hoáº·c bá»‹ trÃ¹ng." });
+        return res.status(400).json({ error: "Thông tin tài khoản Admin không hợp lệ hoặc bị trùng." });
       }
       seenIds.add(id);
       seenUsernames.add(username);
@@ -2697,7 +2658,7 @@ app.put(
         credentialVersion += 1;
       } else if (!existing || (!existing.passwordHash && !existing.password)) {
         return res.status(400).json({
-          error: `Pháº£i nháº­p máº­t kháº©u ban Ä‘áº§u cho tÃ i khoáº£n ${username}.`
+          error: `Phải nhập mật khẩu ban đầu cho tài khoản ${username}.`
         });
       }
 
@@ -2714,12 +2675,12 @@ app.put(
     }
 
     if (!nextAccounts.some(account => account.role === "super")) {
-      return res.status(400).json({ error: "Há»‡ thá»‘ng pháº£i luÃ´n cÃ³ Ã­t nháº¥t má»™t Admin chÃ­nh." });
+      return res.status(400).json({ error: "Hệ thống phải luôn có ít nhất một Admin chính." });
     }
     const actingAccount = nextAccounts.find(account => account.id === req.adminSession.id);
     if (!actingAccount || actingAccount.role !== "super") {
       return res.status(400).json({
-        error: "KhÃ´ng thá»ƒ xÃ³a hoáº·c háº¡ quyá»n tÃ i khoáº£n Admin chÃ­nh Ä‘ang Ä‘Äƒng nháº­p."
+        error: "Không thể xóa hoặc hạ quyền tài khoản Admin chính đang đăng nhập."
       });
     }
 
@@ -2751,7 +2712,7 @@ app.post(
         String(item.id) === String(req.adminSession.id)
       );
       if (!account || !(await verifyPassword(account, currentPassword)).valid) {
-        return res.status(401).json({ error: "Máº­t kháº©u hiá»‡n táº¡i khÃ´ng chÃ­nh xÃ¡c." });
+        return res.status(401).json({ error: "Mật khẩu hiện tại không chính xác." });
       }
 
       const updatedAccount: StoredAdminAccount = {
@@ -2779,7 +2740,7 @@ app.post(
       res.json({ success: true, account: toPublicAdminAccount(updatedAccount) });
     } catch (err: any) {
       console.error("[admin-change-password]", err);
-      res.status(500).json({ error: "KhÃ´ng thá»ƒ Ä‘á»•i máº­t kháº©u lÃºc nÃ y." });
+      res.status(500).json({ error: "Không thể đổi mật khẩu lúc này." });
     }
   }
 );
@@ -2789,25 +2750,25 @@ app.post("/api/media/image", requireSameOrigin, requireAdminSession, async (req,
     const dataUrl = typeof req.body?.dataUrl === "string" ? req.body.dataUrl.trim() : "";
     const match = /^data:(image\/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(dataUrl);
     if (!match) {
-      return res.status(400).json({ error: "Chá»‰ cháº¥p nháº­n áº£nh JPEG, PNG, WebP hoáº·c GIF há»£p lá»‡." });
+      return res.status(400).json({ error: "Chỉ chấp nhận ảnh JPEG, PNG, WebP hoặc GIF hợp lệ." });
     }
 
     const encoded = match[2].replace(/\s/g, "");
     const imageBuffer = Buffer.from(encoded, "base64");
     const detectedContentType = detectImageContentType(imageBuffer);
     if (!detectedContentType) {
-      return res.status(400).json({ error: "Ná»™i dung táº£i lÃªn khÃ´ng pháº£i lÃ  má»™t file áº£nh há»£p lá»‡." });
+      return res.status(400).json({ error: "Nội dung tải lên không phải là một file ảnh hợp lệ." });
     }
     if (imageBuffer.length === 0 || imageBuffer.length > MAX_STORED_IMAGE_BYTES) {
       return res.status(413).json({
-        error: `áº¢nh sau khi nÃ©n pháº£i nhá» hÆ¡n ${Math.round(MAX_STORED_IMAGE_BYTES / 1024)} KB.`
+        error: `Ảnh sau khi nén phải nhỏ hơn ${Math.round(MAX_STORED_IMAGE_BYTES / 1024)} KB.`
       });
     }
 
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
       return res.status(503).json({
-        error: "Firebase Firestore chÆ°a sáºµn sÃ ng. HÃ£y kiá»ƒm tra FIREBASE_SERVICE_ACCOUNT trÃªn Vercel."
+        error: "Firebase Firestore chưa sẵn sàng. Hãy kiểm tra FIREBASE_SERVICE_ACCOUNT trên Vercel."
       });
     }
 
@@ -2847,7 +2808,6 @@ app.post("/api/media/image", requireSameOrigin, requireAdminSession, async (req,
       "Firebase image upload timed out"
     );
 
-    cacheMedia(id, imageBuffer, detectedContentType);
     res.status(201).json({
       success: true,
       id,
@@ -2858,7 +2818,7 @@ app.post("/api/media/image", requireSameOrigin, requireAdminSession, async (req,
   } catch (err: any) {
     console.error("[media/image POST]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ lÆ°u áº£nh vÃ o Firebase.",
+      error: "Không thể lưu ảnh vào Firebase.",
       message: err?.message || String(err)
     });
   }
@@ -2868,15 +2828,12 @@ app.get("/api/media/image/:id", async (req, res) => {
   try {
     const id = String(req.params.id || "");
     if (!/^[A-Za-z0-9_-]{10,100}$/.test(id)) {
-      return res.status(400).json({ error: "MÃ£ áº£nh khÃ´ng há»£p lá»‡." });
+      return res.status(400).json({ error: "Mã ảnh không hợp lệ." });
     }
-
-    const cached = getCachedMedia(id);
-    if (cached) return sendMediaResponse(res, cached);
 
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
-      return res.status(503).json({ error: "Firebase Firestore chÆ°a sáºµn sÃ ng." });
+      return res.status(503).json({ error: "Firebase Firestore chưa sẵn sàng." });
     }
 
     const snapshot: any = await withTimeout(
@@ -2885,22 +2842,26 @@ app.get("/api/media/image/:id", async (req, res) => {
       "Firebase image read timed out"
     );
     if (!snapshot.exists) {
-      return res.status(404).json({ error: "KhÃ´ng tÃ¬m tháº¥y áº£nh." });
+      return res.status(404).json({ error: "Không tìm thấy ảnh." });
     }
 
     const image = snapshot.data() || {};
     const imageBuffer = Buffer.from(String(image.base64 || ""), "base64");
     const contentType = detectImageContentType(imageBuffer);
     if (!contentType) {
-      return res.status(500).json({ error: "Dá»¯ liá»‡u áº£nh lÆ°u trÃªn Firebase khÃ´ng há»£p lá»‡." });
+      return res.status(500).json({ error: "Dữ liệu ảnh lưu trên Firebase không hợp lệ." });
     }
 
-    cacheMedia(id, imageBuffer, contentType);
-    return sendMediaResponse(res, { buffer: imageBuffer, contentType });
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", String(imageBuffer.length));
+    res.setHeader("Cache-Control", "public, max-age=31536000, s-maxage=31536000, immutable");
+    res.removeHeader("Pragma");
+    res.removeHeader("Expires");
+    res.send(imageBuffer);
   } catch (err: any) {
     console.error("[media/image GET]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ táº£i áº£nh tá»« Firebase.",
+      error: "Không thể tải ảnh từ Firebase.",
       message: err?.message || String(err)
     });
   }
@@ -2949,135 +2910,6 @@ app.get("/api/data", async (req, res) => {
   }
 });
 
-const TRAINING_REGISTRATIONS_COLLECTION = "training_registrations";
-const TRAINING_REGISTRATION_RECIPIENT = "vovinamxomchieu@gmail.com";
-const registrationRateLimits = new Map<string, { count: number; resetAt: number }>();
-
-function escapeEmailHtml(value: unknown) {
-  return String(value || "").replace(/[&<>"']/g, character => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
-  }[character] || character));
-}
-
-function getPublicBaseUrl(req: any) {
-  const configured = String(process.env.PUBLIC_SITE_URL || "").trim().replace(/\/$/, "");
-  if (configured) return configured;
-  const protocol = String(req.headers?.["x-forwarded-proto"] || req.protocol || "https").split(",")[0];
-  const host = String(req.headers?.["x-forwarded-host"] || req.headers?.host || "").split(",")[0];
-  return `${protocol}://${host}`;
-}
-
-function signRegistrationConfirmation(id: string) {
-  return createHmac("sha256", getAdminSessionSecret()).update(`training-registration:${id}`).digest("base64url");
-}
-
-function hasValidRegistrationConfirmation(id: string, token: string) {
-  const expected = Buffer.from(signRegistrationConfirmation(id));
-  const actual = Buffer.from(String(token || ""));
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
-}
-
-async function sendTransactionalEmail(to: string, subject: string, html: string) {
-  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
-  const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam Xóm Chiếu <onboarding@resend.dev>").trim();
-  if (!apiKey) throw new Error("RESEND_API_KEY chưa được cấu hình trên máy chủ.");
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html })
-  });
-  const result: any = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || "Dịch vụ email từ chối yêu cầu.");
-  return result;
-}
-
-app.post("/api/training-registrations", requireSameOrigin, async (req, res) => {
-  try {
-    const address = String(req.headers?.["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-    const now = Date.now();
-    const current = registrationRateLimits.get(address);
-    if (current && current.resetAt > now && current.count >= 5) return res.status(429).json({ error: "Bạn đã gửi quá nhiều đăng ký. Vui lòng thử lại sau." });
-    registrationRateLimits.set(address, current && current.resetAt > now ? { ...current, count: current.count + 1 } : { count: 1, resetAt: now + 60 * 60 * 1000 });
-
-    const fullName = String(req.body?.fullName || "").trim().replace(/\s+/g, " ");
-    const email = String(req.body?.email || "").trim().toLowerCase();
-    const clubId = String(req.body?.clubId || "").trim();
-    const message = String(req.body?.message || "").trim();
-    if (fullName.length < 2 || fullName.length > 100) return res.status(400).json({ error: "Họ tên không hợp lệ." });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) return res.status(400).json({ error: "Email không hợp lệ." });
-    if (!clubId || clubId.length > 160) return res.status(400).json({ error: "Vui lòng chọn câu lạc bộ." });
-    if (message.length > 1000) return res.status(400).json({ error: "Nội dung không được dài quá 1.000 ký tự." });
-
-    const db = await getDbData();
-    const club = (db.clubs || []).find((item: any) => String(item?.id) === clubId && item?.status !== false);
-    if (!club) return res.status(400).json({ error: "Câu lạc bộ đã chọn không còn hoạt động." });
-    const firestoreDb = await getFirebaseFirestore();
-    if (!firestoreDb) return res.status(503).json({ error: "Kho đăng ký đang tạm thời không khả dụng." });
-
-    const id = randomUUID();
-    const registration = { id, fullName, email, clubId, clubName: String(club.name || ""), trainingDays: String(club.trainingDays || ""), trainingHours: String(club.trainingHours || ""), address: String(club.address || ""), message, status: "pending", createdAt: new Date().toISOString() };
-    await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).set(registration);
-    const confirmUrl = `${getPublicBaseUrl(req)}/api/training-registrations/${encodeURIComponent(id)}/confirm?token=${encodeURIComponent(signRegistrationConfirmation(id))}`;
-    try {
-      await sendTransactionalEmail(TRAINING_REGISTRATION_RECIPIENT, `Đăng ký tập luyện mới - ${fullName}`, `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#1e293b"><div style="background:#0054A6;color:white;padding:22px;border-radius:18px 18px 0 0"><h2 style="margin:0;color:#FFF200">ĐĂNG KÝ TẬP LUYỆN MỚI</h2></div><div style="padding:24px;border:1px solid #dbeafe;border-top:0;border-radius:0 0 18px 18px"><p><b>Họ tên:</b> ${escapeEmailHtml(fullName)}</p><p><b>Email:</b> ${escapeEmailHtml(email)}</p><p><b>CLB:</b> ${escapeEmailHtml(club.name)}</p><p><b>Lịch tập:</b> ${escapeEmailHtml(club.trainingDays)} - ${escapeEmailHtml(club.trainingHours)}</p><p><b>Địa chỉ:</b> ${escapeEmailHtml(club.address)}</p>${message ? `<p><b>Nội dung:</b><br>${escapeEmailHtml(message).replace(/\n/g,"<br>")}</p>` : ""}<p style="margin-top:28px"><a href="${confirmUrl}" style="display:inline-block;background:#059669;color:white;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">✓ Xác nhận đăng ký</a></p><p style="font-size:12px;color:#64748b">Nút xác nhận chỉ có hiệu lực cho đăng ký này và không thể xác nhận lặp lại.</p></div></div>`);
-    } catch (emailError: any) {
-      await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).set({ notificationError: String(emailError?.message || emailError) }, { merge: true });
-      return res.status(503).json({ error: "Đăng ký đã được lưu nhưng máy chủ chưa gửi được email. Ban quản trị cần cấu hình dịch vụ email.", registrationId: id });
-    }
-    res.status(201).json({ ok: true, id });
-  } catch (error) {
-    console.error("[Training registration]", error);
-    res.status(500).json({ error: "Không thể tiếp nhận đăng ký lúc này." });
-  }
-});
-
-app.get("/api/training-registrations/:id/confirm", async (req, res) => {
-  const render = (title: string, message: string, success: boolean) => res.status(success ? 200 : 400).type("html").send(`<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeEmailHtml(title)}</title><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif"><main style="max-width:560px;margin:12vh auto;background:white;padding:34px;border-radius:20px;text-align:center;box-shadow:0 12px 40px #0f172a1a"><div style="font-size:48px">${success ? "✅" : "⚠️"}</div><h1 style="color:#0054A6">${escapeEmailHtml(title)}</h1><p style="color:#475569;line-height:1.6">${escapeEmailHtml(message)}</p><a href="/" style="display:inline-block;margin-top:16px;background:#0054A6;color:white;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Về trang chủ</a></main></body></html>`);
-  try {
-    const id = String(req.params.id || "");
-    if (!id || !hasValidRegistrationConfirmation(id, String(req.query.token || ""))) return render("Liên kết không hợp lệ", "Không thể xác minh yêu cầu xác nhận này.", false);
-    const firestoreDb = await getFirebaseFirestore();
-    if (!firestoreDb) return render("Hệ thống tạm gián đoạn", "Không thể kết nối kho đăng ký. Vui lòng thử lại.", false);
-    const ref = firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id);
-    const snapshot = await ref.get();
-    if (!snapshot.exists) return render("Không tìm thấy đăng ký", "Đăng ký này không tồn tại hoặc đã bị xóa.", false);
-    const registration: any = snapshot.data();
-    if (registration.status === "approved") return render("Đã xác nhận trước đó", "Người đăng ký đã được gửi thông báo xác nhận.", true);
-    await ref.set({ status: "approved", reviewedAt: new Date().toISOString() }, { merge: true });
-    try {
-      await sendTransactionalEmail(
-        registration.email,
-        "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu",
-        `<div style="margin:0;background:#eef4fb;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;color:#1e293b">
-          <div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #dbeafe;border-radius:22px;background:#ffffff;box-shadow:0 12px 35px rgba(0,84,166,.12)">
-            <div style="padding:28px 24px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e)">
-              <div style="display:inline-block;width:54px;height:54px;line-height:54px;border-radius:50%;background:#FFF200;color:#0054A6;font-size:30px;font-weight:bold">✓</div>
-              <h1 style="margin:16px 0 6px;color:#FFF200;font-size:23px;line-height:1.25">Xác nhận đăng ký thành công</h1>
-              <p style="margin:0;color:#dbeafe;font-size:14px">Nhớ tới tập đúng giờ nhé</p>
-            </div>
-            <div style="padding:24px">
-              <p style="margin:0 0 18px;font-size:15px;line-height:1.6">Chào <strong>${escapeEmailHtml(registration.fullName)}</strong>, lịch tập của bạn đã được xác nhận tại <strong style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p>
-              <div style="border:1px solid #bbf7d0;border-radius:15px;background:#f0fdf4;padding:17px">
-                <p style="margin:0 0 11px;font-size:13px"><strong style="color:#047857">Ngày tập:</strong> ${escapeEmailHtml(registration.trainingDays)}</p>
-                <p style="margin:0 0 11px;font-size:13px"><strong style="color:#047857">Giờ tập:</strong> ${escapeEmailHtml(registration.trainingHours)}</p>
-                <p style="margin:0;font-size:13px;line-height:1.5"><strong style="color:#047857">Địa chỉ:</strong> ${escapeEmailHtml(registration.address)}</p>
-              </div>
-              <p style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ Vovinam Xóm Chiếu!</p>
-            </div>
-          </div>
-        </div>`
-      );
-      await ref.set({ notificationSent: true, notificationError: "" }, { merge: true });
-      return render("Xác nhận thành công", `Email xác nhận đã được gửi tới ${registration.email}.`, true);
-    } catch (emailError: any) {
-      await ref.set({ notificationSent: false, notificationError: String(emailError?.message || emailError) }, { merge: true });
-      return render("Đã duyệt đăng ký", "Đăng ký đã được xác nhận nhưng chưa gửi được email phản hồi. Vui lòng kiểm tra cấu hình email máy chủ.", false);
-    }
-  } catch (error) {
-    console.error("[Confirm training registration]", error);
-    return render("Không thể xác nhận", "Đã xảy ra lỗi. Vui lòng thử lại sau.", false);
-  }
-});
 // Granular resource endpoints
 app.get("/api/categories", async (req, res) => {
   try {
@@ -3172,13 +3004,13 @@ app.post("/api/article-view", requireSameOrigin, async (req, res) => {
       String(articleId).trim() === "" ||
       String(articleId).length > 160
     ) {
-      return res.status(400).json({ error: "MÃ£ bÃ i viáº¿t khÃ´ng há»£p lá»‡." });
+      return res.status(400).json({ error: "Mã bài viết không hợp lệ." });
     }
 
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
       return res.status(503).json({
-        error: "Firebase Firestore chÆ°a sáºµn sÃ ng Ä‘á»ƒ ghi nháº­n lÆ°á»£t xem."
+        error: "Firebase Firestore chưa sẵn sàng để ghi nhận lượt xem."
       });
     }
 
@@ -3201,7 +3033,7 @@ app.post("/api/article-view", requireSameOrigin, async (req, res) => {
         );
 
         if (articleIndex < 0) {
-          const error: any = new Error("KhÃ´ng tÃ¬m tháº¥y bÃ i viáº¿t.");
+          const error: any = new Error("Không tìm thấy bài viết.");
           error.statusCode = 404;
           throw error;
         }
@@ -3259,8 +3091,8 @@ app.post("/api/article-view", requireSameOrigin, async (req, res) => {
     console.error("[article-view]", err);
     return res.status(statusCode).json({
       error: statusCode === 404
-        ? "KhÃ´ng tÃ¬m tháº¥y bÃ i viáº¿t."
-        : "KhÃ´ng thá»ƒ ghi nháº­n lÆ°á»£t xem bÃ i viáº¿t.",
+        ? "Không tìm thấy bài viết."
+        : "Không thể ghi nhận lượt xem bài viết.",
       message: err?.message || String(err)
     });
   }
@@ -3292,19 +3124,19 @@ app.post(
       requestedBaseVersion !== currentVersion
     ) {
       return res.status(409).json({
-        error: "Dá»¯ liá»‡u Ä‘Ã£ Ä‘Æ°á»£c má»™t quáº£n trá»‹ viÃªn khÃ¡c cáº­p nháº­t.",
+        error: "Dữ liệu đã được một quản trị viên khác cập nhật.",
         key,
         currentVersion,
-        message: "HÃ£y táº£i dá»¯ liá»‡u má»›i nháº¥t trÆ°á»›c khi lÆ°u láº¡i Ä‘á»ƒ trÃ¡nh ghi Ä‘Ã¨ thay Ä‘á»•i cá»§a ngÆ°á»i khÃ¡c."
+        message: "Hãy tải dữ liệu mới nhất trước khi lưu lại để tránh ghi đè thay đổi của người khác."
       });
     }
     if (isSuspiciousCollectionReplacement(db[key], data)) {
       return res.status(409).json({
-        error: "ÄÃ£ cháº·n thao tÃ¡c cÃ³ nguy cÆ¡ lÃ m máº¥t hÃ ng loáº¡t dá»¯ liá»‡u.",
+        error: "Đã chặn thao tác có nguy cơ làm mất hàng loạt dữ liệu.",
         key,
         existingCount: db[key].length,
         incomingCount: data.length,
-        message: "HÃ£y xuáº¥t báº£n sao lÆ°u vÃ  thá»±c hiá»‡n xÃ³a theo tá»«ng má»¥c náº¿u Ä‘Ã¢y lÃ  thao tÃ¡c cÃ³ chá»§ Ã½."
+        message: "Hãy xuất bản sao lưu và thực hiện xóa theo từng mục nếu đây là thao tác có chủ ý."
       });
     }
     db[key] = key === "webConfig"
@@ -3356,7 +3188,7 @@ app.post(
       ? req.body.backup
       : req.body;
     if (!rawBackup || typeof rawBackup !== "object") {
-      return res.status(400).json({ error: "File sao lÆ°u khÃ´ng cÃ³ dá»¯ liá»‡u há»£p lá»‡." });
+      return res.status(400).json({ error: "File sao lưu không có dữ liệu hợp lệ." });
     }
 
     const supplied: Partial<Record<string, any>> = {};
@@ -3371,30 +3203,30 @@ app.post(
     const restoreKeys = EXPECTED_KEYS.filter(key => supplied[key] !== undefined);
     if (restoreKeys.length === 0) {
       return res.status(400).json({
-        error: "File sao lÆ°u khÃ´ng chá»©a má»¥c dá»¯ liá»‡u nÃ o mÃ  há»‡ thá»‘ng nháº­n diá»‡n Ä‘Æ°á»£c."
+        error: "File sao lưu không chứa mục dữ liệu nào mà hệ thống nhận diện được."
       });
     }
 
     for (const key of restoreKeys) {
       if (key === "webConfig") {
         if (!supplied[key] || typeof supplied[key] !== "object" || Array.isArray(supplied[key])) {
-          return res.status(400).json({ error: "Cáº¥u hÃ¬nh website trong file sao lÆ°u khÃ´ng há»£p lá»‡." });
+          return res.status(400).json({ error: "Cấu hình website trong file sao lưu không hợp lệ." });
         }
       } else if (!Array.isArray(supplied[key])) {
-        return res.status(400).json({ error: `Dá»¯ liá»‡u ${key} trong file sao lÆ°u khÃ´ng pháº£i danh sÃ¡ch.` });
+        return res.status(400).json({ error: `Dữ liệu ${key} trong file sao lưu không phải danh sách.` });
       }
     }
 
     const existing = await getDbData();
     const dbInstance = await getFirebaseFirestore();
     if (!dbInstance) {
-      return res.status(503).json({ error: "Firebase Firestore chÆ°a sáºµn sÃ ng Ä‘á»ƒ khÃ´i phá»¥c dá»¯ liá»‡u." });
+      return res.status(503).json({ error: "Firebase Firestore chưa sẵn sàng để khôi phục dữ liệu." });
     }
 
     // A complete safety snapshot is mandatory before the first restored key.
     const backupAt = await createFirebaseSafetyBackup(dbInstance, undefined, existing, true);
     if (!backupAt) {
-      return res.status(500).json({ error: "KhÃ´ng thá»ƒ táº¡o báº£n sao an toÃ n trÆ°á»›c khi khÃ´i phá»¥c." });
+      return res.status(500).json({ error: "Không thể tạo bản sao an toàn trước khi khôi phục." });
     }
 
     let working = {
@@ -3427,7 +3259,7 @@ app.post(
       const saved = await saveDbData(working, key, previous, false);
       if (!saved) {
         return res.status(500).json({
-          error: `KhÃ´ng thá»ƒ lÆ°u ${key} trong quÃ¡ trÃ¬nh khÃ´i phá»¥c.`,
+          error: `Không thể lưu ${key} trong quá trình khôi phục.`,
           failedKey: key,
           restoredKeys,
           backupAt
@@ -3446,7 +3278,7 @@ app.post(
   } catch (err: any) {
     console.error("[restore-backup]", err);
     res.status(500).json({
-      error: "KhÃ´ng thá»ƒ khÃ´i phá»¥c dá»¯ liá»‡u tá»« file sao lÆ°u.",
+      error: "Không thể khôi phục dữ liệu từ file sao lưu.",
       message: err?.message || String(err)
     });
   }
@@ -3471,7 +3303,7 @@ app.post(
     );
     if (suspiciousKey) {
       return res.status(409).json({
-        error: "ÄÃ£ cháº·n Ä‘á»“ng bá»™ toÃ n bá»™ vÃ¬ cÃ³ nguy cÆ¡ lÃ m máº¥t hÃ ng loáº¡t dá»¯ liá»‡u.",
+        error: "Đã chặn đồng bộ toàn bộ vì có nguy cơ làm mất hàng loạt dữ liệu.",
         key: suspiciousKey,
         existingCount: existing[suspiciousKey]?.length || 0,
         incomingCount: incomingByKey[suspiciousKey]?.length || 0
@@ -3536,5 +3368,3 @@ if (!process.env.VERCEL) {
 }
 
 export default app;
-
-

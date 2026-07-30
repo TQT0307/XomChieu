@@ -1,0 +1,295 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Times New Roman", Times, serif;
+  --font-display: "Times New Roman", Times, serif;
+  --font-mono: "Times New Roman", Times, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Thanh cuộn chung cho cửa sổ chi tiết, đồng bộ với khung 10 điều tâm niệm. */
+.detail-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(251, 191, 36, 0.55) transparent;
+}
+
+.detail-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.detail-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(251, 191, 36, 0.55);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+}
+
+.detail-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.85);
+  background-clip: padding-box;
+}
+
+/* Compact search dropdowns use the same slim, rounded scrollbar everywhere.
+   Keeping this in one shared class prevents browser-native arrows/tracks from
+   changing the layout between Highlights, coaches, members and Admin. */
+.smart-search-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 84, 166, 0.72) transparent;
+  scrollbar-gutter: stable;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar-thumb {
+  min-height: 34px;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: rgba(0, 84, 166, 0.72);
+  background-clip: padding-box;
+}
+
+.smart-search-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 84, 166, 0.96);
+  background-clip: padding-box;
+}
+
+.smart-search-scrollbar-dark {
+  scrollbar-color: rgba(255, 242, 0, 0.62) transparent;
+}
+
+.smart-search-scrollbar-dark::-webkit-scrollbar-thumb {
+  background: rgba(255, 242, 0, 0.62);
+  background-clip: padding-box;
+}
+
+.smart-search-scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 242, 0, 0.9);
+  background-clip: padding-box;
+}
+
+/* A detail dialog owns the wheel/touch gesture while it is open. This avoids
+   scroll chaining from the dialog to the page behind it at either boundary. */
+.modal-scroll-lock {
+  overscroll-behavior: none;
+}
+
+.modal-scroll-region {
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* Defer paint/layout work for long public sections until they approach the
+   viewport. The hero remains immediate so logo and banner are never delayed. */
+#vovinam-user-root > section:not(#section-hero-carousel) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 760px;
+}
+
+/* Horizontal carousels can contain hundreds of records over time. Off-screen
+   cards keep their scroll size but do not consume paint time. */
+#vovinam-user-root .snap-start {
+  content-visibility: auto;
+  contain-intrinsic-size: 320px 300px;
+}
+
+/* Achievement cards use two fixed rows. Do not let the generic lazy-paint
+   placeholder change their height while images/content are being rendered. */
+#section-achievements .achievements-carousel-grid {
+  grid-template-rows: repeat(2, 180px);
+  grid-auto-rows: 180px;
+}
+
+#section-achievements .achievement-card {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+  height: 180px;
+  min-height: 180px;
+  max-height: 180px;
+}
+
+@media (max-width: 639px) {
+  #section-achievements .achievements-carousel-grid {
+    grid-template-rows: repeat(2, 190px);
+    grid-auto-rows: 190px;
+  }
+
+  #section-achievements .achievement-card {
+    height: 190px;
+    min-height: 190px;
+    max-height: 190px;
+  }
+}
+
+img {
+  content-visibility: auto;
+}
+
+/*
+ * Google Translate must be allowed to render its internal select before the
+ * compact VI/EN control can trigger a full-page translation. Using
+ * display:none on the host prevents the widget from initializing on some
+ * browsers, so keep it measurable but move it outside the visible viewport.
+ */
+.google-translate-host {
+  position: fixed !important;
+  left: -10000px !important;
+  top: 0 !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  opacity: 0.001 !important;
+  pointer-events: none !important;
+}
+
+.goog-te-banner-frame,
+.goog-te-balloon-frame,
+#goog-gt-tt {
+  display: none !important;
+}
+
+html,
+body {
+  top: 0 !important;
+}
+
+body > .skiptranslate {
+  display: none !important;
+}
+
+button,
+input,
+textarea,
+select,
+option {
+  font-family: "Times New Roman", Times, serif;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* One shared newspaper layout for both legacy plain-text articles and new
+   rich-text articles created in Admin. */
+.article-content,
+.rich-text-editor {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  tab-size: 4;
+  line-height: 1.85;
+}
+
+.article-content {
+  text-align: justify;
+}
+
+.article-content p,
+.article-content div,
+.rich-text-editor p,
+.rich-text-editor div {
+  margin: 0 0 1rem;
+}
+
+.article-content h2,
+.article-content h3,
+.article-content h4,
+.rich-text-editor h2,
+.rich-text-editor h3,
+.rich-text-editor h4 {
+  color: #0f2948;
+  font-weight: 800;
+  line-height: 1.3;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.article-content h2,
+.rich-text-editor h2 {
+  font-size: 1.5em;
+}
+
+.article-content h3,
+.rich-text-editor h3 {
+  font-size: 1.25em;
+}
+
+.article-content h4,
+.rich-text-editor h4 {
+  font-size: 1.1em;
+}
+
+.article-content ul,
+.article-content ol,
+.rich-text-editor ul,
+.rich-text-editor ol {
+  margin: 0.75rem 0 1rem 1.5rem;
+  padding-left: 1rem;
+}
+
+.article-content ul,
+.rich-text-editor ul {
+  list-style: disc;
+}
+
+.article-content ol,
+.rich-text-editor ol {
+  list-style: decimal;
+}
+
+.article-content li,
+.rich-text-editor li {
+  margin: 0.35rem 0;
+  padding-left: 0.25rem;
+}
+
+.article-content blockquote,
+.rich-text-editor blockquote {
+  border-left: 4px solid #facc15;
+  color: #475569;
+  font-style: italic;
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+}
+
+.article-content a,
+.rich-text-editor a {
+  color: #0054a6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.article-content hr,
+.rich-text-editor hr {
+  border: 0;
+  border-top: 1px solid #cbd5e1;
+  margin: 1.5rem 0;
+}

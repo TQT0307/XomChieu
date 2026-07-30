@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
   Play, Award, User, CheckCircle, MapPin, Mail, Globe2, ChevronDown
@@ -99,7 +99,7 @@ export default function Header({
       script.src = 'https://translate.google.com/translate_a/element.js?cb=vovinamGoogleTranslateInit';
       script.async = true;
       script.onerror = () => {
-        console.error('[Language] KhÃ´ng thá»ƒ táº£i dá»‹ch vá»¥ Google Translate.');
+        console.error('[Language] Không thể tải dịch vụ Google Translate.');
       };
       document.head.appendChild(script);
     }
@@ -146,9 +146,6 @@ export default function Header({
       window.history.pushState({ vovinamSection: sectionId }, '', nextHash);
     }
     scrollToSection(sectionId);
-    if (sectionId === 'section-contact') {
-      window.dispatchEvent(new CustomEvent('vovinam-open-training-registration'));
-    }
   };
 
   useEffect(() => {
@@ -212,15 +209,15 @@ export default function Header({
   };
 
   const navSections = [
-    { id: 'section-about', name: language === 'en' ? 'About' : 'Giá»›i thiá»‡u', icon: <Info className="w-3.5 h-3.5" /> },
-    { id: 'section-news', name: language === 'en' ? 'News' : 'Tin tá»©c', icon: <Newspaper className="w-3.5 h-3.5" /> },
-    { id: 'section-tournaments', name: language === 'en' ? 'Tournaments' : 'Giáº£i Ä‘áº¥u', icon: <Swords className="w-3.5 h-3.5" /> },
+    { id: 'section-about', name: language === 'en' ? 'About' : 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
+    { id: 'section-news', name: language === 'en' ? 'News' : 'Tin tức', icon: <Newspaper className="w-3.5 h-3.5" /> },
+    { id: 'section-tournaments', name: language === 'en' ? 'Tournaments' : 'Giải đấu', icon: <Swords className="w-3.5 h-3.5" /> },
     { id: 'section-highlights', name: 'Highlights', icon: <Play className="w-3.5 h-3.5" /> },
-    { id: 'section-achievements', name: language === 'en' ? 'Achievements' : 'ThÃ nh tÃ­ch', icon: <Award className="w-3.5 h-3.5" /> },
-    { id: 'section-coaches', name: language === 'en' ? 'Coaches' : 'Huáº¥n luyá»‡n', icon: <User className="w-3.5 h-3.5" /> },
-    { id: 'section-members', name: language === 'en' ? 'Members' : 'MÃ´n sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
-    { id: 'section-clubs', name: language === 'en' ? 'Training locations' : 'Äiá»ƒm táº­p', icon: <MapPin className="w-3.5 h-3.5" /> },
-    { id: 'section-contact', name: language === 'en' ? 'Contact' : 'LiÃªn há»‡', icon: <Mail className="w-3.5 h-3.5" /> }
+    { id: 'section-achievements', name: language === 'en' ? 'Achievements' : 'Thành tích', icon: <Award className="w-3.5 h-3.5" /> },
+    { id: 'section-coaches', name: language === 'en' ? 'Coaches' : 'Huấn luyện', icon: <User className="w-3.5 h-3.5" /> },
+    { id: 'section-members', name: language === 'en' ? 'Members' : 'Môn sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+    { id: 'section-clubs', name: language === 'en' ? 'Training locations' : 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
+    { id: 'section-contact', name: language === 'en' ? 'Contact' : 'Liên hệ', icon: <Mail className="w-3.5 h-3.5" /> }
   ];
 
   return (
@@ -231,7 +228,7 @@ export default function Header({
           onClick={handleLogoClick}
           onDoubleClick={event => event.preventDefault()}
           className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none touch-manipulation active:scale-95 transition-transform"
-          title="CLB Vovinam XÃ³m Chiáº¿u"
+          title="CLB Vovinam Xóm Chiếu"
           role="button"
           tabIndex={0}
           onKeyDown={event => {
@@ -264,10 +261,10 @@ export default function Header({
           <div>
             <h1 className="text-xs sm:text-sm md:text-base lg:text-lg font-black tracking-tighter text-[#FFF200] uppercase italic flex items-center gap-1 leading-none">
               <Swords className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FFF200] animate-pulse flex-shrink-0" />
-              <span>VOVINAM XÃ“M CHIáº¾U</span>
+              <span>VOVINAM XÓM CHIẾU</span>
             </h1>
             <p className="text-[7px] md:text-[8px] lg:text-[9px] text-blue-100 font-medium tracking-wider uppercase hidden sm:block mt-0.5">
-              Viá»‡t VÃµ Äáº¡o â€¢ Sáº¯t son VÃµ Äáº¡o Viá»‡t Nam
+              Việt Võ Đạo • Sắt son Võ Đạo Việt Nam
             </p>
           </div>
         </div>
@@ -300,14 +297,14 @@ export default function Header({
           )}
 
           {!isAdmin && (
-            <div className="notranslate relative flex-shrink-0" translate="no" title="Chá»n ngÃ´n ngá»¯ / Select language">
+            <div className="notranslate relative flex-shrink-0" translate="no" title="Chọn ngôn ngữ / Select language">
               <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFF200]/50 bg-[#003f80] shadow-sm">
                 <Globe2 className="h-3.5 w-3.5 text-[#FFF200]" strokeWidth={2.2} />
               </span>
               <select
                 value={language}
                 onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
-                aria-label={language === 'en' ? 'Select language' : 'Chá»n ngÃ´n ngá»¯'}
+                aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
                 className="h-9 appearance-none rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 pl-8 pr-7 text-[10px] font-black text-white shadow-sm outline-none transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:border-[#FFF200] focus:ring-2 focus:ring-[#FFF200]/20 cursor-pointer"
               >
                 <option value="vi" className="text-slate-900">VI</option>
@@ -324,4 +321,3 @@ export default function Header({
     </header>
   );
 }
-

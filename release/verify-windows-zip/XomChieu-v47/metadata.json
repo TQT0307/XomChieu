@@ -1,0 +1,6 @@
+{
+  "name": "Vovinam Xóm Chiếu",
+  "description": "Website Câu lạc bộ Vovinam Xóm Chiếu - Quản lý huấn luyện viên, thành viên, giải đấu, thành tích và tin tức",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
