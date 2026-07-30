@@ -3633,172 +3633,179 @@ export default function AdminPanel({
                 </div>
 
                 {/* DYNAMIC HERO CAROUSEL BANNERS MANAGEMENT */}
-                <div className="border-t border-slate-200 pt-6 mt-6">
-                  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-                    <div>
-                      <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Quản Lý Banner Động (Hero Carousel)</h3>
-                      <p className="text-[11px] text-slate-500">Các ảnh lớn chạy tự động ở đầu trang chủ của website. Căn chỉnh tỉ lệ trực quan trước khi lưu.</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsAddingBanner(true);
-                        setEditingBannerId(null);
-                        setBannerForm({
-                          id: Date.now().toString(),
-                          image: '',
-                          title: '',
-                          subtitle: '',
-                          alignmentPct: 50
-                        });
-                      }}
-                      className="flex items-center gap-1.5 bg-[#0054A6]/10 hover:bg-[#0054A6]/20 text-[#0054A6] text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Thêm Banner Mới</span>
-                    </button>
-                  </div>
+<div className="border-t border-slate-200 pt-6 mt-6">
+  <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+    <div>
+      <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">Quản Lý Banner Động (Hero Carousel)</h3>
+      <p className="text-[11px] text-slate-500">Các ảnh lớn chạy tự động ở đầu trang chủ của website. Căn chỉnh tỉ lệ trực quan trước khi lưu.</p>
+    </div>
+    <button
+      type="button"
+      onClick={() => {
+        setIsAddingBanner(true);
+        setEditingBannerId(null);
+        setBannerForm({
+          id: Date.now().toString(),
+          image: '',
+          title: '',
+          subtitle: '',
+          alignmentPct: 50
+        });
+      }}
+      className="flex items-center gap-1.5 bg-[#0054A6]/10 hover:bg-[#0054A6]/20 text-[#0054A6] text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+    >
+      <Plus className="w-4 h-4" />
+      <span>Thêm Banner Mới</span>
+    </button>
+  </div>
 
-                  {/* BANNER HEIGHT & SIZE SELECTION */}
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Chiều cao / Kích thước hiển thị Banner</label>
-                      <p className="text-[11px] text-slate-500">Thay đổi tỉ lệ khung hình (Aspect Ratio) của toàn bộ các slide hiển thị ngoài trang chủ.</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { id: 'short', label: 'Thấp (Compact)', desc: 'h-[400px]' },
-                        { id: 'medium', label: 'Vừa (Cân đối)', desc: 'h-[500px]' },
-                        { id: 'large', label: 'Cao (Hùng vĩ)', desc: 'h-[600px]' },
-                      ].map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setWebConfigForm({
-                            ...webConfigForm,
-                            bannerHeight: item.id as 'short' | 'medium' | 'large'
-                          })}
-                          className={`border rounded-xl p-2 text-center transition-all cursor-pointer ${
-                            (webConfigForm.bannerHeight || 'medium') === item.id
-                              ? 'border-[#0054A6] bg-blue-50 text-[#0054A6] ring-2 ring-blue-100 font-bold'
-                              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
-                          }`}
-                        >
-                          <div className="text-xs">{item.label}</div>
-                          <div className="text-[9px] opacity-70 mt-0.5">{item.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+  {/* BANNER HEIGHT & SIZE SELECTION */}
+  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+    <div>
+      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Chiều cao / Kích thước hiển thị Banner</label>
+      <p className="text-[11px] text-slate-500">Thay đổi tỉ lệ khung hình (Aspect Ratio) của toàn bộ các slide hiển thị ngoài trang chủ.</p>
+    </div>
+    <div className="grid grid-cols-3 gap-2">
+      {[
+        { id: 'short', label: 'Thấp (Compact)', desc: 'h-[400px]' },
+        { id: 'medium', label: 'Vừa (Cân đối)', desc: 'h-[500px]' },
+        { id: 'large', label: 'Cao (Hùng vĩ)', desc: 'h-[600px]' },
+      ].map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => setWebConfigForm({
+            ...webConfigForm,
+            bannerHeight: item.id as 'short' | 'medium' | 'large'
+          })}
+          className={`border rounded-xl p-2 text-center transition-all cursor-pointer ${
+            (webConfigForm.bannerHeight || 'medium') === item.id
+              ? 'border-[#0054A6] bg-blue-50 text-[#0054A6] ring-2 ring-blue-100 font-bold'
+              : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+          }`}
+        >
+          <div className="text-xs">{item.label}</div>
+          <div className="text-[9px] opacity-70 mt-0.5">{item.desc}</div>
+        </button>
+      ))}
+    </div>
+  </div>
 
-                  {/* REAL-TIME CAROUSEL MULTI-BANNER LIVE PREVIEW */}
-                  <div className="mb-6 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 relative text-white">
-                    <div className="flex items-center justify-between gap-2 mb-4 border-b border-slate-800 pb-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[#FFF200] animate-pulse"></span>
-                        <h4 className="text-xs font-black uppercase tracking-wider text-[#FFF200]">
-                          💻 XEM TRƯỚC CAROUSEL TRANG CHỦ (LIVE PREVIEW)
-                        </h4>
-                      </div>
-                      <span className="text-[10px] bg-slate-800 px-2.5 py-1 rounded text-slate-400 font-mono">
-                        {(webConfigForm.banners || []).length > 0 
-                          ? `Slide ${Math.min(previewBannerIndex + 1, (webConfigForm.banners || []).length)} / ${(webConfigForm.banners || []).length}`
-                          : '0 / 0 Banners'
-                        }
-                      </span>
-                    </div>
+  {/* REAL-TIME CAROUSEL MULTI-BANNER LIVE PREVIEW */}
+  <div className="mb-6 bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-6 relative text-white">
+    <div className="flex items-center justify-between gap-2 mb-4 border-b border-slate-800 pb-3">
+      <div className="flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-[#FFF200] animate-pulse"></span>
+        <h4 className="text-xs font-black uppercase tracking-wider text-[#FFF200]">
+          💻 XEM TRƯỚC CAROUSEL TRANG CHỦ (LIVE PREVIEW)
+        </h4>
+      </div>
+      <span className="text-[10px] bg-slate-800 px-2.5 py-1 rounded text-slate-400 font-mono">
+        {(webConfigForm.banners || []).length > 0 
+          ? `Slide ${Math.min(previewBannerIndex + 1, (webConfigForm.banners || []).length)} / ${(webConfigForm.banners || []).length}`
+          : '0 / 0 Banners'
+        }
+      </span>
+    </div>
 
-                    {/* Sliding Mockup Window */}
-                    {(webConfigForm.banners || []).length === 0 ? (
-                      <div className="h-[200px] flex flex-col items-center justify-center text-slate-500 bg-slate-950 rounded-xl border border-dashed border-slate-800">
-                        <span className="text-3xl mb-1">🖼️</span>
-                        <p className="text-xs font-bold">Chưa có banner tùy chọn nào được thêm.</p>
-                        <p className="text-[10px] text-slate-500 mt-1">Hệ thống đang hiển thị 5 slide mặc định của võ đường.</p>
-                      </div>
-                    ) : (
-                      (() => {
-                        const activeBns = webConfigForm.banners || [];
-                        const safeIdx = previewBannerIndex >= activeBns.length ? 0 : previewBannerIndex;
-                        const activeBn = activeBns[safeIdx];
-                        
-                        // Parse alignment percentage
-                        let alignment = 50;
-                        const match = activeBn?.position?.match(/object-\[center_(\d+)%\]/);
-                        if (match) {
-                          alignment = parseInt(match[1]);
-                        }
+    {/* Sliding Mockup Window */}
+    {(webConfigForm.banners || []).length === 0 ? (
+      <div className="h-[200px] flex flex-col items-center justify-center text-slate-500 bg-slate-950 rounded-xl border border-dashed border-slate-800">
+        <span className="text-3xl mb-1">🖼️</span>
+        <p className="text-xs font-bold">Chưa có banner tùy chọn nào được thêm.</p>
+        <p className="text-[10px] text-slate-500 mt-1">Hệ thống đang hiển thị 5 slide mặc định của võ đường.</p>
+      </div>
+    ) : (
+      (() => {
+        const activeBns = webConfigForm.banners || [];
+        const safeIdx = previewBannerIndex >= activeBns.length ? 0 : previewBannerIndex;
+        const activeBn = activeBns[safeIdx];
+        
+        // Parse alignment percentage
+        let alignment = 50;
+        const match = activeBn?.position?.match(/object-\[center_(\d+)%\]/);
+        if (match) {
+          alignment = parseInt(match[1]);
+        }
 
-                        // Determine height depending on bannerHeight selection
-                        const configHeight = webConfigForm.bannerHeight || 'medium';
-                        const previewAspectClass = getBannerPreviewAspectClass(configHeight);
+        // Determine height depending on bannerHeight selection
+        const configHeight = webConfigForm.bannerHeight || 'medium';
+        const previewAspectClass = getBannerPreviewAspectClass(configHeight);
 
-                        const handleDragStart = (clientY: number) => {
-                          setIsDraggingY(true);
-                          setDragStartY(clientY);
-                          setDragStartPct(alignment);
-                        };
+        const handleDragStart = (clientY: number) => {
+          setIsDraggingY(true);
+          setDragStartY(clientY);
+          setDragStartPct(alignment);
+        };
 
-                        const handleDragMove = (clientY: number, containerHeight: number) => {
-                          if (!isDraggingY) return;
-                          const deltaY = clientY - dragStartY;
-                          // Standardize sensitivity
-                          const pctChange = Math.round((deltaY / containerHeight) * 120);
-                          let newPct = dragStartPct - pctChange;
-                          if (newPct < 0) newPct = 0;
-                          if (newPct > 100) newPct = 100;
+        const handleDragMove = (clientY: number, containerHeight: number) => {
+          if (!isDraggingY) return;
+          const deltaY = clientY - dragStartY;
+          // Standardize sensitivity
+          const pctChange = Math.round((deltaY / containerHeight) * 120);
+          let newPct = dragStartPct - pctChange;
+          if (newPct < 0) newPct = 0;
+          if (newPct > 100) newPct = 100;
 
-                          // Update inside the webConfigForm array
-                          const updatedBanners = [...(webConfigForm.banners || [])];
-                          if (updatedBanners[safeIdx]) {
-                            updatedBanners[safeIdx] = {
-                              ...updatedBanners[safeIdx],
-                              position: `object-[center_${newPct}%]`
-                            };
-                            setWebConfigForm({
-                              ...webConfigForm,
-                              banners: updatedBanners
-                            });
-                          }
-                        };
+          // Update inside the webConfigForm array
+          const updatedBanners = [...(webConfigForm.banners || [])];
+          if (updatedBanners[safeIdx]) {
+            updatedBanners[safeIdx] = {
+              ...updatedBanners[safeIdx],
+              position: `object-[center_${newPct}%]`
+            };
+            setWebConfigForm({
+              ...webConfigForm,
+              banners: updatedBanners
+            });
+          }
+        };
 
-                        return (
-                          <div className="relative">
-                            {/* Drag Tip */}
-                            <div className="absolute top-2 left-2 z-30 bg-black/70 border border-slate-700/60 text-slate-300 text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-semibold pointer-events-none">
-                              <span className="animate-bounce">↕</span>
-                              <span>Nhấp & kéo thả trực tiếp trên ảnh để dời tiêu điểm đứng (Y-axis)</span>
-                            </div>
+        return (
+          <div className="relative">
+            {/* Drag Tip */}
+            <div className="absolute top-2 left-2 z-30 bg-black/70 border border-slate-700/60 text-slate-300 text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-semibold pointer-events-none">
+              <span className="animate-bounce">↕</span>
+              <span>Nhấp & kéo thả trực tiếp trên ảnh để dời tiêu điểm đứng (Y-axis)</span>
+            </div>
 
-                            <div 
-                              className={`w-full ${previewAspectClass} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
-                              onMouseDown={(e) => handleDragStart(e.clientY)}
-                              onMouseMove={(e) => handleDragMove(e.clientY, e.currentTarget.clientHeight)}
-                              onMouseUp={() => setIsDraggingY(false)}
-                              onMouseLeave={() => setIsDraggingY(false)}
-                              onTouchStart={(e) => {
-                                const touch = e.touches[0];
-                                if (touch) handleDragStart(touch.clientY);
-                              }}
-                              onTouchMove={(e) => {
-                                const touch = e.touches[0];
-                                if (touch) handleDragMove(touch.clientY, e.currentTarget.clientHeight);
-                              }}
-                              onTouchEnd={() => setIsDraggingY(false)}
-                            >
-                              {/* Background Image */}
-                              {activeBn?.image ? (
-                                <img
-                                  src={resolveAdminBannerImage(activeBn.image)}
-                                  alt="Preview Slide"
-                                  className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
-                                  style={{ objectPosition: `center ${alignment}%` }}
-                                  referrerPolicy="no-referrer"
-                                />
-                              ) : (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-500">
-                                  <span>Ảnh lỗi hoặc chưa có ảnh</span>
-                                </div>
-                              )}
+            <div 
+              className={`w-full ${previewAspectClass} rounded-xl overflow-hidden relative bg-slate-950 shadow-2xl flex flex-col justify-between cursor-ns-resize select-none border border-slate-800 transition-all`}
+              onMouseDown={(e) => handleDragStart(e.clientY)}
+              onMouseMove={(e) => handleDragMove(e.clientY, e.currentTarget.clientHeight)}
+              onMouseUp={() => setIsDraggingY(false)}
+              onMouseLeave={() => setIsDraggingY(false)}
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                if (touch) handleDragStart(touch.clientY);
+              }}
+              onTouchMove={(e) => {
+                const touch = e.touches[0];
+                if (touch) handleDragMove(touch.clientY, e.currentTarget.clientHeight);
+              }}
+              onTouchEnd={() => setIsDraggingY(false)}
+            >
+              {/* Background Image - Không còn lớp phủ gradient */}
+              {activeBn?.image ? (
+                <img
+                  src={resolveAdminBannerImage(activeBn.image)}
+                  alt="Preview Slide"
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
+                  style={{ objectPosition: `center ${alignment}%` }}
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950 text-slate-500">
+                  <span>Ảnh lỗi hoặc chưa có ảnh</span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()
+    )}
+  </div>
+
 
                               {/* Overlays */}
                               <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/35 to-black/80 pointer-events-none"></div>
