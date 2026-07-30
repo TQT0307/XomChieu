@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 let activeModalLocks = 0;
 let previousBodyOverflow = '';
@@ -13,7 +13,46 @@ let previousHtmlOverscrollBehavior = '';
  * A shared lock counter keeps nested detail/image modals safe: closing one
  * modal cannot accidentally unlock the page while another modal is still open.
  */
-export default function useModalScrollLock(active: boolean) {
+export default function useModalScrollLock(active: boolean, onSwipeBack?: () => void) {
+  const onSwipeBackRef = useRef(onSwipeBack);
+  onSwipeBackRef.current = onSwipeBack;
+
+  useEffect(() => {
+    if (!active || !onSwipeBackRef.current) return;
+
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    const isMobileGesture = () =>
+      window.matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+    const handleTouchStart = (event: TouchEvent) => {
+      if (!isMobileGesture() || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      tracking = touch.clientX <= 42;
+      startX = touch.clientX;
+      startY = touch.clientY;
+    };
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!tracking || event.changedTouches.length !== 1) return;
+      tracking = false;
+      const touch = event.changedTouches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = Math.abs(touch.clientY - startY);
+      if (deltaX >= 80 && deltaX > deltaY * 1.35) {
+        onSwipeBackRef.current?.();
+      }
+    };
+    const cancelTracking = () => { tracking = false; };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', cancelTracking, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', cancelTracking);
+    };
+  }, [active]);
   useEffect(() => {
     if (!active) return;
 

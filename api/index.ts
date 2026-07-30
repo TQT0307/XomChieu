@@ -639,6 +639,13 @@ function getLoginAttemptKey(req: any, username: string) {
 }
 
 async function getFailedLoginCount(key: string): Promise<number> {
+  if (hasVercelKv && !vercelKvFailed) {
+    try {
+      return Number(await withTimeout(kv.get(key), 1500, "Login limiter KV read timed out") || 0);
+    } catch {
+      // Continue with Redis/per-instance fallback below.
+    }
+  }
   if (hasRedis && !redisFailed) {
     try {
       let value: string | null = null;
@@ -659,6 +666,15 @@ async function getFailedLoginCount(key: string): Promise<number> {
 }
 
 async function recordFailedLogin(key: string): Promise<number> {
+  if (hasVercelKv && !vercelKvFailed) {
+    try {
+      const count = Number(await withTimeout(kv.incr(key), 1500, "Login limiter KV write timed out"));
+      if (count === 1) await withTimeout(kv.expire(key, LOGIN_ATTEMPT_WINDOW_SECONDS), 1500, "Login limiter KV expiry timed out");
+      return count;
+    } catch {
+      // Continue with Redis/per-instance fallback below.
+    }
+  }
   if (hasRedis && !redisFailed) {
     try {
       let count = 0;
@@ -682,6 +698,13 @@ async function recordFailedLogin(key: string): Promise<number> {
 
 async function clearFailedLogins(key: string) {
   localLoginAttempts.delete(key);
+  if (hasVercelKv && !vercelKvFailed) {
+    try {
+      await withTimeout(kv.del(key), 1500, "Login limiter KV clear timed out");
+    } catch {
+      // Login already succeeded; failure to clear the secondary limiter is non-fatal.
+    }
+  }
   if (hasRedis && !redisFailed) {
     try {
       await runRedisCommand(client => client.del(key));
@@ -2952,7 +2975,53 @@ app.get("/api/data", async (req, res) => {
 
 const TRAINING_REGISTRATIONS_COLLECTION = "training_registrations";
 const TRAINING_REGISTRATION_RECIPIENT = "vovinamxomchieu@gmail.com";
+const REGISTRATION_RATE_LIMIT = 5;
+const REGISTRATION_RATE_WINDOW_SECONDS = 60 * 60;
 const registrationRateLimits = new Map<string, { count: number; resetAt: number }>();
+
+async function consumeRegistrationRateLimit(address: string) {
+  const fingerprint = createHash("sha256").update(address).digest("hex");
+  const key = `vovinam_registration_attempts:${fingerprint}`;
+  if (hasVercelKv && !vercelKvFailed) {
+    try {
+      const count = Number(await withTimeout(kv.incr(key), 1500, "Registration limiter KV write timed out"));
+      if (count === 1) await withTimeout(kv.expire(key, REGISTRATION_RATE_WINDOW_SECONDS), 1500, "Registration limiter KV expiry timed out");
+      return count;
+    } catch {
+      // Continue with Redis/per-instance fallback below.
+    }
+  }
+  if (hasRedis && !redisFailed) {
+    try {
+      let count = 0;
+      await runRedisCommand(async client => {
+        count = Number(await client.incr(key));
+        if (count === 1) await client.expire(key, REGISTRATION_RATE_WINDOW_SECONDS);
+      });
+      return count;
+    } catch {
+      // Continue with the bounded per-instance fallback below.
+    }
+  }
+
+  const now = Date.now();
+  if (registrationRateLimits.size > 2000) {
+    for (const [storedAddress, entry] of registrationRateLimits) {
+      if (entry.resetAt <= now) registrationRateLimits.delete(storedAddress);
+    }
+    while (registrationRateLimits.size > 2000) {
+      const oldest = registrationRateLimits.keys().next().value;
+      if (!oldest) break;
+      registrationRateLimits.delete(oldest);
+    }
+  }
+  const current = registrationRateLimits.get(fingerprint);
+  const next = current && current.resetAt > now
+    ? { ...current, count: current.count + 1 }
+    : { count: 1, resetAt: now + REGISTRATION_RATE_WINDOW_SECONDS * 1000 };
+  registrationRateLimits.set(fingerprint, next);
+  return next.count;
+}
 
 function escapeEmailHtml(value: unknown) {
   return String(value || "").replace(/[&<>"']/g, character => ({
@@ -2992,14 +3061,31 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
       greetingTimeout: 10000,
       socketTimeout: 15000
     });
-    return withTimeout(
-      transporter.sendMail({ from: `Vovinam Xóm Chiếu <${gmailUser}>`, to, subject, html })
-        .finally(() => transporter.close()),
-      20000,
-      "Gmail SMTP timed out"
-    );
+    try {
+      const info: any = await withTimeout(
+        transporter.sendMail({
+          from: `Vovinam Xóm Chiếu <${gmailUser}>`,
+          to,
+          subject,
+          html,
+          disableFileAccess: true,
+          disableUrlAccess: true
+        }),
+        20000,
+        "Gmail SMTP timed out"
+      );
+      const accepted = Array.isArray(info?.accepted)
+        ? info.accepted.map((value: unknown) => String(value).toLowerCase())
+        : [];
+      if (!accepted.includes(to.toLowerCase())) {
+        const rejected = Array.isArray(info?.rejected) ? info.rejected.join(", ") : "";
+        throw new Error(`Gmail SMTP không chấp nhận người nhận${rejected ? `: ${rejected}` : "."}`);
+      }
+      return info;
+    } finally {
+      transporter.close();
+    }
   }
-
   const apiKey = String(process.env.RESEND_API_KEY || "").trim();
   const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam Xóm Chiếu <onboarding@resend.dev>").trim();
   if (!apiKey) throw new Error("Chưa cấu hình Gmail SMTP hoặc RESEND_API_KEY trên máy chủ.");
@@ -3016,10 +3102,10 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
 app.post("/api/training-registrations", requireSameOrigin, async (req, res) => {
   try {
     const address = String(req.headers?.["x-forwarded-for"] || req.socket?.remoteAddress || "unknown").split(",")[0].trim();
-    const now = Date.now();
-    const current = registrationRateLimits.get(address);
-    if (current && current.resetAt > now && current.count >= 5) return res.status(429).json({ error: "Bạn đã gửi quá nhiều đăng ký. Vui lòng thử lại sau." });
-    registrationRateLimits.set(address, current && current.resetAt > now ? { ...current, count: current.count + 1 } : { count: 1, resetAt: now + 60 * 60 * 1000 });
+    if (await consumeRegistrationRateLimit(address) > REGISTRATION_RATE_LIMIT) {
+      res.setHeader("Retry-After", String(REGISTRATION_RATE_WINDOW_SECONDS));
+      return res.status(429).json({ error: "Bạn đã gửi quá nhiều đăng ký. Vui lòng thử lại sau." });
+    }
 
     const fullName = String(req.body?.fullName || "").trim().replace(/\s+/g, " ");
     const email = String(req.body?.email || "").trim().toLowerCase();
@@ -3057,6 +3143,24 @@ function renderRegistrationConfirmationPage(res: any, title: string, content: st
   return res.status(success ? 200 : 400).type("html").send(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeEmailHtml(title)}</title></head><body style="margin:0;background:linear-gradient(135deg,#eef4fb,#f8fafc);font-family:Arial,Helvetica,sans-serif;color:#1e293b"><main style="max-width:600px;margin:7vh auto;padding:0 14px"><section style="overflow:hidden;border:1px solid #dbeafe;border-radius:22px;background:#fff;box-shadow:0 18px 50px rgba(15,23,42,.12)"><header style="padding:25px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e);color:white"><div style="font-size:42px">${success ? "✓" : "!"}</div><h1 style="margin:8px 0 0;color:#FFF200;font-size:24px">${escapeEmailHtml(title)}</h1></header><div style="padding:25px">${content}</div></section></main></body></html>`);
 }
 
+function renderConfirmedRegistrationDetails(registration: any) {
+  const message = registration.message
+    ? escapeEmailHtml(registration.message).replace(/\n/g, "<br>")
+    : "Không có";
+  const reply = registration.replyMessage
+    ? `<div style="margin-top:16px;padding:15px;border-left:4px solid #0054A6;border-radius:10px;background:#eff6ff"><b style="color:#0054A6">Phản hồi đã gửi:</b><div style="margin-top:6px;line-height:1.6">${escapeEmailHtml(registration.replyMessage).replace(/\n/g, "<br>")}</div></div>`
+    : "";
+  return `<div style="text-align:center"><span style="display:inline-block;padding:8px 15px;border-radius:999px;background:#dcfce7;color:#047857;font-size:13px;font-weight:800">✓ ĐÃ XÁC NHẬN</span></div>
+    <div style="margin-top:18px;padding:18px;border:1px solid #dbeafe;border-radius:15px;background:#f8fafc;line-height:1.65">
+      <p style="margin:0 0 8px"><b>Họ tên:</b> ${escapeEmailHtml(registration.fullName)}</p>
+      <p style="margin:0 0 8px"><b>Email:</b> <a href="mailto:${escapeEmailHtml(registration.email)}" style="color:#0054A6">${escapeEmailHtml(registration.email)}</a></p>
+      <p style="margin:0 0 8px"><b>Câu lạc bộ:</b> ${escapeEmailHtml(registration.clubName)}</p>
+      <p style="margin:0 0 8px"><b>Ngày tập:</b> ${escapeEmailHtml(registration.trainingDays)}</p>
+      <p style="margin:0 0 8px"><b>Giờ tập:</b> ${escapeEmailHtml(registration.trainingHours)}</p>
+      <p style="margin:0 0 8px"><b>Địa chỉ:</b> ${escapeEmailHtml(registration.address)}</p>
+      <p style="margin:0"><b>Nội dung đăng ký:</b><br>${message}</p>
+    </div>${reply}`;
+}
 app.get("/api/training-registrations/:id/confirm", async (req, res) => {
   try {
     const id = String(req.params.id || "");
@@ -3069,8 +3173,8 @@ app.get("/api/training-registrations/:id/confirm", async (req, res) => {
     const snapshot = await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).get();
     if (!snapshot.exists) return renderRegistrationConfirmationPage(res, "Không tìm thấy đăng ký", "<p>Đăng ký này không tồn tại hoặc đã bị xóa.</p>", false);
     const registration: any = snapshot.data();
-    if (registration.status === "approved") {
-      return renderRegistrationConfirmationPage(res, "Đã xác nhận trước đó", `<p style="text-align:center;color:#475569">Người đăng ký đã được gửi thông báo xác nhận.</p>`);
+    if (registration.status === "approved" && registration.notificationSent === true) {
+      return renderRegistrationConfirmationPage(res, "Đã xác nhận", renderConfirmedRegistrationDetails(registration));
     }
     const action = `/api/training-registrations/${encodeURIComponent(id)}/confirm?token=${encodeURIComponent(token)}`;
     return renderRegistrationConfirmationPage(res, "Phản hồi đăng ký", `
@@ -3104,13 +3208,13 @@ app.post("/api/training-registrations/:id/confirm", async (req, res) => {
     const snapshot = await ref.get();
     if (!snapshot.exists) return renderRegistrationConfirmationPage(res, "Không tìm thấy đăng ký", "<p>Đăng ký này không tồn tại.</p>", false);
     const registration: any = snapshot.data();
-    if (registration.status === "approved") return renderRegistrationConfirmationPage(res, "Đã xác nhận trước đó", `<p style="text-align:center">Thông báo đã được gửi tới người đăng ký.</p>`);
+    if (registration.status === "approved" && registration.notificationSent === true) return renderRegistrationConfirmationPage(res, "Đã xác nhận", renderConfirmedRegistrationDetails(registration));
     await ref.set({ status: "approved", reviewedAt: new Date().toISOString(), replyMessage }, { merge: true });
     try {
       const replyBlock = replyMessage ? `<div style="margin-top:16px;padding:16px;border-left:4px solid #0054A6;border-radius:10px;background:#eff6ff"><div style="margin-bottom:6px;color:#0054A6;font-size:12px;font-weight:800">LỜI NHẮN TỪ VOVINAM XÓM CHIẾU</div><div style="font-size:14px;line-height:1.65;color:#334155">${escapeEmailHtml(replyMessage).replace(/\n/g, "<br>")}</div></div>` : "";
       await sendTransactionalEmail(registration.email, "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu", `<div style="margin:0;background:#eef4fb;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;color:#1e293b"><div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #dbeafe;border-radius:24px;background:#fff;box-shadow:0 14px 40px rgba(0,84,166,.14)"><div style="padding:30px 24px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e)"><div style="display:inline-block;width:56px;height:56px;line-height:56px;border-radius:50%;background:#FFF200;color:#0054A6;font-size:31px;font-weight:900">✓</div><h1 style="margin:15px 0 10px;color:#FFF200;font-size:23px">Xác nhận đăng ký thành công</h1><div style="margin-top:14px;color:#fff;font-size:18px;font-weight:600">Nhớ tới tập đúng giờ nhé!</div><div style="display:inline-block;margin-top:10px;padding:8px 18px;border:2px solid rgba(255,242,0,.65);border-radius:999px;background:rgba(255,242,0,.12);color:#FFF200;font-size:22px;font-weight:900;letter-spacing:.2px">${escapeEmailHtml(registration.fullName)}</div></div><div style="padding:24px"><p style="margin:0 0 18px;font-size:15px;line-height:1.6">Lịch tập của bạn đã được xác nhận tại <strong style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p><div style="padding:17px;border:1px solid #bbf7d0;border-radius:15px;background:#f0fdf4"><p style="margin:0 0 10px"><b>Ngày tập:</b> ${escapeEmailHtml(registration.trainingDays)}</p><p style="margin:0 0 10px"><b>Giờ tập:</b> ${escapeEmailHtml(registration.trainingHours)}</p><p style="margin:0"><b>Địa chỉ:</b> ${escapeEmailHtml(registration.address)}</p></div>${replyBlock}<p style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ!</p></div></div></div>`);
       await ref.set({ notificationSent: true, notificationError: "" }, { merge: true });
-      return renderRegistrationConfirmationPage(res, "Xác nhận thành công", `<p style="text-align:center;color:#475569;line-height:1.6">Email xác nhận và phản hồi đã được gửi tới <b>${escapeEmailHtml(registration.email)}</b>.</p>`);
+      return renderRegistrationConfirmationPage(res, "Đã xác nhận", `${renderConfirmedRegistrationDetails({ ...registration, replyMessage })}<p style="margin-top:18px;text-align:center;color:#047857;font-weight:700">Email xác nhận đã được gửi thành công.</p>`);
     } catch (emailError: any) {
       await ref.set({ notificationSent: false, notificationError: String(emailError?.message || emailError) }, { merge: true });
       return renderRegistrationConfirmationPage(res, "Đã duyệt nhưng gửi email lỗi", "<p>Vui lòng kiểm tra cấu hình Gmail SMTP rồi thử lại.</p>", false);

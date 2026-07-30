@@ -2014,39 +2014,38 @@ export default function UserView({
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-slate-800">
             {/* Address Card */}
-            <div className="bg-white/95 backdrop-blur-sm p-6 rounded-[2rem] shadow-xl border border-white/10 flex flex-col items-center text-center space-y-3 transform hover:-translate-y-1 transition-all duration-300">
-              <div className="bg-gradient-to-br from-[#0054A6] to-blue-800 p-3 rounded-2xl text-[#FFF200] shadow-md">
+            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(webConfig.address || '')}`} target="_blank" rel="noreferrer" aria-label="Mở địa chỉ võ đường trên Google Maps" className="group bg-white/95 backdrop-blur-sm p-6 rounded-[2rem] shadow-xl border border-white/10 flex flex-col items-center text-center space-y-3 transform hover:-translate-y-1 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/70 transition-all duration-300">
+              <div className="bg-gradient-to-br from-[#0054A6] to-blue-800 p-3 rounded-2xl text-[#FFF200] shadow-md transition-transform group-hover:scale-105">
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
                 <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Địa chỉ võ đường chính</p>
                 <p className="text-slate-700 font-bold text-xs leading-relaxed">{webConfig.address}</p>
               </div>
-            </div>
+            </a>
 
             {/* Phone Card */}
-            <div className="bg-white/95 backdrop-blur-sm p-6 rounded-[2rem] shadow-xl border border-white/10 flex flex-col items-center text-center space-y-3 transform hover:-translate-y-1 transition-all duration-300">
-              <div className="bg-gradient-to-br from-[#0054A6] to-blue-800 p-3 rounded-2xl text-[#FFF200] shadow-md">
+            <a href={`tel:${String(webConfig.phone || '').replace(/[^\d+]/g, '')}`} aria-label={`Gọi ${webConfig.phone}`} className="group bg-white/95 backdrop-blur-sm p-6 rounded-[2rem] shadow-xl border border-white/10 flex flex-col items-center text-center space-y-3 transform hover:-translate-y-1 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/70 transition-all duration-300">
+              <div className="bg-gradient-to-br from-[#0054A6] to-blue-800 p-3 rounded-2xl text-[#FFF200] shadow-md transition-transform group-hover:scale-105">
                 <Phone className="w-5 h-5" />
               </div>
               <div>
                 <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Điện thoại hotline hỗ trợ</p>
                 <p className="text-slate-700 font-bold text-xs leading-relaxed">{webConfig.phone}</p>
               </div>
-            </div>
+            </a>
 
             {/* Email Card */}
-            <div className="bg-white/95 backdrop-blur-sm p-6 rounded-[2rem] shadow-xl border border-white/10 flex flex-col items-center text-center space-y-3 transform hover:-translate-y-1 transition-all duration-300">
-              <div className="bg-gradient-to-br from-[#0054A6] to-blue-800 p-3 rounded-2xl text-[#FFF200] shadow-md">
+            <a href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(webConfig.email || '')}`} target="_blank" rel="noreferrer" aria-label={`Soạn Gmail gửi tới ${webConfig.email}`} className="group bg-white/95 backdrop-blur-sm p-6 rounded-[2rem] shadow-xl border border-white/10 flex flex-col items-center text-center space-y-3 transform hover:-translate-y-1 hover:shadow-2xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/70 transition-all duration-300">
+              <div className="bg-gradient-to-br from-[#0054A6] to-blue-800 p-3 rounded-2xl text-[#FFF200] shadow-md transition-transform group-hover:scale-105">
                 <Mail className="w-5 h-5" />
               </div>
               <div>
                 <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Hòm thư điện tử Email</p>
                 <p className="text-slate-700 font-bold text-xs leading-relaxed break-all">{webConfig.email}</p>
               </div>
-            </div>
+            </a>
           </div>
-
           {/* Social media connections */}
           <div className="pt-8 border-t border-white/10 flex flex-col items-center space-y-4">
             <p className="text-[10px] font-black text-[#FFF200] uppercase tracking-wider">Kết nối qua mạng xã hội truyền thông:</p>

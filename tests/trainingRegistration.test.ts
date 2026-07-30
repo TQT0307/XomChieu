@@ -35,3 +35,69 @@ test('confirmation email uses the requested compact success message', () => {
   assert.match(api, /registration\.trainingHours/);
   assert.match(api, /registration\.address/);
 });
+
+
+test('Gmail SMTP is preferred and Resend remains a fallback', () => {
+  assert.match(api, /process\.env\.GMAIL_USER/);
+  assert.match(api, /process\.env\.GMAIL_APP_PASSWORD/);
+  assert.match(api, /nodemailer\.createTransport/);
+  assert.match(api, /service: "gmail"/);
+  assert.match(api, /process\.env\.RESEND_API_KEY/);
+  assert.match(api, /info\?\.accepted/);
+  assert.match(api, /không chấp nhận người nhận/);
+});
+
+
+test('form closes after a successful registration but stays open on failure', () => {
+  assert.match(modal, /window\.setTimeout\(\(\)=>\{[\s\S]*onClose\(\)\}, 1800\)/);
+  assert.match(modal, /if\(!r\.ok\)throw new Error/);
+});
+
+
+test('confirmation page accepts an optional admin reply and GET does not approve', () => {
+  assert.match(api, /NỘI DUNG PHẢN HỒI/);
+  assert.match(api, /name="replyMessage"/);
+  assert.match(api, /app\.post\("\/api\/training-registrations\/:id\/confirm"/);
+  const getStart = api.indexOf('app.get("/api/training-registrations/:id/confirm"');
+  const postStart = api.indexOf('app.post("/api/training-registrations/:id/confirm"');
+  assert.ok(getStart >= 0 && postStart > getStart);
+  assert.doesNotMatch(api.slice(getStart, postStart), /status: "approved"/);
+  assert.match(api.slice(postStart), /replyMessage/);
+});
+
+test('modal focus initialization does not rerun when parent callback identity changes', () => {
+  assert.match(modal, /\}, \[isOpen\]\);/);
+  assert.doesNotMatch(modal, /\[isOpen,onClose\]/);
+});
+
+test('confirmation email presents the registrant name as a highlighted badge', () => {
+  assert.match(api, /font-size:22px/);
+  assert.match(api, /escapeEmailHtml\(registration\.fullName\)/);
+  assert.match(api, /LỜI NHẮN TỪ VOVINAM XÓM CHIẾU/);
+});
+test('failed confirmation email can be retried safely', () => {
+  const retryGuard = /registration\.status === \"approved\" && registration\.notificationSent === true/g;
+  assert.equal((api.match(retryGuard) || []).length, 2);
+  assert.match(api, /notificationSent: false/);
+  assert.match(api, /notificationSent: true/);
+});
+test('registration spam protection is shared across serverless instances', () => {
+  assert.match(api, /consumeRegistrationRateLimit/);
+  assert.match(api, /hasVercelKv/);
+  assert.match(api, /kv\.incr\(key\)/);
+  assert.match(api, /REGISTRATION_RATE_WINDOW_SECONDS/);
+  assert.match(api, /Retry-After/);
+});
+test('confirmed registration link shows approved status and full form details', () => {
+  assert.match(api, /renderConfirmedRegistrationDetails/);
+  assert.match(api, /ĐÃ XÁC NHẬN/);
+  assert.match(api, /Nội dung đăng ký/);
+  assert.match(api, /registration\.trainingDays/);
+  assert.match(api, /registration\.trainingHours/);
+});
+
+test('successful registration remains visible before the form closes', () => {
+  assert.match(modal, /\\u0110\\u0103ng k\\u00fd th\\u00e0nh c\\u00f4ng/);
+  assert.match(modal, /1800/);
+  assert.match(modal, /setResult\(null\);onClose\(\)/);
+});
