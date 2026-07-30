@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
+import nodemailer from "nodemailer";
 import path from "path";
 import fs from "fs";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "crypto";
@@ -2978,16 +2979,37 @@ function hasValidRegistrationConfirmation(id: string, token: string) {
 }
 
 async function sendTransactionalEmail(to: string, subject: string, html: string) {
+  const gmailUser = String(process.env.GMAIL_USER || "").trim().toLowerCase();
+  const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+  if (gmailUser && gmailAppPassword) {
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: gmailUser, pass: gmailAppPassword },
+      pool: true,
+      maxConnections: 1,
+      maxMessages: 20,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000
+    });
+    return withTimeout(
+      transporter.sendMail({ from: `Vovinam X?m Chi?u <${gmailUser}>`, to, subject, html })
+        .finally(() => transporter.close()),
+      20000,
+      "Gmail SMTP timed out"
+    );
+  }
+
   const apiKey = String(process.env.RESEND_API_KEY || "").trim();
-  const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam Xóm Chiếu <onboarding@resend.dev>").trim();
-  if (!apiKey) throw new Error("RESEND_API_KEY chưa được cấu hình trên máy chủ.");
+  const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam X?m Chi?u <onboarding@resend.dev>").trim();
+  if (!apiKey) throw new Error("Ch?a c?u h?nh Gmail SMTP ho?c RESEND_API_KEY tr?n m?y ch?.");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from, to: [to], subject, html })
   });
   const result: any = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || "Dịch vụ email từ chối yêu cầu.");
+  if (!response.ok) throw new Error(result?.message || "D?ch v? email t? ch?i y?u c?u.");
   return result;
 }
 
