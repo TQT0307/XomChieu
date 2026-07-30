@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
-import { Member, Achievement, Club, getBeltStyle, parseBeltRank } from '../types';
+import { X, Trophy, MapPin } from 'lucide-react';
+import { Member, Achievement, Club, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
 import PersonPhotoLightbox from './PersonPhotoLightbox';
 import useModalScrollLock from '../hooks/useModalScrollLock';
@@ -113,7 +113,7 @@ export default function MemberDetailModal({
               />
             </button>
 
-            <div className="text-center sm:text-left space-y-2">
+            <div className="text-center sm:text-left space-y-2 flex-1 min-w-0">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <span className="text-[10px] bg-[#0054A6] text-[#FFF200] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border border-[#FFF200]/20">
                   Hồ sơ môn sinh
@@ -164,7 +164,7 @@ export default function MemberDetailModal({
                       </p>
                     </div>
 
-                    {/* Vovinam Belt Tip Widget integrated right inside the frame */}
+                    {/* Vovinam Belt Tip Widget */}
                     <div className="flex-shrink-0 flex items-center self-start sm:self-center">
                       <div className={`relative flex items-center h-8 px-2.5 rounded-lg border shadow-lg ${beltBg} border-black/10`}>
                         {/* Belt Rank Label */}
@@ -196,38 +196,16 @@ export default function MemberDetailModal({
         {/* Modal Body */}
         <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 overflow-y-auto space-y-6">
           
-          {/* Quick Profile Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Trình độ võ thuật</span>
-              {(() => {
-                const style = getBeltStyle(member.rank);
-                return (
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl border ${style.bgClass} ${style.borderClass} ${style.textClass}`}>
-                      <Star className="w-4 h-4 fill-current" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-bold">Đẳng cấp (Đai):</span>
-                      <strong className={`text-xs px-2.5 py-0.5 rounded border font-black uppercase tracking-wide inline-block mt-0.5 ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
-                        {member.rank}
-                      </strong>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nơi sinh hoạt</span>
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
-                  <MapPin className="w-4 h-4" />
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 block font-bold">Võ đường / Câu lạc bộ:</span>
-                  <strong className="text-slate-200 font-black text-sm">{clubName}</strong>
-                </div>
+          {/* Quick Profile Stats - Đã bỏ ô Trình độ võ thuật, chỉ giữ lại ô Nơi sinh hoạt */}
+          <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nơi sinh hoạt</span>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-400">
+                <MapPin className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block font-bold">Võ đường / Câu lạc bộ:</span>
+                <strong className="text-slate-200 font-black text-sm">{clubName}</strong>
               </div>
             </div>
           </div>
