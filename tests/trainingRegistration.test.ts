@@ -48,7 +48,7 @@ test('Gmail SMTP is preferred and Resend remains a fallback', () => {
   assert.match(api, /text: plainText/);
   assert.match(api, /envelope: \{ from: gmailUser, to: \[recipient\] \}/);
   assert.match(api, /sender: \{ name: senderName, address: gmailUser \}/);
-  assert.match(api, /Auto-Submitted/);
+  assert.match(api, /X-Entity-Ref-ID/);
   assert.match(api, /miền đã xác minh/);
 });
 
@@ -115,4 +115,18 @@ test('Gmail dark mode keeps confirmation text readable', () => {
   assert.match(api, /-webkit-text-fill-color:#003b73/);
   assert.match(api, /prefers-color-scheme: dark/);
   assert.match(api, /data-ogsc/);
+});
+test('registration accepts only a complete Gmail address on client and server', () => {
+  assert.match(modal, /isValidGmailAddress/);
+  assert.match(modal, /pattern="\[A-Za-z0-9\]/);
+  assert.match(modal, /@gmail\\\.com/);
+  assert.match(api, /isValidRegistrationGmail\(email\)/);
+  assert.match(api, /tennguoidung@gmail\.com/);
+});
+
+test('confirmation email is uniquely traceable and avoids automated-mail headers', () => {
+  assert.match(api, /X-Entity-Ref-ID/);
+  assert.match(api, /notificationMessageId/);
+  assert.match(api, /Xác nhận đăng ký tập luyện - \$\{registration\.fullName\}/);
+  assert.doesNotMatch(api, /"Auto-Submitted": "auto-generated"/);
 });

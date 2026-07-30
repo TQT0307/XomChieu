@@ -3023,6 +3023,9 @@ async function consumeRegistrationRateLimit(address: string) {
   return next.count;
 }
 
+function isValidRegistrationGmail(value: string) {
+  return /^[a-z0-9](?:[a-z0-9.]{4,28}[a-z0-9])?@gmail\.com$/i.test(value.trim());
+}
 function escapeEmailHtml(value: unknown) {
   return String(value || "").replace(/[&<>"']/g, character => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -3161,10 +3164,7 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
           replyTo: { name: senderName, address: gmailUser },
           envelope: { from: gmailUser, to: [recipient] },
           priority: "normal",
-          headers: {
-            "Auto-Submitted": "auto-generated",
-            "X-Auto-Response-Suppress": "OOF, AutoReply"
-          },
+          headers: { "X-Entity-Ref-ID": randomUUID() },
           disableFileAccess: true,
           disableUrlAccess: true
         }),
@@ -3203,10 +3203,7 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
       html,
       text: plainText,
       reply_to: gmailUser || undefined,
-      headers: {
-        "Auto-Submitted": "auto-generated",
-        "X-Auto-Response-Suppress": "OOF, AutoReply"
-      }
+      headers: { "X-Entity-Ref-ID": randomUUID() }
     })
   });
   const result: any = await response.json().catch(() => ({}));
@@ -3227,7 +3224,7 @@ app.post("/api/training-registrations", requireSameOrigin, async (req, res) => {
     const clubId = String(req.body?.clubId || "").trim();
     const message = String(req.body?.message || "").trim();
     if (fullName.length < 2 || fullName.length > 100) return res.status(400).json({ error: "Họ tên không hợp lệ." });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) return res.status(400).json({ error: "Email không hợp lệ." });
+    if (!isValidRegistrationGmail(email)) return res.status(400).json({ error: "Vui lòng nhập đúng địa chỉ Gmail, ví dụ: tennguoidung@gmail.com." });
     if (!clubId || clubId.length > 160) return res.status(400).json({ error: "Vui lòng chọn câu lạc bộ." });
     if (message.length > 1000) return res.status(400).json({ error: "Nội dung không được dài quá 1.000 ký tự." });
 
@@ -3327,8 +3324,8 @@ app.post("/api/training-registrations/:id/confirm", async (req, res) => {
     await ref.set({ status: "approved", reviewedAt: new Date().toISOString(), replyMessage }, { merge: true });
     try {
       const confirmationEmailHtml = renderTrainingConfirmationEmail(registration, replyMessage);
-      await sendTransactionalEmail(registration.email, "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu", confirmationEmailHtml);
-      await ref.set({ notificationSent: true, notificationError: "" }, { merge: true });
+      const delivery: any = await sendTransactionalEmail(registration.email, `Xác nhận đăng ký tập luyện - ${registration.fullName}`, confirmationEmailHtml);
+      await ref.set({ notificationSent: true, notificationError: "", notificationMessageId: String(delivery?.messageId || delivery?.id || ""), notificationSentAt: new Date().toISOString() }, { merge: true });
       return renderRegistrationConfirmationPage(res, "Đã xác nhận", `${renderConfirmedRegistrationDetails({ ...registration, replyMessage })}<p style="margin-top:18px;text-align:center;color:#047857;font-weight:700">Email xác nhận đã được gửi thành công.</p>`);
     } catch (emailError: any) {
       await ref.set({ notificationSent: false, notificationError: String(emailError?.message || emailError) }, { merge: true });
