@@ -151,6 +151,7 @@ export interface Highlight {
   thumbnail: string;
   title: string;
   athleteName: string; // Tên VĐV
+  athleteIds?: string[]; // Danh sách HLV/thành viên cùng biểu diễn
   mediaType: 'video' | 'ảnh'; // Loại video/ảnh
   status: boolean; // Trạng thái hiển thị
   mediaUrls: string[]; // Cho phép thêm nhiều ảnh và nhiều video trong 1 bài viết

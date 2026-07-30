@@ -14,6 +14,7 @@ import AdminItemDetailModal from './AdminItemDetailModal';
 import RichTextEditor from './RichTextEditor';
 import SmartSearchInput from './SmartSearchInput';
 import PersonCombobox from './PersonCombobox';
+import GoogleMapEmbed from './GoogleMapEmbed';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
@@ -1526,7 +1527,7 @@ export default function AdminPanel({
     setAchievementForm({ id: '', title: '', unit: '', medalType: 'Vàng', date: new Date().toISOString().split('T')[0], status: true, image: '', memberIds: [], tournamentId: '', tournamentName: '', year: new Date().getFullYear().toString(), meaning: '', journey: '', honorTitle: '', honorQuote: '', honorAttribution: '' });
     setTournamentForm({ id: '', name: '', date: '', location: '', status: 'sắp diễn ra', image: '', googleMapPlaceName: '', googleMapUrl: '' });
     setClubForm({ id: '', name: '', headCoach: '', address: '', trainingDays: '', trainingHours: '', status: true, image: '', coachIds: [], googleMapPlaceName: '', googleMapUrl: '' });
-    setHighlightForm({ id: '', title: '', athleteName: '', mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], mediaNotes: [''], tournamentId: '', tournamentName: '' });
+    setHighlightForm({ id: '', title: '', athleteName: '', athleteIds: [], mediaType: 'video', status: true, thumbnail: '', mediaUrls: [''], mediaNotes: [''], tournamentId: '', tournamentName: '' });
   };
 
   // Delete Handlers
@@ -1653,17 +1654,22 @@ export default function AdminPanel({
         setTypedClubCoachId(matched ? matched.id : item.headCoach || '');
         break;
       }
-      case 'highlights':
+      case 'highlights': {
+        const matchedAthlete = coaches.find(c => c.id === item.athleteName || c.fullName === item.athleteName) ||
+          members.find(m => m.id === item.athleteName || m.fullName === item.athleteName);
+        const athleteIds = Array.isArray(item.athleteIds) && item.athleteIds.length > 0
+          ? item.athleteIds
+          : matchedAthlete ? [matchedAthlete.id] : [];
         setHighlightForm({
           ...item,
+          athleteIds,
           mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''],
           mediaNotes: (item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''])
             .map((_, index) => item.mediaNotes?.[index] || '')
         });
-        const matchedAthlete = coaches.find(c => c.id === item.athleteName || c.fullName === item.athleteName) ||
-                               members.find(m => m.id === item.athleteName || m.fullName === item.athleteName);
-        setTypedHighlightAthleteId(matchedAthlete ? matchedAthlete.id : item.athleteName || '');
+        setTypedHighlightAthleteId(athleteIds[0] || '');
         break;
+      }
     }
   };
 
@@ -5175,7 +5181,7 @@ export default function AdminPanel({
                       <div>
                         <p className="mb-1 text-xs font-black uppercase text-slate-600">Xem trước đúng vị trí sẽ hiển thị</p>
                         <div className="h-52 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                          <iframe
+                          <GoogleMapEmbed
                             title="Xem trước bản đồ giải đấu"
                             src={buildGoogleMapsEmbedUrl(
                               tournamentForm.googleMapUrl,
@@ -5185,10 +5191,6 @@ export default function AdminPanel({
                                 'Việt Nam'
                               ].filter(Boolean).join(', ')
                             )}
-                            className="h-full w-full"
-                            style={{ border: 0 }}
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
                           />
                         </div>
                       </div>
@@ -5344,7 +5346,7 @@ export default function AdminPanel({
                       <div>
                         <p className="mb-1 text-xs font-black uppercase text-slate-600">Xem trước đúng vị trí sẽ hiển thị</p>
                         <div className="h-52 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                          <iframe
+                          <GoogleMapEmbed
                             title="Xem trước bản đồ điểm tập"
                             src={buildGoogleMapsEmbedUrl(
                               clubForm.googleMapUrl,
@@ -5354,10 +5356,6 @@ export default function AdminPanel({
                                 'Việt Nam'
                               ].filter(Boolean).join(', ')
                             )}
-                            className="h-full w-full"
-                            style={{ border: 0 }}
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
                           />
                         </div>
                       </div>
@@ -5426,6 +5424,27 @@ export default function AdminPanel({
                 {/* 8. HIGHLIGHTS FORM */}
                 {activeTab === 'highlights' && (
                   <div className="space-y-4">
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+                      <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-amber-800">
+                        🏆 Giải đấu liên kết
+                      </label>
+                      <input
+                        type="text"
+                        list="highlight-saved-achievement-tournaments"
+                        value={highlightForm.tournamentName || ''}
+                        onChange={e => {
+                          const tournamentName = e.target.value;
+                          const tournament = tournaments.find(t => t.name === tournamentName);
+                          setHighlightForm({ ...highlightForm, tournamentName, tournamentId: tournament?.id || '' });
+                        }}
+                        placeholder="Chọn giải đã có hoặc nhập tên giải mới..."
+                        className="w-full rounded-xl border border-amber-300 bg-white p-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-400"
+                      />
+                      <datalist id="highlight-saved-achievement-tournaments">
+                        {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
+                      </datalist>
+                      <p className="mt-1.5 text-[10px] text-amber-700/80">Tên giải sẽ hiển thị trên thẻ Highlight và trang chi tiết.</p>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Left Section: Info */}
                       <div className="space-y-3">
@@ -5459,29 +5478,7 @@ export default function AdminPanel({
                             <option value="ảnh">🖼️ Bộ sưu tập hình ảnh</option>
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (chọn hoặc chỉnh sửa)</label>
-                          <input
-                            type="text"
-                            list="highlight-saved-achievement-tournaments"
-                            value={highlightForm.tournamentName || ''}
-                            onChange={e => {
-                              const tournamentName = e.target.value;
-                              const tournament = tournaments.find(t => t.name === tournamentName);
-                              setHighlightForm({
-                                ...highlightForm,
-                                tournamentName,
-                                tournamentId: tournament?.id || ''
-                              });
-                            }}
-                            placeholder="Chọn tên giải từ Thành tích hoặc nhập tên khác"
-                            className="w-full text-sm border p-2 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#0054A6]"
-                          />
-                          <datalist id="highlight-saved-achievement-tournaments">
-                            {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
-                          </datalist>
-                          <p className="mt-1 text-[10px] text-slate-400">Có thể chọn tên cũ rồi sửa năm hoặc bất kỳ nội dung nào.</p>
-                        </div>
+
                       </div>
 
                       {/* Right Section: Athlete Lookup & Thumbnail */}
@@ -5489,15 +5486,25 @@ export default function AdminPanel({
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                           <PersonCombobox
                             people={personOptions}
-                            selectedIds={typedHighlightAthleteId ? [typedHighlightAthleteId] : []}
+                            selectedIds={highlightForm.athleteIds || []}
+                            multiple
                             label="HLV / thành viên biểu diễn"
-                            placeholder="Nhập ID hoặc họ tên để tìm..."
+                            placeholder="Nhập ID hoặc họ tên để chọn thêm người..."
                             onChange={ids => {
-                              const person = personOptions.find(item => item.id === ids[0]);
-                              setTypedHighlightAthleteId(person?.id || '');
-                              setHighlightForm({ ...highlightForm, athleteName: person?.fullName || '' });
+                              const selectedPeople = ids
+                                .map(id => personOptions.find(item => item.id === id))
+                                .filter(Boolean);
+                              setTypedHighlightAthleteId(ids[0] || '');
+                              setHighlightForm({
+                                ...highlightForm,
+                                athleteIds: ids,
+                                athleteName: selectedPeople.map(person => person?.fullName).join(' · ')
+                              });
                             }}
                           />
+                          <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                            Có thể chọn nhiều người cho các nội dung quyền đồng đội hoặc biểu diễn tập thể.
+                          </p>
                         </div>                        <div>
                           <ImageInput 
                             label="Ảnh đại diện chính (Thumbnail)"

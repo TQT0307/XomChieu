@@ -3,6 +3,7 @@ import { X, Calendar, Clock, MapPin, User, ShieldCheck } from 'lucide-react';
 import { Club, Coach, getBeltStyle } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
+import GoogleMapEmbed from './GoogleMapEmbed';
 import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface ClubDetailModalProps {
@@ -155,17 +156,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
             <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider border-b pb-2 mb-3">Vị trí Google Map</h4>
             
             <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden min-h-[180px] border border-slate-200 shadow-inner relative">
-              <iframe
-                title={`Bản đồ ${club.name}`}
-                src={mapIframeUrl}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen={false}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="absolute inset-0 w-full h-full"
-              ></iframe>
+              <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ ${club.name}`} />
             </div>
           </div>
         </div>

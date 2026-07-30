@@ -84,6 +84,7 @@ export interface Highlight {
   thumbnail: string;
   title: string;
   athleteName: string;
+  athleteIds?: string[]; // Danh sách HLV/thành viên cùng biểu diễn
   mediaType: 'video' | 'ảnh';
   status: boolean;
   mediaUrls: string[];

@@ -3,6 +3,7 @@ import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen } from 'lucide-
 import { Tournament, getNormalizedTournamentStatus } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
+import GoogleMapEmbed from './GoogleMapEmbed';
 import useModalScrollLock from '../hooks/useModalScrollLock';
 
 interface TournamentDetailModalProps {
@@ -210,17 +211,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
             </h4>
             
             <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative h-[250px] md:h-full">
-              <iframe
-                title={`Bản đồ giải đấu ${tournament.name}`}
-                src={mapIframeUrl}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen={false}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="absolute inset-0 w-full h-full"
-              ></iframe>
+              <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
             </div>
             
             <p className="text-[10px] text-slate-400 mt-2 text-center italic font-semibold">

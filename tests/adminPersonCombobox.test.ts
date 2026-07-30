@@ -22,3 +22,9 @@ test('multi-select achievements render full confirmation cards', () => {
   assert.match(comboboxSource, /border-emerald-100 bg-emerald-50/);
   assert.match(comboboxSource, /Huấn luyện viên.*Thành viên/s);
 });
+test('Highlights expose a prominent tournament field and multiple performers', () => {
+  assert.match(adminSource, /🏆 Giải đấu liên kết/);
+  assert.match(adminSource, /selectedIds=\{highlightForm\.athleteIds \|\| \[\]\}/);
+  assert.match(adminSource, /Nội dung quyền đồng đội|nội dung quyền đồng đội/i);
+  assert.match(adminSource, /athleteName: selectedPeople\.map/);
+});
