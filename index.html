@@ -19,8 +19,16 @@
     <script>
       (() => {
         const retryKey = 'vovinam_asset_recovery';
+        const showRecoveryMessage = () => {
+          const root = document.getElementById('root');
+          if (!root) return;
+          root.innerHTML = '<main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f8fafc;font-family:Inter,Segoe UI,Arial,sans-serif;color:#1e293b"><section style="max-width:520px;text-align:center;border:1px solid #dbeafe;border-radius:20px;background:white;padding:28px;box-shadow:0 18px 50px rgba(15,23,42,.12)"><h1 style="margin:0 0 10px;color:#0054A6;font-size:22px">Website cần tải lại dữ liệu mới</h1><p style="margin:0 0 20px;line-height:1.6">Phiên bản vừa được nâng cấp. Vui lòng tải lại để nhận đầy đủ tệp mới.</p><button type="button" onclick="sessionStorage.removeItem(\'vovinam_asset_recovery\');location.reload()" style="border:0;border-radius:12px;background:#0054A6;color:white;padding:12px 20px;font-weight:800;cursor:pointer">TẢI LẠI WEBSITE</button></section></main>';
+        };
         const recover = () => {
-          if (sessionStorage.getItem(retryKey) === '1') return;
+          if (sessionStorage.getItem(retryKey) === '1') {
+            showRecoveryMessage();
+            return;
+          }
           sessionStorage.setItem(retryKey, '1');
           const url = new URL(window.location.href);
           url.searchParams.set('refresh', Date.now().toString());

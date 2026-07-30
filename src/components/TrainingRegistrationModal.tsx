@@ -1,108 +1,39 @@
-﻿import test from 'node:test';
-import assert from 'node:assert/strict';
-import fs from 'node:fs';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarDays, CheckCircle2, Clock, LoaderCircle, Mail, MapPin, Send, UserRound, X } from 'lucide-react';
+import type { Club } from '../types';
+import useModalScrollLock from '../hooks/useModalScrollLock';
 
-const user = fs.readFileSync(new URL('../src/components/UserView.tsx', import.meta.url), 'utf8');
-const header = fs.readFileSync(new URL('../src/components/Header.tsx', import.meta.url), 'utf8');
-const modal = fs.readFileSync(new URL('../src/components/TrainingRegistrationModal.tsx', import.meta.url), 'utf8');
-const api = fs.readFileSync(new URL('../api/index.ts', import.meta.url), 'utf8');
+export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { clubs: Club[]; isOpen: boolean; onClose: () => void }) {
+  const activeClubs = useMemo(() => clubs.filter(c => c.status !== false), [clubs]);
+  const [fullName, setFullName] = useState(''); const [email, setEmail] = useState('');
+  const [clubId, setClubId] = useState(''); const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{type:'success'|'error';text:string}|null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const club = activeClubs.find(c => c.id === clubId);
+  useModalScrollLock(isOpen, onClose);
+  useEffect(() => { if (!isOpen) return; const fn=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()}; window.addEventListener('keydown',fn); setTimeout(()=>panelRef.current?.querySelector<HTMLInputElement>('input')?.focus(),0); return()=>window.removeEventListener('keydown',fn); }, [isOpen]);
+  const submit=async(e:React.FormEvent)=>{e.preventDefault(); if(submitting)return; setSubmitting(true);setResult(null);try{const r=await fetch('/api/training-registrations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fullName,email,clubId,message})});const p=await r.json().catch(()=>({}));if(!r.ok)throw new Error(p.error||'Không thể gửi đăng ký lúc này.');setResult({type:'success',text:'\u0110\u0103ng k\u00fd th\u00e0nh c\u00f4ng! Form s\u1ebd t\u1ef1 \u0111\u00f3ng.'});window.setTimeout(()=>{setFullName('');setEmail('');setClubId('');setMessage('');setResult(null);onClose()}, 3000)}catch(x){setResult({type:'error',text:x instanceof Error?x.message:'Không thể gửi đăng ký.'})}finally{setSubmitting(false)}};
+  if(!isOpen)return null;
+  const input='box-border h-11 min-w-0 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm font-semibold normal-case outline-none transition focus:border-[#0054A6] focus:bg-white focus:ring-4 focus:ring-blue-100';
+  return <div className="fixed inset-0 z-[100] flex items-center font-sans justify-center bg-slate-950/55 p-3 backdrop-blur-[3px] sm:p-5" role="dialog" aria-modal="true" translate="no" aria-labelledby="training-registration-title" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}>
+    <div ref={panelRef} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-[1.75rem] border border-white/70 bg-white shadow-2xl">
+      <div className="relative overflow-hidden bg-gradient-to-br from-[#0054A6] to-[#00366e] px-5 py-5 text-white sm:px-7"><div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-[#FFF200]/15"/><button type="button" onClick={onClose} aria-label="Đóng form đăng ký" className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 hover:bg-white/20"><X className="h-5 w-5"/></button><span className="mb-2 inline-flex rounded-full bg-[#FFF200] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#0054A6]">Đăng ký tập luyện</span><h2 id="training-registration-title" className="pr-10 text-xl font-black uppercase sm:text-2xl">Bắt đầu hành trình Vovinam</h2><p className="mt-1.5 text-xs text-blue-100">Chọn điểm tập phù hợp và chờ xác nhận qua email.</p></div>
+      <form onSubmit={submit} className="space-y-4 p-5 sm:p-7"><div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <label className="min-w-0 space-y-1.5 text-xs font-black uppercase text-slate-600">Họ và tên <span className="text-rose-500">*</span><span className="relative block"><UserRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input required maxLength={100} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Nguyễn Văn A" className={input}/></span></label>
+        <label className="min-w-0 space-y-1.5 text-xs font-black uppercase text-slate-600">Gmail / Email <span className="text-rose-500">*</span><span className="relative block"><Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input required type="email" maxLength={160} value={email} onChange={e=>setEmail(e.target.value)} placeholder="ten@gmail.com" className={input}/></span></label></div>
+        <label className="block space-y-1.5 text-xs font-black uppercase text-slate-600">Câu lạc bộ <span className="text-rose-500">*</span><select required value={clubId} onChange={e=>setClubId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold normal-case text-slate-700 outline-none focus:border-[#0054A6] focus:ring-4 focus:ring-blue-100"><option value="">— Chọn câu lạc bộ muốn tập —</option>{activeClubs.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+        {club&&<div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-xs text-slate-700 sm:grid-cols-2"><div className="flex gap-2"><CalendarDays className="h-4 w-4 text-emerald-600"/><span><strong className="block text-emerald-800">Ngày tập</strong>{club.trainingDays||'Đang cập nhật'}</span></div><div className="flex gap-2"><Clock className="h-4 w-4 text-emerald-600"/><span><strong className="block text-emerald-800">Giờ tập</strong>{club.trainingHours||'Đang cập nhật'}</span></div><div className="flex gap-2 sm:col-span-2"><MapPin className="h-4 w-4 shrink-0 text-emerald-600"/><span><strong className="block text-emerald-800">Địa chỉ</strong>{club.address||'Đang cập nhật'}</span></div></div>}
+        <label className="block space-y-1.5 text-xs font-black uppercase text-slate-600">Nội dung <span className="font-semibold normal-case text-slate-400">(không bắt buộc)</span><textarea maxLength={1000} rows={3} value={message} onChange={e=>setMessage(e.target.value)} placeholder="Điều bạn muốn trao đổi thêm…" className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium normal-case outline-none focus:border-[#0054A6] focus:ring-4 focus:ring-blue-100"/></label>
+        {result&&<div role="status" aria-live="polite" className={`flex items-center gap-3 rounded-2xl border font-bold ${result.type==='success'?'border-2 border-emerald-300 bg-emerald-50 p-4 text-base text-emerald-800 shadow-[0_8px_24px_rgba(5,150,105,0.14)]':'border-rose-200 bg-rose-50 p-3 text-xs text-rose-700'}`}>{result.type==='success'&&<CheckCircle2 className="h-7 w-7 shrink-0"/>}<span className={result.type==='success'?'leading-snug':'leading-normal'}>{result.text}</span></div>}
+        <button disabled={submitting} className={`group relative flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-blue-400/40 border-b-[5px] border-b-[#003b78] bg-gradient-to-b from-[#1689e8] via-[#0874cc] to-[#0054A6] px-4 text-sm font-black uppercase tracking-wide text-white shadow-[0_9px_0_#00315f,0_14px_24px_rgba(0,49,95,0.28),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_11px_0_#00315f,0_17px_28px_rgba(0,49,95,0.32),inset_0_1px_0_rgba(255,255,255,0.4)] active:translate-y-[5px] active:border-b-0 active:shadow-[0_3px_0_#00315f,0_7px_14px_rgba(0,49,95,0.24)] disabled:cursor-wait disabled:translate-y-[2px] disabled:border-b-[3px] disabled:brightness-100 disabled:shadow-[0_6px_0_#00315f,0_10px_20px_rgba(0,49,95,0.24)] ${submitting?'animate-pulse':''}`}>
+          {submitting&&<span aria-hidden="true" className="absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[registration-button-shine_1.15s_ease-in-out_infinite]"/>}
+          <span className="relative z-10 flex items-center gap-2 drop-shadow-[0_2px_1px_rgba(0,38,78,0.65)]">
+            {submitting?<LoaderCircle className="h-5 w-5 animate-spin"/>:<Send className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"/>}
+            {submitting?'Đang gửi đăng ký…':'Gửi đăng ký tập luyện'}
+          </span>
+        </button>
+      </form></div></div>;
+}
 
-test('training form opens only from Contact navigation or Contact intersection', () => {
-  assert.match(header, /sectionId === 'section-contact'/);
-  assert.match(user, /vovinam-open-training-registration/);
-  assert.match(user, /IntersectionObserver/);
-  assert.doesNotMatch(header, /sectionId !== 'section-contact'[\s\S]*vovinam-open-training-registration/);
-});
-
-test('training form contains required identity and club fields plus optional message', () => {
-  assert.match(modal, /fullName/); assert.match(modal, /type="email"/);
-  assert.match(modal, /clubId/); assert.match(modal, /không bắt buộc/);
-  assert.match(modal, /trainingDays/); assert.match(modal, /trainingHours/); assert.match(modal, /club\.address/);
-  assert.match(modal, /e\.target===e\.currentTarget/); assert.match(modal, /aria-label="Đóng form đăng ký"/);
-});
-
-test('registration API stores a signed one-time approval and emails both parties', () => {
-  assert.match(api, /TRAINING_REGISTRATION_RECIPIENT = "vovinamxomchieu@gmail.com"/);
-  assert.match(api, /signRegistrationConfirmation/); assert.match(api, /timingSafeEqual/);
-  assert.match(api, /status === "approved"/); assert.match(api, /registration\.email/);
-  assert.match(api, /RESEND_API_KEY/); assert.match(api, /requireSameOrigin/);
-});
-
-test('confirmation email uses the requested compact success message', () => {
-  assert.match(api, /Xác nhận đăng ký thành công/);
-  assert.match(api, /Nhớ tới tập đúng giờ nhé/);
-  assert.match(api, /registration\.trainingDays/);
-  assert.match(api, /registration\.trainingHours/);
-  assert.match(api, /registration\.address/);
-});
-
-
-test('Gmail SMTP is preferred and Resend remains a fallback', () => {
-  assert.match(api, /process\.env\.GMAIL_USER/);
-  assert.match(api, /process\.env\.GMAIL_APP_PASSWORD/);
-  assert.match(api, /nodemailer\.createTransport/);
-  assert.match(api, /service: "gmail"/);
-  assert.match(api, /process\.env\.RESEND_API_KEY/);
-  assert.match(api, /info\?\.accepted/);
-  assert.match(api, /không chấp nhận người nhận/);
-  assert.match(api, /text: plainText/);
-  assert.match(api, /envelope: \{ from: gmailUser, to: \[recipient\] \}/);
-  assert.match(api, /sender: \{ name: senderName, address: gmailUser \}/);
-  assert.match(api, /Auto-Submitted/);
-  assert.match(api, /miền đã xác minh/);
-});
-
-
-test('form closes after a successful registration but stays open on failure', () => {
-  assert.match(modal, /window\.setTimeout\(\(\)=>\{[\s\S]*onClose\(\)\}, 3000\)/);
-  assert.match(modal, /if\(!r\.ok\)throw new Error/);
-});
-
-
-test('confirmation page accepts an optional admin reply and GET does not approve', () => {
-  assert.match(api, /NỘI DUNG PHẢN HỒI/);
-  assert.match(api, /name="replyMessage"/);
-  assert.match(api, /app\.post\("\/api\/training-registrations\/:id\/confirm"/);
-  const getStart = api.indexOf('app.get("/api/training-registrations/:id/confirm"');
-  const postStart = api.indexOf('app.post("/api/training-registrations/:id/confirm"');
-  assert.ok(getStart >= 0 && postStart > getStart);
-  assert.doesNotMatch(api.slice(getStart, postStart), /status: "approved"/);
-  assert.match(api.slice(postStart), /replyMessage/);
-});
-
-test('modal focus initialization does not rerun when parent callback identity changes', () => {
-  assert.match(modal, /\}, \[isOpen\]\);/);
-  assert.doesNotMatch(modal, /\[isOpen,onClose\]/);
-});
-
-test('confirmation email presents the registrant name as a highlighted badge', () => {
-  assert.match(api, /font-size:22px/);
-  assert.match(api, /escapeEmailHtml\(registration\.fullName\)/);
-  assert.match(api, /LỜI NHẮN TỪ VOVINAM XÓM CHIẾU/);
-});
-test('failed confirmation email can be retried safely', () => {
-  const retryGuard = /registration\.status === \"approved\" && registration\.notificationSent === true/g;
-  assert.equal((api.match(retryGuard) || []).length, 2);
-  assert.match(api, /notificationSent: false/);
-  assert.match(api, /notificationSent: true/);
-});
-test('registration spam protection is shared across serverless instances', () => {
-  assert.match(api, /consumeRegistrationRateLimit/);
-  assert.match(api, /hasVercelKv/);
-  assert.match(api, /kv\.incr\(key\)/);
-  assert.match(api, /REGISTRATION_RATE_WINDOW_SECONDS/);
-  assert.match(api, /Retry-After/);
-});
-test('confirmed registration link shows approved status and full form details', () => {
-  assert.match(api, /renderConfirmedRegistrationDetails/);
-  assert.match(api, /ĐÃ XÁC NHẬN/);
-  assert.match(api, /Nội dung đăng ký/);
-  assert.match(api, /registration\.trainingDays/);
-  assert.match(api, /registration\.trainingHours/);
-});
-
-test('successful registration remains visible before the form closes', () => {
-  assert.match(modal, /\\u0110\\u0103ng k\\u00fd th\\u00e0nh c\\u00f4ng/);
-  assert.match(modal, /3000/);
-  assert.match(modal, /setResult\(null\);onClose\(\)/);
-});
+TrainingRegistrationModal.displayName = 'TrainingRegistrationModal';

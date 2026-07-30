@@ -28,3 +28,11 @@ test('a stale missing module automatically reloads a fresh HTML shell once', () 
   assert.match(html, /vite:preloadError/);
   assert.match(html, /searchParams\.set\('refresh'/);
 });
+test('browser production bundle rejects Node test code', () => {
+  const vite = fs.readFileSync(new URL('../vite.config.ts', import.meta.url), 'utf8');
+  const modal = fs.readFileSync(new URL('../src/components/TrainingRegistrationModal.tsx', import.meta.url), 'utf8');
+  assert.match(vite, /browser-bundle-node-guard/);
+  assert.match(vite, /readFileSync/);
+  assert.doesNotMatch(modal, /readFileSync|node:test|training form opens only from Contact navigation/);
+  assert.match(html, /Website cần tải lại dữ liệu mới/);
+});
