@@ -28,3 +28,11 @@ test('Highlights expose a prominent tournament field and multiple performers', (
   assert.match(adminSource, /Nội dung quyền đồng đội|nội dung quyền đồng đội/i);
   assert.match(adminSource, /athleteName: selectedPeople\.map/);
 });
+test('custom selectors keep menus compact and expose clear buttons beside arrows', () => {
+  const tournamentSource = readFileSync(new URL('../src/components/SearchableTextCombobox.tsx', import.meta.url), 'utf8');
+  assert.match(tournamentSource, /slice\(0, 10\)/);
+  assert.match(tournamentSource, /Xóa giải đấu đã chọn/);
+  assert.match(tournamentSource, /<X className=.*<ChevronDown/s);
+  assert.match(comboboxSource, /Xóa toàn bộ người đã chọn/);
+  assert.doesNotMatch(adminSource, /highlight-saved-achievement-tournaments/);
+});

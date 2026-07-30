@@ -77,23 +77,6 @@ export default function PersonCombobox({
     <div ref={rootRef} className="relative">
       <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-[#0054A6]">{label}</label>
       {multiple && selectedPeople.length > 0 && (
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {selectedPeople.map(person => (
-            <button
-              key={person.id}
-              type="button"
-              onClick={() => onChange(selectedIds.filter(id => id !== person.id))}
-              className="inline-flex max-w-full items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-[#0054A6] transition hover:bg-blue-100"
-              title={`Bỏ chọn ${person.fullName}`}
-            >
-              <span className="truncate">{person.fullName}</span>
-              <span className="font-mono text-[9px] opacity-65">{person.id}</span>
-              <X className="h-3 w-3 shrink-0" />
-            </button>
-          ))}
-        </div>
-      )}
-      {multiple && selectedPeople.length > 0 && (
         <div className="mb-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
           {selectedPeople.map(person => (
             <div key={`confirmed-${person.profileType}-${person.id}`} className="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-2">
@@ -132,8 +115,8 @@ export default function PersonCombobox({
           aria-expanded={isOpen}
           aria-autocomplete="list"
         />
-        {!multiple && selectedPeople[0] && !query && (
-          <button type="button" onClick={() => onChange([])} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-rose-500" title="Bỏ lựa chọn">
+        {selectedPeople.length > 0 && !query && (
+          <button type="button" onClick={() => { onChange([]); inputRef.current?.focus(); }} className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-500" title={multiple ? 'Xóa toàn bộ lựa chọn' : 'Bỏ lựa chọn'} aria-label={multiple ? 'Xóa toàn bộ người đã chọn' : 'Bỏ người đã chọn'}>
             <X className="h-4 w-4" />
           </button>
         )}

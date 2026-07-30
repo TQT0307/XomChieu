@@ -15,6 +15,7 @@ import RichTextEditor from './RichTextEditor';
 import SmartSearchInput from './SmartSearchInput';
 import PersonCombobox from './PersonCombobox';
 import GoogleMapEmbed from './GoogleMapEmbed';
+import SearchableTextCombobox from './SearchableTextCombobox';
 import defaultBanner1 from '../assets/images/banner1.jpg';
 import defaultBanner2 from '../assets/images/banner2.jpg';
 import defaultBanner3 from '../assets/images/banner3.jpg';
@@ -5424,26 +5425,18 @@ export default function AdminPanel({
                 {/* 8. HIGHLIGHTS FORM */}
                 {activeTab === 'highlights' && (
                   <div className="space-y-4">
-                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
-                      <label className="mb-1.5 block text-xs font-black uppercase tracking-wide text-amber-800">
-                        🏆 Giải đấu liên kết
-                      </label>
-                      <input
-                        type="text"
-                        list="highlight-saved-achievement-tournaments"
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
+                      <SearchableTextCombobox
+                        label="🏆 Giải đấu liên kết"
                         value={highlightForm.tournamentName || ''}
-                        onChange={e => {
-                          const tournamentName = e.target.value;
-                          const tournament = tournaments.find(t => t.name === tournamentName);
+                        options={savedAchievementTournamentNames}
+                        placeholder="Chọn giải đã có hoặc nhập tên giải mới..."
+                        helperText="Tên giải sẽ hiển thị trên thẻ Highlight và trang chi tiết."
+                        onChange={tournamentName => {
+                          const tournament = tournaments.find(item => item.name === tournamentName);
                           setHighlightForm({ ...highlightForm, tournamentName, tournamentId: tournament?.id || '' });
                         }}
-                        placeholder="Chọn giải đã có hoặc nhập tên giải mới..."
-                        className="w-full rounded-xl border border-amber-300 bg-white p-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-amber-400"
                       />
-                      <datalist id="highlight-saved-achievement-tournaments">
-                        {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
-                      </datalist>
-                      <p className="mt-1.5 text-[10px] text-amber-700/80">Tên giải sẽ hiển thị trên thẻ Highlight và trang chi tiết.</p>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Left Section: Info */}

@@ -35,6 +35,7 @@ import {
 import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
 import { formatBrowserTitle } from './utils/browserTitle';
 import { isAdminHash } from './utils/adminRoute';
+import { warmImageCache } from './utils/imageWarmup';
 
 type SyncKey =
   | 'categories'
@@ -104,6 +105,27 @@ export default function App() {
     }
     return parsed;
   });
+
+  // Start important images as soon as cached/server data is available. The hero
+  // wins bandwidth first; remaining thumbnails warm in a small background pool.
+  useEffect(() => {
+    const bannerImages = (webConfig.banners || []).map(banner => banner.image);
+    void warmImageCache([webConfig.logo, bannerImages[0], bannerImages[1]], 3);
+
+    const backgroundTimer = window.setTimeout(() => {
+      void warmImageCache([
+        ...articles.slice(0, 6).map(item => item.image),
+        ...tournaments.slice(0, 4).map(item => item.image),
+        ...highlights.slice(0, 6).flatMap(item => [item.thumbnail, ...(item.mediaUrls || []).slice(0, 1)]),
+        ...achievements.slice(0, 6).map(item => item.image),
+        ...clubs.slice(0, 4).map(item => item.image),
+        ...coaches.slice(0, 8).map(item => item.photo),
+        ...members.slice(0, 8).map(item => item.photo)
+      ], 3);
+    }, 350);
+
+    return () => window.clearTimeout(backgroundTimer);
+  }, [webConfig.logo, webConfig.banners, articles, tournaments, highlights, achievements, clubs, coaches, members]);
 
   // Mode & navigation
   const [isAdmin, setIsAdmin] = useState(() => isAdminHash(window.location.hash));
