@@ -3106,10 +3106,10 @@ function renderTrainingConfirmationEmail(registration: any, replyMessage: string
       <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" class="email-card" style="width:100%;max-width:560px;overflow:hidden;border:1px solid #dbeafe;border-radius:24px;background:#ffffff">
         <tr><td align="center" bgcolor="#0054A6" class="email-header" style="padding:32px 24px;text-align:center;background:#0054A6;background-image:linear-gradient(135deg,#0068c9,#003d7a)">
           <div class="gmail-blend-screen"><div class="gmail-blend-difference">
-          <div style="display:inline-block;width:56px;height:56px;line-height:56px;border-radius:50%;background:#ffffff;color:#0054A6;font-size:31px;font-weight:900">✓</div>
+          <div style="display:inline-block;width:56px;height:56px;line-height:56px;border:3px solid #ffffff;border-radius:50%;background:#eaf4ff;color:#0054A6;-webkit-text-fill-color:#0054A6;font-family:Arial,Helvetica,sans-serif;font-size:31px;font-weight:900;box-shadow:0 8px 24px rgba(0,28,68,.24)">✓</div>
           <h1 class="email-title" style="margin:15px 0 10px;color:#ffffff;-webkit-text-fill-color:#ffffff;font-size:25px;line-height:1.3;text-shadow:0 2px 8px rgba(0,0,0,.22)">Xác nhận đăng ký thành công</h1>
           <div class="email-title" style="margin-top:14px;color:#ffffff;-webkit-text-fill-color:#ffffff;font-size:18px;font-weight:700">Nhớ tới tập đúng giờ nhé!</div>
-          <div class="email-name" style="display:inline-block;margin-top:10px;padding:8px 18px;border:2px solid #FFF200;border-radius:999px;background:#FFF200;color:#003b73;-webkit-text-fill-color:#003b73;font-size:22px;font-weight:900;letter-spacing:.2px">${escapeEmailHtml(registration.fullName)}</div>
+          <div class="email-name" style="display:inline-block;margin-top:10px;padding:8px 18px;border:2px solid #FFF200;border-radius:999px;background:#FFF200;color:#003b73;-webkit-text-fill-color:#003b73;font-family:Arial,Helvetica,sans-serif;font-size:24px;font-style:normal;font-weight:900;line-height:1.25;letter-spacing:.3px;text-shadow:none">${escapeEmailHtml(registration.fullName)}</div>
           </div></div>
         </td></tr>
         <tr><td bgcolor="#ffffff" class="email-content" style="padding:24px;background:#ffffff;color:#1e293b">

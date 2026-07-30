@@ -76,7 +76,7 @@ test('modal focus initialization does not rerun when parent callback identity ch
 });
 
 test('confirmation email presents the registrant name as a highlighted badge', () => {
-  assert.match(api, /font-size:22px/);
+  assert.match(api, /font-size:24px/);
   assert.match(api, /escapeEmailHtml\(registration\.fullName\)/);
   assert.match(api, /LỜI NHẮN TỪ VOVINAM XÓM CHIẾU/);
 });
@@ -109,6 +109,8 @@ test('successful registration remains visible before the form closes', () => {
 test('Gmail dark mode keeps confirmation text readable', () => {
   assert.match(api, /gmail-blend-screen/);
   assert.match(api, /gmail-blend-difference/);
+  assert.match(api, /-webkit-text-fill-color:#0054A6/);
+  assert.match(api, /font-size:24px;font-style:normal;font-weight:900/);
   assert.match(api, /-webkit-text-fill-color:#ffffff/);
   assert.match(api, /-webkit-text-fill-color:#003b73/);
   assert.match(api, /prefers-color-scheme: dark/);

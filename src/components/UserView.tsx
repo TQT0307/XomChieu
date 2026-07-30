@@ -310,6 +310,20 @@ export default function UserView({
   const prevBanner = () => {
     setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length);
   };
+  const bannerTouchStartXRef = React.useRef<number | null>(null);
+  const handleBannerTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    bannerTouchStartXRef.current = event.touches[0]?.clientX ?? null;
+  };
+  const handleBannerTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    const startX = bannerTouchStartXRef.current;
+    const endX = event.changedTouches[0]?.clientX;
+    bannerTouchStartXRef.current = null;
+    if (startX == null || endX == null) return;
+    const distance = endX - startX;
+    if (Math.abs(distance) < 50) return;
+    if (distance < 0) nextBanner();
+    else prevBanner();
+  };
 
   // Open only from Contact navigation or when Contact newly enters view.
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
@@ -621,7 +635,12 @@ export default function UserView({
       </div>
 
       {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
-      <section className={`relative w-full ${carouselAspectClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
+      <section
+        className={`relative w-full ${carouselAspectClass} touch-pan-y select-none bg-slate-950 overflow-hidden z-10`}
+        id="section-hero-carousel"
+        onTouchStart={handleBannerTouchStart}
+        onTouchEnd={handleBannerTouchEnd}
+      >
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
           <img 
@@ -642,9 +661,9 @@ export default function UserView({
           type="button"
           onClick={prevBanner}
           aria-label="Xem banner trước"
-          className="group absolute left-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/45 bg-slate-950/30 p-1.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-md transition duration-300 hover:-translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/85 hover:text-[#FFF200] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
+          className="group absolute left-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/25 bg-slate-950/15 p-1.5 text-white opacity-45 shadow-[0_8px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm transition duration-300 hover:-translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/75 hover:text-[#FFF200] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
             <ChevronLeft className="h-5 w-5 stroke-[2.6] transition-transform duration-300 group-hover:-translate-x-0.5 sm:h-6 sm:w-6" />
           </span>
         </button>
@@ -652,9 +671,9 @@ export default function UserView({
           type="button"
           onClick={nextBanner}
           aria-label="Xem banner tiếp theo"
-          className="group absolute right-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/45 bg-slate-950/30 p-1.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-md transition duration-300 hover:translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/85 hover:text-[#FFF200] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
+          className="group absolute right-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/25 bg-slate-950/15 p-1.5 text-white opacity-45 shadow-[0_8px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm transition duration-300 hover:translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/75 hover:text-[#FFF200] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
             <ChevronRight className="h-5 w-5 stroke-[2.6] transition-transform duration-300 group-hover:translate-x-0.5 sm:h-6 sm:w-6" />
           </span>
         </button>

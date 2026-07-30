@@ -10,6 +10,10 @@ test('banner navigation is accessible, lightweight and keeps automatic carousel 
   assert.match(user, /backdrop-blur-md/);
   assert.match(user, /prevBanner/);
   assert.match(user, /nextBanner/);
+  assert.match(user, /onTouchStart=\{handleBannerTouchStart\}/);
+  assert.match(user, /onTouchEnd=\{handleBannerTouchEnd\}/);
+  assert.match(user, /Math\.abs\(distance\) < 50/);
+  assert.match(user, /opacity-45/);
   assert.match(user, /safeCurrentBanner === idx/);
   assert.match(user, /shadow-\[0_0_14px/);
 });
