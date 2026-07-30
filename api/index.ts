@@ -3053,53 +3053,74 @@ app.post("/api/training-registrations", requireSameOrigin, async (req, res) => {
   }
 });
 
+function renderRegistrationConfirmationPage(res: any, title: string, content: string, success = true) {
+  return res.status(success ? 200 : 400).type("html").send(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeEmailHtml(title)}</title></head><body style="margin:0;background:linear-gradient(135deg,#eef4fb,#f8fafc);font-family:Arial,Helvetica,sans-serif;color:#1e293b"><main style="max-width:600px;margin:7vh auto;padding:0 14px"><section style="overflow:hidden;border:1px solid #dbeafe;border-radius:22px;background:#fff;box-shadow:0 18px 50px rgba(15,23,42,.12)"><header style="padding:25px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e);color:white"><div style="font-size:42px">${success ? "✓" : "!"}</div><h1 style="margin:8px 0 0;color:#FFF200;font-size:24px">${escapeEmailHtml(title)}</h1></header><div style="padding:25px">${content}</div></section></main></body></html>`);
+}
+
 app.get("/api/training-registrations/:id/confirm", async (req, res) => {
-  const render = (title: string, message: string, success: boolean) => res.status(success ? 200 : 400).type("html").send(`<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeEmailHtml(title)}</title><body style="margin:0;background:#f1f5f9;font-family:Arial,sans-serif"><main style="max-width:560px;margin:12vh auto;background:white;padding:34px;border-radius:20px;text-align:center;box-shadow:0 12px 40px #0f172a1a"><div style="font-size:48px">${success ? "✅" : "⚠️"}</div><h1 style="color:#0054A6">${escapeEmailHtml(title)}</h1><p style="color:#475569;line-height:1.6">${escapeEmailHtml(message)}</p><a href="/" style="display:inline-block;margin-top:16px;background:#0054A6;color:white;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Về trang chủ</a></main></body></html>`);
   try {
     const id = String(req.params.id || "");
-    if (!id || !hasValidRegistrationConfirmation(id, String(req.query.token || ""))) return render("Liên kết không hợp lệ", "Không thể xác minh yêu cầu xác nhận này.", false);
+    const token = String(req.query.token || "");
+    if (!id || !hasValidRegistrationConfirmation(id, token)) {
+      return renderRegistrationConfirmationPage(res, "Liên kết không hợp lệ", "<p>Không thể xác minh yêu cầu xác nhận này.</p>", false);
+    }
     const firestoreDb = await getFirebaseFirestore();
-    if (!firestoreDb) return render("Hệ thống tạm gián đoạn", "Không thể kết nối kho đăng ký. Vui lòng thử lại.", false);
+    if (!firestoreDb) return renderRegistrationConfirmationPage(res, "Hệ thống tạm gián đoạn", "<p>Không thể kết nối kho đăng ký. Vui lòng thử lại.</p>", false);
+    const snapshot = await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).get();
+    if (!snapshot.exists) return renderRegistrationConfirmationPage(res, "Không tìm thấy đăng ký", "<p>Đăng ký này không tồn tại hoặc đã bị xóa.</p>", false);
+    const registration: any = snapshot.data();
+    if (registration.status === "approved") {
+      return renderRegistrationConfirmationPage(res, "Đã xác nhận trước đó", `<p style="text-align:center;color:#475569">Người đăng ký đã được gửi thông báo xác nhận.</p>`);
+    }
+    const action = `/api/training-registrations/${encodeURIComponent(id)}/confirm?token=${encodeURIComponent(token)}`;
+    return renderRegistrationConfirmationPage(res, "Phản hồi đăng ký", `
+      <div style="margin-bottom:18px;padding:16px;border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0">
+        <p style="margin:0 0 8px"><b>Người đăng ký:</b> ${escapeEmailHtml(registration.fullName)}</p>
+        <p style="margin:0 0 8px"><b>Email:</b> ${escapeEmailHtml(registration.email)}</p>
+        <p style="margin:0 0 8px"><b>CLB:</b> ${escapeEmailHtml(registration.clubName)}</p>
+        <p style="margin:0"><b>Nội dung:</b> ${registration.message ? escapeEmailHtml(registration.message).replace(/\n/g, "<br>") : "Không có"}</p>
+      </div>
+      <form method="post" action="${action}">
+        <label style="display:block;margin-bottom:7px;font-size:13px;font-weight:800;color:#334155">NỘI DUNG PHẢN HỒI <span style="font-weight:400;color:#94a3b8">(không bắt buộc)</span></label>
+        <textarea name="replyMessage" maxlength="1200" rows="5" placeholder="Nhập lời nhắn gửi tới người đăng ký…" style="box-sizing:border-box;width:100%;resize:vertical;border:1px solid #cbd5e1;border-radius:12px;padding:13px;font:14px Arial;outline:none"></textarea>
+        <button type="submit" style="width:100%;margin-top:15px;border:0;border-radius:12px;background:#0054A6;color:white;padding:14px;font-size:14px;font-weight:800;cursor:pointer">✓ XÁC NHẬN VÀ GỬI PHẢN HỒI</button>
+      </form>`);
+  } catch (error) {
+    console.error("[Open training confirmation]", error);
+    return renderRegistrationConfirmationPage(res, "Không thể mở đăng ký", "<p>Đã xảy ra lỗi. Vui lòng thử lại sau.</p>", false);
+  }
+});
+
+app.post("/api/training-registrations/:id/confirm", async (req, res) => {
+  try {
+    const id = String(req.params.id || "");
+    const token = String(req.query.token || "");
+    const replyMessage = String(req.body?.replyMessage || "").trim();
+    if (!id || !hasValidRegistrationConfirmation(id, token)) return renderRegistrationConfirmationPage(res, "Liên kết không hợp lệ", "<p>Không thể xác minh yêu cầu xác nhận này.</p>", false);
+    if (replyMessage.length > 1200) return renderRegistrationConfirmationPage(res, "Nội dung quá dài", "<p>Phản hồi không được dài quá 1.200 ký tự.</p>", false);
+    const firestoreDb = await getFirebaseFirestore();
+    if (!firestoreDb) return renderRegistrationConfirmationPage(res, "Hệ thống tạm gián đoạn", "<p>Không thể kết nối kho đăng ký.</p>", false);
     const ref = firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id);
     const snapshot = await ref.get();
-    if (!snapshot.exists) return render("Không tìm thấy đăng ký", "Đăng ký này không tồn tại hoặc đã bị xóa.", false);
+    if (!snapshot.exists) return renderRegistrationConfirmationPage(res, "Không tìm thấy đăng ký", "<p>Đăng ký này không tồn tại.</p>", false);
     const registration: any = snapshot.data();
-    if (registration.status === "approved") return render("Đã xác nhận trước đó", "Người đăng ký đã được gửi thông báo xác nhận.", true);
-    await ref.set({ status: "approved", reviewedAt: new Date().toISOString() }, { merge: true });
+    if (registration.status === "approved") return renderRegistrationConfirmationPage(res, "Đã xác nhận trước đó", `<p style="text-align:center">Thông báo đã được gửi tới người đăng ký.</p>`);
+    await ref.set({ status: "approved", reviewedAt: new Date().toISOString(), replyMessage }, { merge: true });
     try {
-      await sendTransactionalEmail(
-        registration.email,
-        "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu",
-        `<div style="margin:0;background:#eef4fb;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;color:#1e293b">
-          <div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #dbeafe;border-radius:22px;background:#ffffff;box-shadow:0 12px 35px rgba(0,84,166,.12)">
-            <div style="padding:28px 24px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e)">
-              <div style="display:inline-block;width:54px;height:54px;line-height:54px;border-radius:50%;background:#FFF200;color:#0054A6;font-size:30px;font-weight:bold">✓</div>
-              <h1 style="margin:16px 0 6px;color:#FFF200;font-size:23px;line-height:1.25">Xác nhận đăng ký thành công</h1>
-              <p style="margin:8px 0 0;color:#ffffff;font-size:18px;line-height:1.5;font-weight:600">Nhớ tới tập đúng giờ nhé, <strong style="display:inline-block;color:#FFF200;font-size:20px;font-weight:800">${escapeEmailHtml(registration.fullName)}</strong>!</p>
-            </div>
-            <div style="padding:24px">
-              <p style="margin:0 0 18px;font-size:15px;line-height:1.6">Chào <strong>${escapeEmailHtml(registration.fullName)}</strong>, lịch tập của bạn đã được xác nhận tại <strong style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p>
-              <div style="border:1px solid #bbf7d0;border-radius:15px;background:#f0fdf4;padding:17px">
-                <p style="margin:0 0 11px;font-size:13px"><strong style="color:#047857">Ngày tập:</strong> ${escapeEmailHtml(registration.trainingDays)}</p>
-                <p style="margin:0 0 11px;font-size:13px"><strong style="color:#047857">Giờ tập:</strong> ${escapeEmailHtml(registration.trainingHours)}</p>
-                <p style="margin:0;font-size:13px;line-height:1.5"><strong style="color:#047857">Địa chỉ:</strong> ${escapeEmailHtml(registration.address)}</p>
-              </div>
-              <p style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ Vovinam Xóm Chiếu!</p>
-            </div>
-          </div>
-        </div>`
-      );
+      const replyBlock = replyMessage ? `<div style="margin-top:16px;padding:16px;border-left:4px solid #0054A6;border-radius:10px;background:#eff6ff"><div style="margin-bottom:6px;color:#0054A6;font-size:12px;font-weight:800">LỜI NHẮN TỪ VOVINAM XÓM CHIẾU</div><div style="font-size:14px;line-height:1.65;color:#334155">${escapeEmailHtml(replyMessage).replace(/\n/g, "<br>")}</div></div>` : "";
+      await sendTransactionalEmail(registration.email, "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu", `<div style="margin:0;background:#eef4fb;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;color:#1e293b"><div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #dbeafe;border-radius:24px;background:#fff;box-shadow:0 14px 40px rgba(0,84,166,.14)"><div style="padding:30px 24px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e)"><div style="display:inline-block;width:56px;height:56px;line-height:56px;border-radius:50%;background:#FFF200;color:#0054A6;font-size:31px;font-weight:900">✓</div><h1 style="margin:15px 0 10px;color:#FFF200;font-size:23px">Xác nhận đăng ký thành công</h1><div style="margin-top:14px;color:#fff;font-size:18px;font-weight:600">Nhớ tới tập đúng giờ nhé!</div><div style="display:inline-block;margin-top:10px;padding:8px 18px;border:2px solid rgba(255,242,0,.65);border-radius:999px;background:rgba(255,242,0,.12);color:#FFF200;font-size:22px;font-weight:900;letter-spacing:.2px">${escapeEmailHtml(registration.fullName)}</div></div><div style="padding:24px"><p style="margin:0 0 18px;font-size:15px;line-height:1.6">Lịch tập của bạn đã được xác nhận tại <strong style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p><div style="padding:17px;border:1px solid #bbf7d0;border-radius:15px;background:#f0fdf4"><p style="margin:0 0 10px"><b>Ngày tập:</b> ${escapeEmailHtml(registration.trainingDays)}</p><p style="margin:0 0 10px"><b>Giờ tập:</b> ${escapeEmailHtml(registration.trainingHours)}</p><p style="margin:0"><b>Địa chỉ:</b> ${escapeEmailHtml(registration.address)}</p></div>${replyBlock}<p style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ!</p></div></div></div>`);
       await ref.set({ notificationSent: true, notificationError: "" }, { merge: true });
-      return render("Xác nhận thành công", `Email xác nhận đã được gửi tới ${registration.email}.`, true);
+      return renderRegistrationConfirmationPage(res, "Xác nhận thành công", `<p style="text-align:center;color:#475569;line-height:1.6">Email xác nhận và phản hồi đã được gửi tới <b>${escapeEmailHtml(registration.email)}</b>.</p>`);
     } catch (emailError: any) {
       await ref.set({ notificationSent: false, notificationError: String(emailError?.message || emailError) }, { merge: true });
-      return render("Đã duyệt đăng ký", "Đăng ký đã được xác nhận nhưng chưa gửi được email phản hồi. Vui lòng kiểm tra cấu hình email máy chủ.", false);
+      return renderRegistrationConfirmationPage(res, "Đã duyệt nhưng gửi email lỗi", "<p>Vui lòng kiểm tra cấu hình Gmail SMTP rồi thử lại.</p>", false);
     }
   } catch (error) {
     console.error("[Confirm training registration]", error);
-    return render("Không thể xác nhận", "Đã xảy ra lỗi. Vui lòng thử lại sau.", false);
+    return renderRegistrationConfirmationPage(res, "Không thể xác nhận", "<p>Đã xảy ra lỗi. Vui lòng thử lại sau.</p>", false);
   }
 });
+
 // Granular resource endpoints
 app.get("/api/categories", async (req, res) => {
   try {
