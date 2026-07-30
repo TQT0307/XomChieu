@@ -45,11 +45,16 @@ test('Gmail SMTP is preferred and Resend remains a fallback', () => {
   assert.match(api, /process\.env\.RESEND_API_KEY/);
   assert.match(api, /info\?\.accepted/);
   assert.match(api, /không chấp nhận người nhận/);
+  assert.match(api, /text: plainText/);
+  assert.match(api, /envelope: \{ from: gmailUser, to: \[recipient\] \}/);
+  assert.match(api, /sender: \{ name: senderName, address: gmailUser \}/);
+  assert.match(api, /Auto-Submitted/);
+  assert.match(api, /miền đã xác minh/);
 });
 
 
 test('form closes after a successful registration but stays open on failure', () => {
-  assert.match(modal, /window\.setTimeout\(\(\)=>\{[\s\S]*onClose\(\)\}, 1800\)/);
+  assert.match(modal, /window\.setTimeout\(\(\)=>\{[\s\S]*onClose\(\)\}, 3000\)/);
   assert.match(modal, /if\(!r\.ok\)throw new Error/);
 });
 
@@ -98,6 +103,14 @@ test('confirmed registration link shows approved status and full form details', 
 
 test('successful registration remains visible before the form closes', () => {
   assert.match(modal, /\\u0110\\u0103ng k\\u00fd th\\u00e0nh c\\u00f4ng/);
-  assert.match(modal, /1800/);
+  assert.match(modal, /3000/);
   assert.match(modal, /setResult\(null\);onClose\(\)/);
+});
+test('Gmail dark mode keeps confirmation text readable', () => {
+  assert.match(api, /gmail-blend-screen/);
+  assert.match(api, /gmail-blend-difference/);
+  assert.match(api, /-webkit-text-fill-color:#ffffff/);
+  assert.match(api, /-webkit-text-fill-color:#003b73/);
+  assert.match(api, /prefers-color-scheme: dark/);
+  assert.match(api, /data-ogsc/);
 });

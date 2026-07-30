@@ -637,27 +637,35 @@ export default function UserView({
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/35"></div>
         </div>
 
-        {/* Manual navigation buttons */}
-        <button 
+        {/* Lightweight glass navigation controls keep the photo unobstructed. */}
+        <button
+          type="button"
           onClick={prevBanner}
-          className="absolute left-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          aria-label="Xem banner trước"
+          className="group absolute left-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/45 bg-slate-950/30 p-1.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-md transition duration-300 hover:-translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/85 hover:text-[#FFF200] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
+            <ChevronLeft className="h-5 w-5 stroke-[2.6] transition-transform duration-300 group-hover:-translate-x-0.5 sm:h-6 sm:w-6" />
+          </span>
         </button>
-        <button 
+        <button
+          type="button"
           onClick={nextBanner}
-          className="absolute right-[clamp(0.5rem,1.7vw,1.5rem)] top-1/2 -translate-y-1/2 z-20 bg-slate-900/40 hover:bg-[#0054A6] hover:text-[#FFF200] text-white p-2 sm:p-3 rounded-full border border-white/10 transition-all cursor-pointer backdrop-blur-sm"
+          aria-label="Xem banner tiếp theo"
+          className="group absolute right-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/45 bg-slate-950/30 p-1.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.3)] backdrop-blur-md transition duration-300 hover:translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/85 hover:text-[#FFF200] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
         >
-          <ChevronRight className="w-5 h-5" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/10 transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
+            <ChevronRight className="h-5 w-5 stroke-[2.6] transition-transform duration-300 group-hover:translate-x-0.5 sm:h-6 sm:w-6" />
+          </span>
         </button>
 
         {/* Carousel indicators */}
-        <div className="absolute bottom-[clamp(0.5rem,2.2vw,2rem)] left-1/2 -translate-x-1/2 z-20 flex gap-2 sm:gap-2.5">
+        <div className="absolute bottom-[clamp(0.5rem,2.2vw,2rem)] left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/30 px-2.5 py-2 shadow-lg backdrop-blur-md sm:gap-2">
           {banners.map((_, idx) => (
             <button
               key={idx}
               onClick={() => setCurrentBanner(idx)}
-              className={`h-2.5 rounded-full transition-all duration-350 cursor-pointer ${safeCurrentBanner === idx ? 'w-10 bg-[#FFF200]' : 'w-2.5 bg-white/30 hover:bg-white/60'}`}
+className={`h-2 rounded-full border border-white/25 transition-all duration-500 cursor-pointer ${safeCurrentBanner === idx ? 'w-9 bg-[#FFF200] shadow-[0_0_14px_rgba(255,242,0,0.65)]' : 'w-2 bg-white/45 hover:scale-125 hover:bg-white/80'}`}
             />
           ))}
         </div>
