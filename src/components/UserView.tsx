@@ -1,4 +1,4 @@
-﻿import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useMemo, useState, useEffect } from 'react';
 import { 
   ChevronLeft, ChevronRight, Award, Calendar, MapPin, Play, 
   User, CheckCircle, ShieldCheck, Mail, Phone, Clock, Swords, ExternalLink,
@@ -46,8 +46,8 @@ const LatestNewsCountdown = ({ expiresAt }: { expiresAt: number }) => {
   return (
     <div
       className="absolute bottom-2 right-2 z-10 inline-flex h-8 items-center gap-1.5 overflow-hidden rounded-full border border-[#FFF200]/75 bg-gradient-to-r from-[#003b78]/95 via-[#0054A6]/95 to-[#0876c9]/95 py-1 pl-1 pr-2 text-white shadow-[0_5px_16px_rgba(0,84,166,0.36)] backdrop-blur-lg"
-      title="Thá»i gian cÃ²n láº¡i trong má»¥c Tin tá»©c má»›i nháº¥t"
-      aria-label={`CÃ²n ${days} ngÃ y ${hours} giá» ${minutes} phÃºt ${seconds} giÃ¢y`}
+      title="Thời gian còn lại trong mục Tin tức mới nhất"
+      aria-label={`Còn ${days} ngày ${hours} giờ ${minutes} phút ${seconds} giây`}
     >
       <span className="pointer-events-none absolute -right-2 -top-3 h-9 w-9 rounded-full bg-[#FFF200]/20 blur-lg" />
       <span className="relative flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FFF200] to-orange-500 text-[#003b78] shadow-[0_0_10px_rgba(255,242,0,0.32)]">
@@ -153,36 +153,36 @@ export default function UserView({
         {
           id: '1',
           image: defaultBanner1,
-          title: 'Äá»“ng HÃ nh CÃ¹ng Vovinam XÃ³m Chiáº¿u',
-          subtitle: 'Quy tá»¥ tinh hoa vÃµ thuáº­t cá»• truyá»n, rÃ¨n luyá»‡n thÃ¢n thá»ƒ vá»¯ng vÃ ng vÃ  Ã½ chÃ­ tá»± cÆ°á»ng kiÃªn Ä‘á»‹nh.',
+          title: 'Đồng Hành Cùng Vovinam Xóm Chiếu',
+          subtitle: 'Quy tụ tinh hoa võ thuật cổ truyền, rèn luyện thân thể vững vàng và ý chí tự cường kiên định.',
           position: 'object-[center_15%]'
         },
         {
           id: '2',
           image: defaultBanner2,
-          title: 'Vinh Quang Viá»‡t VÃµ Äáº¡o',
-          subtitle: 'Nhiá»u huy chÆ°Æ¡ng vÃ ng vÃ  danh hiá»‡u xuáº¥t sáº¯c Ä‘áº¡t Ä‘Æ°á»£c táº¡i cÃ¡c giáº£i tráº» toÃ n quá»‘c.',
+          title: 'Vinh Quang Việt Võ Đạo',
+          subtitle: 'Nhiều huy chương vàng và danh hiệu xuất sắc đạt được tại các giải trẻ toàn quốc.',
           position: 'object-[center_25%]'
         },
         {
           id: '3',
           image: defaultBanner3,
-          title: 'Há»™i Tá»¥ Ban Huáº¥n Luyá»‡n TÃ¢m Huyáº¿t',
-          subtitle: 'VÃµ sÆ° vÃ  HLV dÃ y dáº·n kinh nghiá»‡m, Ä‘á»“ng hÃ nh sÃ¡t cÃ¡nh hÆ°á»›ng dáº«n tá»«ng Ä‘á»™ng tÃ¡c cho mÃ´n sinh.',
+          title: 'Hội Tụ Ban Huấn Luyện Tâm Huyết',
+          subtitle: 'Võ sư và HLV dày dặn kinh nghiệm, đồng hành sát cánh hướng dẫn từng động tác cho môn sinh.',
           position: 'object-[center_20%]'
         },
         {
           id: '4',
           image: defaultBanner4,
-          title: 'NÄƒng Äá»™ng Tráº» Trung & Äam MÃª',
-          subtitle: 'Tinh tháº§n Ä‘á»“ng Ä‘á»™i gáº¯n káº¿t keo sÆ¡n, Ä‘oÃ n káº¿t há»c há»i vÃ¬ mÃ u cá» sáº¯c Ã¡o vÃµ Ä‘Æ°á»ng.',
+          title: 'Năng Động Trẻ Trung & Đam Mê',
+          subtitle: 'Tinh thần đồng đội gắn kết keo sơn, đoàn kết học hỏi vì màu cờ sắc áo võ đường.',
           position: 'object-[center_70%]'
         },
         {
           id: '5',
           image: defaultBanner5,
-          title: 'Há»c ÄÆ°á»ng Thá»ƒ Thao Há»c Sinh',
-          subtitle: 'TÃ´n vinh rÃ¨n luyá»‡n Ä‘áº¡o Ä‘á»©c há»c sinh, lá»‘i sá»‘ng nghÄ©a hiá»‡p cao Ä‘áº¹p cÃ¹ng phong trÃ o thá»ƒ dá»¥c thá»ƒ thao.',
+          title: 'Học Đường Thể Thao Học Sinh',
+          subtitle: 'Tôn vinh rèn luyện đạo đức học sinh, lối sống nghĩa hiệp cao đẹp cùng phong trào thể dục thể thao.',
           position: 'object-[center_50%]'
         }
       ], [webConfig.banners]);
@@ -234,15 +234,15 @@ export default function UserView({
   }, [safeCurrentBanner, banners]);
 
   const navSections = [
-    { id: 'section-about', name: 'Giá»›i thiá»‡u', icon: <Info className="w-3.5 h-3.5" /> },
-    { id: 'section-news', name: 'Tin tá»©c', icon: <Newspaper className="w-3.5 h-3.5" /> },
-    { id: 'section-tournaments', name: 'Giáº£i Ä‘áº¥u', icon: <Swords className="w-3.5 h-3.5" /> },
+    { id: 'section-about', name: 'Giới thiệu', icon: <Info className="w-3.5 h-3.5" /> },
+    { id: 'section-news', name: 'Tin tức', icon: <Newspaper className="w-3.5 h-3.5" /> },
+    { id: 'section-tournaments', name: 'Giải đấu', icon: <Swords className="w-3.5 h-3.5" /> },
     { id: 'section-highlights', name: 'Highlights', icon: <Play className="w-3.5 h-3.5" /> },
-    { id: 'section-achievements', name: 'ThÃ nh tÃ­ch', icon: <Award className="w-3.5 h-3.5" /> },
-    { id: 'section-coaches', name: 'Ban huáº¥n luyá»‡n', icon: <User className="w-3.5 h-3.5" /> },
-    { id: 'section-members', name: 'MÃ´n sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
-    { id: 'section-clubs', name: 'Äiá»ƒm táº­p', icon: <MapPin className="w-3.5 h-3.5" /> },
-    { id: 'section-contact', name: 'LiÃªn há»‡', icon: <Mail className="w-3.5 h-3.5" /> }
+    { id: 'section-achievements', name: 'Thành tích', icon: <Award className="w-3.5 h-3.5" /> },
+    { id: 'section-coaches', name: 'Ban huấn luyện', icon: <User className="w-3.5 h-3.5" /> },
+    { id: 'section-members', name: 'Môn sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+    { id: 'section-clubs', name: 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
+    { id: 'section-contact', name: 'Liên hệ', icon: <Mail className="w-3.5 h-3.5" /> }
   ];
 
   useEffect(() => {
@@ -311,8 +311,7 @@ export default function UserView({
     setCurrentBanner((prev) => (prev - 1 + banners.length) % banners.length);
   };
 
-  // The registration modal opens only from an explicit Contact navigation or
-  // when the visitor newly enters the Contact section while scrolling.
+  // Open only from Contact navigation or when Contact newly enters view.
   const [isRegistrationOpen, setIsRegistrationOpen] = useState(false);
   const contactWasVisibleRef = React.useRef(false);
   useEffect(() => {
@@ -567,7 +566,7 @@ export default function UserView({
       achievements,
       tournamentById,
       'achievement',
-      'thÃ nh tÃ­ch',
+      'thành tích',
       true
     ),
     [achievements, tournamentById]
@@ -578,7 +577,7 @@ export default function UserView({
       key: String(item.id),
       value: item.fullName,
       label: item.fullName,
-      meta: [item.rank, item.birthYear].filter(Boolean).join(' â€¢ ')
+      meta: [item.rank, item.birthYear].filter(Boolean).join(' • ')
     })), [coaches]);
   const memberSearchOptions = useMemo(() => members
     .filter(item => item.status !== false)
@@ -586,7 +585,7 @@ export default function UserView({
       key: String(item.id),
       value: item.fullName,
       label: item.fullName,
-      meta: [item.rank, item.birthYear].filter(Boolean).join(' â€¢ ')
+      meta: [item.rank, item.birthYear].filter(Boolean).join(' • ')
     })), [members]);
 
   const configHeight = webConfig.bannerHeight || 'medium';
@@ -621,7 +620,7 @@ export default function UserView({
         />
       </div>
 
-      {/* 1. BANNER Tá»° CHUYá»‚N Äá»˜NG */}
+      {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
       <section className={`relative w-full ${carouselAspectClass} bg-slate-950 overflow-hidden z-10`} id="section-hero-carousel">
         {/* Carousel slide track */}
         <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
@@ -643,7 +642,7 @@ export default function UserView({
           <div className="max-w-xl flex flex-col items-center text-center">
             <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/25">
               <span className="w-1.5 h-1.5 rounded-full bg-[#FFF200] animate-ping"></span>
-              <span>MÃ´n PhÃ¡i Viá»‡t VÃµ Äáº¡o</span>
+              <span>Môn Phái Việt Võ Đạo</span>
             </div>
             
             <h2 className="text-base sm:text-lg lg:text-xl font-black text-[#FFF200] uppercase tracking-tight italic leading-tight mb-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
@@ -658,13 +657,13 @@ export default function UserView({
                 href="#section-about"
                 className="bg-gradient-to-r from-[#FFF200] to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-[#0054A6] px-4 py-1.5 rounded-lg font-black text-[9.5px] uppercase tracking-wider shadow-lg shadow-black/25 transition-all hover:scale-105 active:scale-100 duration-200"
               >
-                KhÃ¡m PhÃ¡ VÃµ ÄÆ°á»ng
+                Khám Phá Võ Đường
               </a>
               <a 
                 href="#section-highlights"
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-1.5 rounded-lg font-bold text-[9.5px] uppercase tracking-wider backdrop-blur-md transition-all hover:scale-105 active:scale-100 duration-200"
               >
-                ThÆ° Viá»‡n áº¢nh & Video
+                Thư Viện Ảnh & Video
               </a>
             </div>
           </div>
@@ -700,21 +699,21 @@ export default function UserView({
       <section className="bg-gradient-to-r from-[#0054A6] via-[#003d7a] to-[#0054A6] text-white py-4 shadow-md relative z-20 border-y border-[#FFF200]/20">
         <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-around items-center gap-6 text-[11px] sm:text-xs font-black uppercase tracking-widest font-display text-center">
           <div className="flex items-center gap-2">
-            <span className="text-[#FFF200] text-lg">âš¡</span>
-            <span>Tá»° HÃ€O VÃ• THUáº¬T Cá»” TRUYá»€N VIá»†T</span>
+            <span className="text-[#FFF200] text-lg">⚡</span>
+            <span>TỰ HÀO VÕ THUẬT CỔ TRUYỀN VIỆT</span>
           </div>
           <div className="hidden md:flex items-center gap-2 border-l border-white/20 pl-6">
-            <span className="text-[#FFF200] text-lg">ðŸ”¥</span>
-            <span>RÃˆN Äá»¨C LUYá»†N TÃ€I â€” HÃ€O KHÃ XÃ“M CHIáº¾U</span>
+            <span className="text-[#FFF200] text-lg">🔥</span>
+            <span>RÈN ĐỨC LUYỆN TÀI — HÀO KHÍ XÓM CHIẾU</span>
           </div>
           <div className="flex items-center gap-2 border-l border-white/20 pl-6">
-            <span className="text-[#FFF200] text-lg">ðŸ¤</span>
-            <span>TÃ”N SÆ¯ TRá»ŒNG Äáº O & Lá»I Sá»NG LÃ€NH Máº NH</span>
+            <span className="text-[#FFF200] text-lg">🤝</span>
+            <span>TÔN SƯ TRỌNG ĐẠO & LỐI SỐNG LÀNH MẠNH</span>
           </div>
         </div>
       </section>
 
-      {/* 2. BANNER Náº°M TRÃŠN PHáº¦N GIá»šI THIá»†U CLB */}
+      {/* 2. BANNER NẰM TRÊN PHẦN GIỚI THIỆU CLB */}
       <section className="relative -mt-6 max-w-6xl mx-auto px-4 sm:px-6 z-25 scroll-mt-32" id="section-about">
         <div className="bg-white rounded-[2rem] p-8 sm:p-12 shadow-2xl border border-slate-200/80 bg-gradient-to-b from-white to-slate-50 relative overflow-hidden">
           
@@ -726,20 +725,20 @@ export default function UserView({
             <div className="md:col-span-7 space-y-6">
               <div>
                 <span className="text-[#0054A6] font-black text-xs uppercase tracking-widest block mb-2 font-display bg-blue-50 border border-blue-100 px-3.5 py-1 rounded-full w-fit">
-                  Lá»i ngá» tá»« Ban huáº¥n luyá»‡n
+                  Lời ngỏ từ Ban huấn luyện
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic tracking-tight font-display">
-                  Giá»›i thiá»‡u CLB Vovinam XÃ³m Chiáº¿u
+                  Giới thiệu CLB Vovinam Xóm Chiếu
                 </h2>
                 <div className="w-20 h-1.5 bg-gradient-to-r from-[#0054A6] to-[#FFF200] rounded-full mt-3"></div>
               </div>
               
               <div className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans space-y-4">
                 <p className="border-l-4 border-[#0054A6] pl-4 italic">
-                  ÄÆ°á»£c thÃ nh láº­p vá»›i tÃ´n chá»‰ truyá»n thá»¥ vÃµ thuáº­t vÃ  vÃµ Ä‘áº¡o Viá»‡t Nam, CÃ¢u láº¡c bá»™ Vovinam XÃ³m Chiáº¿u lÃ  Ä‘iá»ƒm Ä‘áº¿n rÃ¨n luyá»‡n sá»©c khá»e, ká»· luáº­t báº£n thÃ¢n, vÃ  tinh tháº§n tÆ°Æ¡ng thÃ¢n tÆ°Æ¡ng Ã¡i tuyá»‡t vá»i cá»§a cÃ¡c mÃ´n sinh táº¡i Quáº­n 4.
+                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Quận 4.
                 </p>
                 <p>
-                  Táº¡i Ä‘Ã¢y, mÃ´n sinh khÃ´ng chá»‰ Ä‘Æ°á»£c trang bá»‹ ká»¹ nÄƒng phÃ²ng vá»‡ thá»±c chiáº¿n, há»‡ thá»‘ng Ä‘Ã²n chÃ¢n táº¥n cÃ´ng danh tiáº¿ng, mÃ  cÃ²n Ä‘Æ°á»£c nuÃ´i dÆ°á»¡ng tinh tháº§n dÅ©ng cáº£m, tá»± tÃ´n dÃ¢n tá»™c vÃ  lá»‘i sá»‘ng lÃ nh máº¡nh, cÃ³ Ã­ch cho xÃ£ há»™i.
+                  Tại đây, môn sinh không chỉ được trang bị kỹ năng phòng vệ thực chiến, hệ thống đòn chân tấn công danh tiếng, mà còn được nuôi dưỡng tinh thần dũng cảm, tự tôn dân tộc và lối sống lành mạnh, có ích cho xã hội.
                 </p>
               </div>
               
@@ -747,15 +746,15 @@ export default function UserView({
               <div className="grid grid-cols-3 gap-4 pt-6 border-t border-slate-200/80">
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center hover:scale-105 transition-transform duration-300">
                   <p className="text-2xl sm:text-3xl font-black text-[#0054A6] font-display">10+</p>
-                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">NÄƒm hoáº¡t Ä‘á»™ng</p>
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Năm hoạt động</p>
                 </div>
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center hover:scale-105 transition-transform duration-300">
                   <p className="text-2xl sm:text-3xl font-black text-emerald-600 font-display">300+</p>
-                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">VÃµ sinh há»c táº­p</p>
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Võ sinh học tập</p>
                 </div>
                 <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 text-center hover:scale-105 transition-transform duration-300">
                   <p className="text-2xl sm:text-3xl font-black text-amber-500 font-display">50+</p>
-                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Huy chÆ°Æ¡ng giáº£i</p>
+                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Huy chương giải</p>
                 </div>
               </div>
             </div>
@@ -770,7 +769,7 @@ export default function UserView({
               
               <h3 className="text-lg font-black text-[#FFF200] uppercase italic tracking-tight mb-4 font-display flex items-center gap-2 flex-shrink-0">
                 <ShieldCheck className="w-5 h-5 text-[#FFF200]" />
-                10 Äiá»u TÃ¢m Niá»‡m Vovinam
+                10 Điều Tâm Niệm Vovinam
               </h3>
               
               <div className="overflow-y-auto pr-1 flex-1 space-y-3 text-xs relative z-10 scrollbar-thin scrollbar-thumb-amber-400/50 scrollbar-track-transparent">
@@ -778,71 +777,71 @@ export default function UserView({
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Nguyá»‡n Ä‘áº¡t tá»›i cao Ä‘á»™ cá»§a nghá»‡ thuáº­t Ä‘á»ƒ phá»¥c vá»¥ dÃ¢n tá»™c vÃ  nhÃ¢n loáº¡i.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 1: HoÃ i bÃ£o vÃ  má»¥c Ä‘Ã­ch há»c vÃµ.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện đạt tới cao độ của nghệ thuật để phục vụ dân tộc và nhân loại.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 1: Hoài bão và mục đích học võ.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Nguyá»‡n trung kiÃªn phÃ¡t huy mÃ´n phÃ¡i, xÃ¢y dá»±ng tháº¿ há»‡ thanh niÃªn dáº¥n thÃ¢n hiáº¿n Ã­ch.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 2: NghÄ©a vá»¥ Ä‘á»‘i vá»›i mÃ´n phÃ¡i vÃ  dÃ¢n tá»™c.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Nguyện trung kiên phát huy môn phái, xây dựng thế hệ thanh niên dấn thân hiến ích.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 2: Nghĩa vụ đối với môn phái và dân tộc.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Äá»“ng tÃ¢m nháº¥t trÃ­, tÃ´n kÃ­nh ngÆ°á»i trÃªn, thÆ°Æ¡ng máº¿n Ä‘á»“ng Ä‘áº¡o.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 3: TÃ¬nh Ä‘oÃ n káº¿t trong mÃ´n phÃ¡i.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Đồng tâm nhất trí, tôn kính người trên, thương mến đồng đạo.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 3: Tình đoàn kết trong môn phái.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Tuyá»‡t Ä‘á»‘i tÃ´n trá»ng ká»· luáº­t, nÃªu cao danh dá»± vÃµ sÄ©.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 4: VÃµ ká»· vÃ  danh dá»± vÃµ sÄ©.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tuyệt đối tôn trọng kỷ luật, nêu cao danh dự võ sĩ.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 4: Võ kỷ và danh dự võ sĩ.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">5</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> TÃ´n trá»ng cÃ¡c vÃµ phÃ¡i khÃ¡c, chá»‰ dÃ¹ng vÃµ Ä‘á»ƒ tá»± vá»‡ vÃ  bÃªnh vá»±c láº½ pháº£i.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 5: Ã thá»©c dá»¥ng vÃµ.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tôn trọng các võ phái khác, chỉ dùng võ để tự vệ và bênh vực lẽ phải.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 5: Ý thức dụng võ.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">6</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> ChuyÃªn cáº§n há»c táº­p, rÃ¨n luyá»‡n tinh tháº§n, trau dá»“i Ä‘áº¡o háº¡nh.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 6: Ã hÆ°á»›ng há»c táº­p vÃ  Ä‘á»i sá»‘ng tinh tháº§n.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Chuyên cần học tập, rèn luyện tinh thần, trau dồi đạo hạnh.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 6: Ý hướng học tập và đời sống tinh thần.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">7</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Sá»‘ng trong sáº¡ch, trung thá»±c, giáº£n dá»‹ vÃ  cao thÆ°á»£ng.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 7: TÃ¢m nguyá»‡n sá»‘ng.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sống trong sạch, trung thực, giản dị và cao thượng.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 7: Tâm nguyện sống.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">8</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Kiá»‡n toÃ n má»™t Ã½ chÃ­ Ä‘anh thÃ©p, ná»— lá»±c tá»± thÃ¢n cáº§u tiáº¿n.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 8: RÃ¨n luyá»‡n Ã½ chÃ­.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Kiện toàn một ý chí đanh thép, nỗ lực tự thân cầu tiến.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 8: Rèn luyện ý chí.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">9</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> SÃ¡ng suá»‘t nháº­n Ä‘á»‹nh, bá»n gan tranh Ä‘áº¥u, thÃ¡o vÃ¡t hÃ nh Ä‘á»™ng.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 9: Náº¿p suy cáº£m, nghá»‹ lá»±c vÃ  tÃ­nh thá»±c táº¿.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Sáng suốt nhận định, bền gan tranh đấu, tháo vát hành động.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 9: Nếp suy cảm, nghị lực và tính thực tế.</em>
                     </span>
                   </li>
                   <li className="flex gap-2 items-start">
                     <span className="w-5 h-5 rounded-full bg-blue-900 text-[#FFF200] text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">10</span>
                     <span className="space-y-1">
-                      <span className="block"><strong>Viá»‡t VÃµ Äáº¡o Sinh:</strong> Tá»± tin, tá»± tháº¯ng, khiÃªm cung, Ä‘á»™ lÆ°á»£ng, luÃ´n luÃ´n kiá»ƒm Ä‘iá»ƒm Ä‘á»ƒ tiáº¿n bá»™.</span>
-                      <em className="block text-[10px] text-blue-200">Ã nghÄ©a Ä‘áº¡i cÆ°Æ¡ng Ä‘iá»u 10: Äá»©c sá»‘ng vÃ  tinh tháº§n cáº§u tiáº¿n.</em>
+                      <span className="block"><strong>Việt Võ Đạo Sinh:</strong> Tự tin, tự thắng, khiêm cung, độ lượng, luôn luôn kiểm điểm để tiến bộ.</span>
+                      <em className="block text-[10px] text-blue-200">Ý nghĩa đại cương điều 10: Đức sống và tinh thần cầu tiến.</em>
                     </span>
                   </li>
                 </ul>
@@ -855,7 +854,7 @@ export default function UserView({
 
 
 
-      {/* 3. TIN Má»šI NHáº¤T (Newspaper layout) */}
+      {/* 3. TIN MỚI NHẤT (Newspaper layout) */}
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-news">
         {/* Soft decorative background glow to eliminate simple white space */}
         <div className="absolute top-1/4 left-10 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
@@ -863,14 +862,14 @@ export default function UserView({
 
         <div className="text-center max-w-2xl mx-auto mb-12 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            BÃ¡o chÃ­ & Tin tá»©c vÃµ phÃ¡i
+            Báo chí & Tin tức võ phái
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-            Tin tá»©c & ChuyÃªn má»¥c vÃµ Ä‘Æ°á»ng
+            Tin tức & Chuyên mục võ đường
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 max-w-lg mx-auto leading-relaxed">
-            Cáº­p nháº­t thÆ°á»ng xuyÃªn cÃ¡c hoáº¡t Ä‘á»™ng, sá»± kiá»‡n ná»•i báº­t, giÃ¡o Ã¡n huáº¥n luyá»‡n vÃ  ká»¹ thuáº­t mÃ´n phÃ¡i Vovinam - Viá»‡t VÃµ Äáº¡o.
+            Cập nhật thường xuyên các hoạt động, sự kiện nổi bật, giáo án huấn luyện và kỹ thuật môn phái Vovinam - Việt Võ Đạo.
           </p>
         </div>
 
@@ -883,7 +882,7 @@ export default function UserView({
             }}
             className="px-5 py-2 rounded-2xl text-xs font-bold transition-all cursor-pointer bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80 hover:border-slate-300 shadow-sm"
           >
-            ðŸ“° Táº¥t cáº£ chuyÃªn má»¥c
+            📰 Tất cả chuyên mục
           </button>
           {categories.filter(c => c.status !== false).map((cat) => {
             const count = visibleArticles.filter(a => a.categoryId === cat.id).length;
@@ -907,14 +906,14 @@ export default function UserView({
         {visibleArticles.length === 0 ? (
           <div className="bg-white rounded-3xl p-12 text-center max-w-xl mx-auto border border-slate-200/60 shadow-lg relative z-10 animate-in fade-in duration-300">
             <Calendar className="w-12 h-12 text-[#0054A6]/20 mx-auto mb-4" />
-            <h3 className="text-base font-black text-slate-800 uppercase tracking-tight mb-2 font-display">ChÆ°a cÃ³ bÃ i viáº¿t má»›i</h3>
+            <h3 className="text-base font-black text-slate-800 uppercase tracking-tight mb-2 font-display">Chưa có bài viết mới</h3>
             <p className="text-xs text-slate-500 leading-relaxed font-sans">
-              Hiá»‡n táº¡i chÆ°a cÃ³ bÃ i viáº¿t nÃ o Ä‘Æ°á»£c Ä‘Äƒng táº£i trÃªn website.
+              Hiện tại chưa có bài viết nào được đăng tải trên website.
             </p>
           </div>
         ) : (
           <div className="space-y-16 relative z-10">
-            {/* 1. LATEST ARTICLES (TIN Má»šI NHáº¤T) SECTION */}
+            {/* 1. LATEST ARTICLES (TIN MỚI NHẤT) SECTION */}
             {(() => {
               const latestArticles = visibleArticles
                 .filter(article => isArticleInLatestNews(article, latestNewsClock))
@@ -928,11 +927,11 @@ export default function UserView({
                     <div>
                       <span className="text-amber-600 text-[10px] font-black uppercase tracking-widest bg-amber-50 px-3 py-1 rounded-full border border-amber-100">Hot News</span>
                       <h3 className="text-lg font-black text-slate-800 uppercase italic mt-1 tracking-tight font-display flex items-center gap-2">
-                        <span className="text-amber-500 animate-pulse">ðŸ”¥</span>
-                        <span>Tin tá»©c má»›i nháº¥t</span>
+                        <span className="text-amber-500 animate-pulse">🔥</span>
+                        <span>Tin tức mới nhất</span>
                       </h3>
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-orange-500/80">
-                        Ná»•i báº­t liÃªn tá»¥c trong nhá»¯ng ngÃ y qua
+                        Nổi bật liên tục trong những ngày qua
                       </p>
                     </div>
                   </div>
@@ -944,7 +943,7 @@ export default function UserView({
                       type="button"
                       onClick={() => scrollRow('LATEST', 'left')}
                       className="absolute -left-3 sm:-left-6 top-[40%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
-                      title="LÆ°á»›t qua trÃ¡i"
+                      title="Lướt qua trái"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
@@ -955,7 +954,7 @@ export default function UserView({
                       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                     >
                       {latestArticles.map((article) => {
-                        const catName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tá»©c';
+                        const catName = categories.find(c => c.id === article.categoryId)?.name || 'Tin tức';
                         const expiresAt = getLatestNewsExpiryMs(article);
                         return (
                           <article
@@ -988,7 +987,7 @@ export default function UserView({
                                     <Calendar className="w-3.5 h-3.5 text-[#0054A6]" />
                                     {article.date}
                                   </span>
-                                  <span>â€¢</span>
+                                  <span>•</span>
                                 </div>
                                 <h3 className="font-bold text-slate-800 text-sm leading-snug uppercase tracking-tight group-hover:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
                                   {article.title}
@@ -999,7 +998,7 @@ export default function UserView({
                               </div>
 
                               <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-black text-[#0054A6] uppercase tracking-wider">
-                                <span>Xem chi tiáº¿t</span>
+                                <span>Xem chi tiết</span>
                                 <ChevronRight className="w-4.5 h-4.5 transition-transform group-hover:translate-x-1 text-[#0054A6]" />
                               </div>
                             </div>
@@ -1013,7 +1012,7 @@ export default function UserView({
                       type="button"
                       onClick={() => scrollRow('LATEST', 'right')}
                       className="absolute -right-3 sm:-right-6 top-[40%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
-                      title="LÆ°á»›t qua pháº£i"
+                      title="Lướt qua phải"
                     >
                       <ChevronRight className="w-5 h-5" />
                     </button>
@@ -1042,7 +1041,7 @@ export default function UserView({
                         )}
                       </div>
                       <span className="bg-slate-100 text-slate-600 text-[10px] font-black font-mono px-2.5 py-1 rounded-full border border-slate-200/50">
-                        {catArticles.length} bÃ i viáº¿t
+                        {catArticles.length} bài viết
                       </span>
                     </div>
                   </div>
@@ -1054,7 +1053,7 @@ export default function UserView({
                       type="button"
                       onClick={() => scrollRow(cat.id, 'left')}
                       className="absolute -left-3 sm:-left-6 top-[45%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
-                      title="LÆ°á»›t qua trÃ¡i"
+                      title="Lướt qua trái"
                     >
                       <ChevronLeft className="w-5 h-5" />
                     </button>
@@ -1092,7 +1091,7 @@ export default function UserView({
                                     <Calendar className="w-3.5 h-3.5 text-[#0054A6]" />
                                     {article.date}
                                   </span>
-                                  <span>â€¢</span>
+                                  <span>•</span>
                                 </div>
 
                                 <h3 className="font-bold text-slate-800 text-sm sm:text-base leading-snug uppercase tracking-tight group-hover/card:text-[#0054A6] transition-colors mt-2.5 mb-2 line-clamp-2 font-display">
@@ -1105,7 +1104,7 @@ export default function UserView({
                               </div>
 
                               <div className="pt-3 border-t border-slate-100/80 flex items-center justify-between text-xs font-black text-[#0054A6] uppercase tracking-wider">
-                                <span>Xem chi tiáº¿t</span>
+                                <span>Xem chi tiết</span>
                                 <ChevronRight className="w-4.5 h-4.5 transition-transform group-hover/card:translate-x-1 text-[#0054A6]" />
                               </div>
                             </div>
@@ -1119,7 +1118,7 @@ export default function UserView({
                       type="button"
                       onClick={() => scrollRow(cat.id, 'right')}
                       className="absolute -right-3 sm:-right-6 top-[45%] -translate-y-1/2 bg-white hover:bg-[#0054A6] hover:text-[#FFF200] text-slate-700 p-2.5 rounded-full border border-slate-200/80 shadow-md hover:shadow-xl transition-all duration-250 z-20 cursor-pointer flex items-center justify-center opacity-90 sm:opacity-0 sm:group-hover:opacity-100 hover:scale-110 active:scale-95"
-                      title="LÆ°á»›t qua pháº£i"
+                      title="Lướt qua phải"
                     >
                       <ChevronRight className="w-5 h-5" />
                     </button>
@@ -1132,38 +1131,38 @@ export default function UserView({
       </section>
 
 
-      {/* 4. GIáº¢I Äáº¤U (Tournaments) */}
+      {/* 4. GIẢI ĐẤU (Tournaments) */}
       <section className="py-16 sm:py-20 bg-gradient-to-b from-[#f1f5f9] to-white relative scroll-mt-32" id="section-tournaments">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
           <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
-              Lá»‹ch trÃ¬nh thi Ä‘áº¥u & VÃµ nghiá»‡p
+              Lịch trình thi đấu & Võ nghiệp
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-              giáº£i Ä‘áº¥u & sá»± kiá»‡n Vovinam
+              giải đấu & sự kiện Vovinam
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              NÆ¡i ghi nháº­n cÃ¡c sá»± kiá»‡n thi tÃ i vÃµ thuáº­t, Ä‘á»‘i khÃ¡ng, diá»…n vÃµ nÃ¢ng Ä‘ai cáº¥p cá»§a vÃµ Ä‘Æ°á»ng Vovinam XÃ³m Chiáº¿u.
+              Nơi ghi nhận các sự kiện thi tài võ thuật, đối kháng, diễn võ nâng đai cấp của võ đường Vovinam Xóm Chiếu.
             </p>
           </div>
 
           {/* Status Filter Tabs */}
           <div className="flex flex-wrap items-center justify-center gap-2.5 mb-12 relative z-10">
             {[
-              { id: 'all', label: 'Táº¥t cáº£ giáº£i Ä‘áº¥u', icon: 'ðŸ†', color: 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50' },
-              { id: 'Ä‘ang diá»…n ra', label: 'Äang diá»…n ra', icon: 'ðŸŸ¢', color: 'border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-50' },
-              { id: 'sáº¯p diá»…n ra', label: 'Sáº¯p diá»…n ra', icon: 'ðŸŸ¡', color: 'border-amber-200 text-amber-700 bg-amber-50/50 hover:bg-amber-50' },
-              { id: 'Ä‘Ã£ káº¿t thÃºc', label: 'ÄÃ£ káº¿t thÃºc', icon: 'ðŸ”´', color: 'border-rose-200 text-rose-700 bg-rose-50/50 hover:bg-rose-50' }
+              { id: 'all', label: 'Tất cả giải đấu', icon: '🏆', color: 'border-slate-200 text-slate-700 bg-white hover:bg-slate-50' },
+              { id: 'đang diễn ra', label: 'Đang diễn ra', icon: '🟢', color: 'border-emerald-200 text-emerald-700 bg-emerald-50/50 hover:bg-emerald-50' },
+              { id: 'sắp diễn ra', label: 'Sắp diễn ra', icon: '🟡', color: 'border-amber-200 text-amber-700 bg-amber-50/50 hover:bg-amber-50' },
+              { id: 'đã kết thúc', label: 'Đã kết thúc', icon: '🔴', color: 'border-rose-200 text-rose-700 bg-rose-50/50 hover:bg-rose-50' }
             ].map(tab => {
               const isActive = tournamentStatusFilter === tab.id;
               let activeClasses = '';
               if (isActive) {
                 if (tab.id === 'all') activeClasses = 'bg-[#0054A6] text-white border-[#0054A6] shadow-md scale-[1.03]';
-                else if (tab.id === 'Ä‘ang diá»…n ra') activeClasses = 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.03]';
-                else if (tab.id === 'sáº¯p diá»…n ra') activeClasses = 'bg-amber-500 text-white border-amber-500 shadow-md scale-[1.03]';
-                else if (tab.id === 'Ä‘Ã£ káº¿t thÃºc') activeClasses = 'bg-rose-600 text-white border-rose-600 shadow-md scale-[1.03]';
+                else if (tab.id === 'đang diễn ra') activeClasses = 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-[1.03]';
+                else if (tab.id === 'sắp diễn ra') activeClasses = 'bg-amber-500 text-white border-amber-500 shadow-md scale-[1.03]';
+                else if (tab.id === 'đã kết thúc') activeClasses = 'bg-rose-600 text-white border-rose-600 shadow-md scale-[1.03]';
               } else {
                 activeClasses = `${tab.color} border shadow-sm`;
               }
@@ -1192,19 +1191,19 @@ export default function UserView({
 
           {visibleTournaments.length === 0 ? (
             <div className="bg-white rounded-3xl p-12 text-center max-w-md mx-auto border border-slate-150 shadow-lg animate-in fade-in duration-300 relative z-10">
-              <span className="text-4xl block mb-3">ðŸ†</span>
-              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-1 font-display">KhÃ´ng cÃ³ giáº£i Ä‘áº¥u</h3>
+              <span className="text-4xl block mb-3">🏆</span>
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-1 font-display">Không có giải đấu</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-sans">
-                Hiá»‡n táº¡i khÃ´ng cÃ³ giáº£i Ä‘áº¥u nÃ o thuá»™c tráº¡ng thÃ¡i nÃ y Ä‘Æ°á»£c lÆ°u hÃ nh trong vÃµ nghiá»‡p.
+                Hiện tại không có giải đấu nào thuộc trạng thái này được lưu hành trong võ nghiệp.
               </p>
             </div>
           ) : (
             <div className="relative group/slider">
               {visibleTournaments.length > 1 && (<>
-                <button onClick={() => scrollRow('TOURNAMENTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="TrÆ°á»£t sang trÃ¡i">
+                <button onClick={() => scrollRow('TOURNAMENTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
                   <ChevronLeft className="w-5 h-5 text-slate-700" />
                 </button>
-                <button onClick={() => scrollRow('TOURNAMENTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="TrÆ°á»£t sang pháº£i">
+                <button onClick={() => scrollRow('TOURNAMENTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
                   <ChevronRight className="w-5 h-5 text-slate-700" />
                 </button>
               </>)}
@@ -1245,18 +1244,18 @@ export default function UserView({
                       <div className="space-y-2.5 text-xs text-slate-500 mt-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100/60">
                         <div className="flex items-center gap-2.5">
                           <Calendar className="w-4 h-4 text-[#0054A6] flex-shrink-0" />
-                          <span className="truncate">Thá»i gian: <strong className="text-slate-700 font-bold">{t.date}</strong></span>
+                          <span className="truncate">Thời gian: <strong className="text-slate-700 font-bold">{t.date}</strong></span>
                         </div>
                         <div className="flex items-center gap-2.5">
                           <MapPin className="w-4 h-4 text-rose-500 flex-shrink-0" />
-                          <span className="truncate">Äá»‹a Ä‘iá»ƒm: <strong className="text-slate-700 font-bold">{t.location}</strong></span>
+                          <span className="truncate">Địa điểm: <strong className="text-slate-700 font-bold">{t.location}</strong></span>
                         </div>
                       </div>
                     </div>
 
                     <div className="pt-4 border-t border-slate-100/80 flex justify-between items-center text-[10px] text-slate-400 font-black uppercase tracking-wider">
                       <span className="text-[#0054A6] group-hover:translate-x-1 transition-transform flex items-center gap-1 font-extrabold">
-                        Xem chi tiáº¿t <span className="text-sm">â†’</span>
+                        Xem chi tiết <span className="text-sm">→</span>
                       </span>
                     </div>
                   </div>
@@ -1269,21 +1268,21 @@ export default function UserView({
       </section>
 
 
-      {/* 5. HIGHLIGHTS (Bento gallery gá»n gÃ ng, dá»… nhÃ¬n, dá»… thao tÃ¡c) */}
+      {/* 5. HIGHLIGHTS (Bento gallery gọn gàng, dễ nhìn, dễ thao tác) */}
       <section className="py-16 sm:py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-highlights">
         {/* Soft background decor to avoid monotony */}
         <div className="absolute top-1/3 right-12 w-64 h-64 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            Khoáº£nh kháº¯c thi Ä‘áº¥u
+            Khoảnh khắc thi đấu
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-            Highlights tráº­n Ä‘áº¥u
+            Highlights trận đấu
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 max-w-lg mx-auto leading-relaxed">
-            Tuyá»ƒn táº­p nhá»¯ng khoáº£nh kháº¯c biá»ƒu diá»…n quyá»n thuáº­t ká»‹ch tÃ­nh, nhá»¯ng Ä‘Ã²n chÃ¢n táº¥n cÃ´ng vÃ  bÃ i quyá»n binh khÃ­ thÆ°á»£ng thá»«a.
+            Tuyển tập những khoảnh khắc biểu diễn quyền thuật kịch tính, những đòn chân tấn công và bài quyền binh khí thượng thừa.
           </p>
         </div>
 
@@ -1293,14 +1292,14 @@ export default function UserView({
             value={searchHighlightQuery}
             onChange={setSearchHighlightQuery}
             options={highlightSearchOptions}
-            placeholder="TÃ¬m thÃ´ng minh: tÃªn VÄV, tÃªn giáº£i, nÄƒm, tiÃªu Ä‘á», ghi chÃº..."
-            ariaLabel="TÃ¬m kiáº¿m thÃ´ng minh trong Highlights"
+            placeholder="Tìm thông minh: tên VĐV, tên giải, năm, tiêu đề, ghi chú..."
+            ariaLabel="Tìm kiếm thông minh trong Highlights"
             resultCount={visibleHighlights.length}
             theme="dark"
           />
           {searchHighlightQuery && (
             <p className="text-center text-[10px] text-slate-500 mt-2">
-              TÃ¬m tháº¥y <strong className="text-[#FFF200]">{visibleHighlights.length}</strong> highlight phÃ¹ há»£p vá»›i cÃ¡c tá»« khÃ³a Ä‘Ã£ nháº­p
+              Tìm thấy <strong className="text-[#FFF200]">{visibleHighlights.length}</strong> highlight phù hợp với các từ khóa đã nhập
             </p>
           )}
         </div>
@@ -1308,10 +1307,10 @@ export default function UserView({
         {/* Responsive horizontal gallery */}
         <div className="relative z-10 group/slider">
           {visibleHighlights.length > 1 && (<>
-            <button onClick={() => scrollRow('HIGHLIGHTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="TrÆ°á»£t sang trÃ¡i">
+            <button onClick={() => scrollRow('HIGHLIGHTS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
               <ChevronLeft className="w-5 h-5 text-slate-700" />
             </button>
-            <button onClick={() => scrollRow('HIGHLIGHTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="TrÆ°á»£t sang pháº£i">
+            <button onClick={() => scrollRow('HIGHLIGHTS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
               <ChevronRight className="w-5 h-5 text-slate-700" />
             </button>
           </>)}
@@ -1353,15 +1352,15 @@ export default function UserView({
                   </h4>
                   <div className="flex items-center gap-2 mt-2 bg-white/5 border border-white/5 px-2.5 py-1 rounded-xl w-fit">
                     <User className="w-3.5 h-3.5 text-[#FFF200]" />
-                    <span className="text-[10px] text-slate-300 font-bold">Biá»ƒu diá»…n: {hl.athleteName}</span>
+                    <span className="text-[10px] text-slate-300 font-bold">Biểu diễn: {hl.athleteName}</span>
                   </div>
                   {hl.tournamentName && (
-                    <p className="mt-2 text-[10px] text-slate-400 truncate">ðŸ† {hl.tournamentName}</p>
+                    <p className="mt-2 text-[10px] text-slate-400 truncate">🏆 {hl.tournamentName}</p>
                   )}
                 </div>
                 
                 <div className="text-right text-[10px] text-[#FFF200] font-black uppercase tracking-wider pt-3 border-t border-slate-900 mt-2 flex items-center justify-between">
-                  <span>Xem Chi Tiáº¿t &gt;</span>
+                  <span>Xem Chi Tiết &gt;</span>
                 </div>
               </div>
             </div>
@@ -1371,7 +1370,7 @@ export default function UserView({
       </section>
 
 
-      {/* 6. THÃ€NH TÃCH (Achievements) */}
+      {/* 6. THÀNH TÍCH (Achievements) */}
       <section className="py-16 sm:py-20 bg-slate-950 text-white relative overflow-hidden scroll-mt-32" id="section-achievements">
         {/* Dynamic sport background lines and glows */}
         <div className="absolute inset-0 opacity-5 bg-[linear-gradient(to_right,#FFF200_1px,transparent_1px),linear-gradient(to_bottom,#FFF200_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none"></div>
@@ -1381,14 +1380,14 @@ export default function UserView({
           
           <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800 shadow-xl inline-block">
-              Vinh danh thÃ nh tÃ­ch
+              Vinh danh thành tích
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white uppercase italic mt-3 tracking-tight font-display">
-              ThÃ nh tÃ­ch xuáº¥t sáº¯c & Huy chÆ°Æ¡ng Ä‘áº¡t Ä‘Æ°á»£c
+              Thành tích xuất sắc & Huy chương đạt được
             </h2>
             <div className="w-12 h-1 bg-[#FFF200] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-              Sáº¯t son má»™t lÃ²ng VÃµ Äáº¡o Viá»‡t Nam, ná»— lá»±c miá»‡t mÃ i gáº·t hÃ¡i quáº£ ngá»t táº¡i cÃ¡c giáº£i Ä‘áº¥u lá»›n toÃ n quá»‘c vÃ  khu vá»±c.
+              Sắt son một lòng Võ Đạo Việt Nam, nỗ lực miệt mài gặt hái quả ngọt tại các giải đấu lớn toàn quốc và khu vực.
             </p>
           </div>
 
@@ -1398,24 +1397,24 @@ export default function UserView({
               value={searchAchievementQuery}
               onChange={setSearchAchievementQuery}
               options={achievementSearchOptions}
-              placeholder="Nháº­p Ä‘iá»u báº¡n nhá»›: 2026, tÃªn VÄV, huy chÆ°Æ¡ng, tÃªn giáº£i..."
-              ariaLabel="TÃ¬m kiáº¿m thÃ´ng minh trong thÃ nh tÃ­ch"
+              placeholder="Nhập điều bạn nhớ: 2026, tên VĐV, huy chương, tên giải..."
+              ariaLabel="Tìm kiếm thông minh trong thành tích"
               resultCount={visibleAchievements.length}
-              label="TÃ¬m kiáº¿m thÃ´ng minh"
-              helperText="KhÃ´ng phÃ¢n biá»‡t chá»¯ hoa, chá»¯ thÆ°á»ng hoáº·c dáº¥u tiáº¿ng Viá»‡t. Báº¥m mÅ©i tÃªn Ä‘á»ƒ xem táº¥t cáº£ dá»¯ liá»‡u."
+              label="Tìm kiếm thông minh"
+              helperText="Không phân biệt chữ hoa, chữ thường hoặc dấu tiếng Việt. Bấm mũi tên để xem tất cả dữ liệu."
               theme="dark"
             />
           </div>
 
           {visibleAchievements.length === 0 ? (
             <div className="text-center py-12 bg-slate-900/30 rounded-[2rem] border border-slate-800 max-w-xl mx-auto">
-              <span className="text-4xl">ðŸ”</span>
-              <p className="text-sm font-bold text-slate-400 mt-3">KhÃ´ng tÃ¬m tháº¥y thÃ nh tÃ­ch nÃ o phÃ¹ há»£p vá»›i bá»™ lá»c!</p>
+              <span className="text-4xl">🔍</span>
+              <p className="text-sm font-bold text-slate-400 mt-3">Không tìm thấy thành tích nào phù hợp với bộ lọc!</p>
               <button 
                 onClick={() => setSearchAchievementQuery('')}
                 className="mt-4 text-xs font-black text-[#FFF200] uppercase tracking-wider border border-[#FFF200]/30 px-4 py-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer"
               >
-                XÃ³a tÃ¬m kiáº¿m
+                Xóa tìm kiếm
               </button>
             </div>
           ) : (
@@ -1425,18 +1424,18 @@ export default function UserView({
                   <button
                     type="button"
                     onClick={() => scrollAchievements('left')}
-                    aria-label="Xem cÃ¡c thÃ nh tÃ­ch phÃ­a trÆ°á»›c"
+                    aria-label="Xem các thành tích phía trước"
                     className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-                    title="TrÆ°á»£t sang trÃ¡i"
+                    title="Trượt sang trái"
                   >
                     <ChevronLeft className="w-5 h-5 text-slate-700" />
                   </button>
                   <button
                     type="button"
                     onClick={() => scrollAchievements('right')}
-                    aria-label="Xem cÃ¡c thÃ nh tÃ­ch phÃ­a sau"
+                    aria-label="Xem các thành tích phía sau"
                     className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-                    title="TrÆ°á»£t sang pháº£i"
+                    title="Trượt sang phải"
                   >
                     <ChevronRight className="w-5 h-5 text-slate-700" />
                   </button>
@@ -1456,7 +1455,7 @@ export default function UserView({
                   <div className="relative w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 border border-[#FFF200]/20 group-hover:border-[#FFF200] transition-colors bg-slate-800">
                     <img 
                       src={getMemberPhotoForAchievement(ach)} 
-                      alt={ach.athleteName || 'MÃ´n sinh'} 
+                      alt={ach.athleteName || 'Môn sinh'} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       loading="lazy"
                       decoding="async"
@@ -1464,38 +1463,38 @@ export default function UserView({
                     />
                     {/* Medal overlay at bottom-right */}
                     <div className="absolute bottom-1 right-1 w-6 h-6 bg-slate-900/95 rounded-full flex items-center justify-center text-sm shadow border border-slate-800">
-                      {ach.medalType === 'VÃ ng' ? 'ðŸ¥‡' : ach.medalType === 'Báº¡c' ? 'ðŸ¥ˆ' : ach.medalType === 'Äá»“ng' ? 'ðŸ¥‰' : 'ðŸ†'}
+                      {ach.medalType === 'Vàng' ? '🥇' : ach.medalType === 'Bạc' ? '🥈' : ach.medalType === 'Đồng' ? '🥉' : '🏆'}
                     </div>
                   </div>
                   
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[10px] bg-[#0054A6] text-[#FFF200] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider border border-[#FFF200]/20 flex items-center gap-1">
-                        {ach.medalType === 'VÃ ng' ? 'ðŸ¥‡' : ach.medalType === 'Báº¡c' ? 'ðŸ¥ˆ' : ach.medalType === 'Äá»“ng' ? 'ðŸ¥‰' : 'ðŸ†'} Huy chÆ°Æ¡ng {ach.medalType}
+                        {ach.medalType === 'Vàng' ? '🥇' : ach.medalType === 'Bạc' ? '🥈' : ach.medalType === 'Đồng' ? '🥉' : '🏆'} Huy chương {ach.medalType}
                       </span>
                       <span className="text-[9px] text-[#FFF200] font-extrabold uppercase tracking-wider opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-                        Chi tiáº¿t â†’
+                        Chi tiết →
                       </span>
                     </div>
 
                     <p className="text-xs text-[#FFF200] font-black tracking-tight flex items-center gap-1.5 bg-yellow-500/10 px-2 py-1 rounded-lg w-fit border border-yellow-500/20">
-                      ðŸ‘¤ MÃ´n sinh: <span className="text-white font-black">{ach.athleteName || 'Khuyáº¿t danh'}</span>
+                      👤 Môn sinh: <span className="text-white font-black">{ach.athleteName || 'Khuyết danh'}</span>
                     </p>
 
                     <h4 className="font-extrabold text-slate-100 text-sm sm:text-base leading-snug truncate group-hover:text-[#FFF200] transition-colors font-display" title={ach.title}>
-                      ðŸ¥‹ Ná»™i dung: {ach.title}
+                      🥋 Nội dung: {ach.title}
                     </h4>
 
                     {ach.tournamentName && (
                       <p className="text-[11px] text-slate-300 font-semibold truncate flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                        ðŸ… {ach.tournamentName}
+                        🏅 {ach.tournamentName}
                       </p>
                     )}
 
                     <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono border-t border-slate-800/80 pt-1.5 mt-1.5">
-                      <span className="truncate max-w-[120px]">ðŸ¢ {ach.unit}</span>
-                      <span>ðŸ“… {ach.date}</span>
+                      <span className="truncate max-w-[120px]">🏢 {ach.unit}</span>
+                      <span>📅 {ach.date}</span>
                     </div>
                   </div>
                 </div>
@@ -1508,21 +1507,21 @@ export default function UserView({
       </section>
 
 
-      {/* 7. BAN HUáº¤N LUYá»†N (Coaches) */}
+      {/* 7. BAN HUẤN LUYỆN (Coaches) */}
       <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 relative scroll-mt-32" id="section-coaches">
         {/* Soft background glow */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            Äá»™i ngÅ© vÃµ sÆ° tÃ¢m huyáº¿t
+            Đội ngũ võ sư tâm huyết
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-950 uppercase italic mt-3 tracking-tight font-display">
-            Ban huáº¥n luyá»‡n chÃ­nh nhiá»‡m
+            Ban huấn luyện chính nhiệm
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-            CÃ¡c vÃµ sÆ°, huáº¥n luyá»‡n viÃªn cÃ³ bá» dÃ y kinh nghiá»‡m, tÃ¢m huyáº¿t rÃ¨n Ä‘á»©c rÃ¨n tÃ i cho tháº¿ há»‡ há»c viÃªn mÃ´n phÃ¡i.
+            Các võ sư, huấn luyện viên có bề dày kinh nghiệm, tâm huyết rèn đức rèn tài cho thế hệ học viên môn phái.
           </p>
         </div>
 
@@ -1532,15 +1531,15 @@ export default function UserView({
             value={searchCoachQuery}
             onChange={setSearchCoachQuery}
             options={coachSearchOptions}
-            placeholder="TÃ¬m theo tÃªn, nÄƒm sinh, Ä‘ai, CLB, thÃ nh tÃ­ch..."
-            ariaLabel="TÃ¬m kiáº¿m thÃ´ng minh trong huáº¥n luyá»‡n viÃªn"
+            placeholder="Tìm theo tên, năm sinh, đai, CLB, thành tích..."
+            ariaLabel="Tìm kiếm thông minh trong huấn luyện viên"
             resultCount={visibleCoaches.length}
             theme="light"
           />
           {searchCoachQuery && (
             <div className="text-center mt-2">
               <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
-                Káº¿t quáº£ tÃ¬m kiáº¿m cho: <span className="text-[#0054A6]">"{searchCoachQuery}"</span> ({visibleCoaches.length})
+                Kết quả tìm kiếm cho: <span className="text-[#0054A6]">"{searchCoachQuery}"</span> ({visibleCoaches.length})
               </span>
             </div>
           )}
@@ -1553,20 +1552,20 @@ export default function UserView({
               onClick={() => setShowAllCoaches(!showAllCoaches)}
               className="px-6 py-2.5 rounded-2xl bg-white border-2 border-[#0054A6]/20 hover:border-[#0054A6] hover:bg-slate-50 text-slate-800 hover:text-[#0054A6] font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
             >
-              {showAllCoaches ? 'Thu gá»n danh sÃ¡ch (TrÆ°á»£t ngang)' : 'Xem táº¥t cáº£ Ban huáº¥n luyá»‡n'}
+              {showAllCoaches ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Ban huấn luyện'}
             </button>
           </div>
         )}
 
         {visibleCoaches.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-3xl border border-slate-150 shadow-sm max-w-md mx-auto relative z-10 animate-in fade-in duration-200">
-            <span className="text-4xl">ðŸ”</span>
-            <p className="text-xs text-slate-500 font-bold mt-3">KhÃ´ng tÃ¬m tháº¥y vÃµ sÆ° nÃ o phÃ¹ há»£p vá»›i tá»« khÃ³a.</p>
+            <span className="text-4xl">🔍</span>
+            <p className="text-xs text-slate-500 font-bold mt-3">Không tìm thấy võ sư nào phù hợp với từ khóa.</p>
             <button 
               onClick={() => setSearchCoachQuery('')}
               className="mt-4 px-4 py-1.5 bg-[#0054A6] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors cursor-pointer"
             >
-              XÃ³a bá»™ lá»c
+              Xóa bộ lọc
             </button>
           </div>
         ) : showAllCoaches || searchCoachQuery.trim() ? (
@@ -1605,17 +1604,17 @@ export default function UserView({
                     })()}
                     {coach.status !== false ? (
                       <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
-                        Hoáº¡t Ä‘á»™ng
+                        Hoạt động
                       </span>
                     ) : (
                       <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1.5 rounded-xl uppercase tracking-wider">
-                        NgÆ°ng hoáº¡t Ä‘á»™ng
+                        Ngưng hoạt động
                       </span>
                     )}
                   </div>
 
                   <p className="text-[11px] text-[#0054A6] font-black uppercase mt-3 font-mono tracking-wider">
-                    Sinh nÄƒm: {coach.birthYear}
+                    Sinh năm: {coach.birthYear}
                   </p>
 
                   <p className="text-xs text-slate-900 font-sans leading-relaxed mt-5 bg-slate-50 p-4 rounded-2xl border border-slate-150/80 italic relative font-semibold">
@@ -1624,7 +1623,7 @@ export default function UserView({
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-slate-100 text-[10px] text-[#0054A6] font-black uppercase tracking-wider group-hover:text-[#FFF200] group-hover:bg-[#0054A6] py-1.5 rounded-xl transition-all duration-300">
-                  Xem chi tiáº¿t vÃµ sÆ° â†’
+                  Xem chi tiết võ sư →
                 </div>
               </div>
             ))}
@@ -1636,14 +1635,14 @@ export default function UserView({
             <button
               onClick={() => scrollRow('COACHES', 'left')}
               className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-              title="TrÆ°á»£t sang trÃ¡i"
+              title="Trượt sang trái"
             >
               <ChevronLeft className="w-5 h-5 text-slate-700" />
             </button>
             <button
               onClick={() => scrollRow('COACHES', 'right')}
               className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-              title="TrÆ°á»£t sang pháº£i"
+              title="Trượt sang phải"
             >
               <ChevronRight className="w-5 h-5 text-slate-700" />
             </button>
@@ -1686,17 +1685,17 @@ export default function UserView({
                       })()}
                       {coach.status !== false ? (
                         <span className="text-[9px] font-black text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-xl uppercase tracking-wider">
-                          Hoáº¡t Ä‘á»™ng
+                          Hoạt động
                         </span>
                       ) : (
                         <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-3 py-1 rounded-xl uppercase tracking-wider">
-                          NgÆ°ng HÄ
+                          Ngưng HĐ
                         </span>
                       )}
                     </div>
 
                     <p className="text-[10px] text-[#0054A6] font-black uppercase mt-2 font-mono tracking-wider">
-                      Sinh nÄƒm: {coach.birthYear}
+                      Sinh năm: {coach.birthYear}
                     </p>
 
                     <p className="text-xs text-slate-900 font-sans leading-relaxed mt-4 bg-slate-50 p-3 rounded-2xl border border-slate-150/80 italic line-clamp-3 relative font-semibold">
@@ -1705,7 +1704,7 @@ export default function UserView({
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 text-[9px] text-[#0054A6] font-black uppercase tracking-wider group-hover:text-[#FFF200] group-hover:bg-[#0054A6] py-1.5 rounded-xl transition-all duration-300">
-                    Xem chi tiáº¿t vÃµ sÆ° â†’
+                    Xem chi tiết võ sư →
                   </div>
                 </div>
               ))}
@@ -1715,19 +1714,19 @@ export default function UserView({
       </section>
 
 
-      {/* 8. THÃ€NH VIÃŠN (Members) */}
+      {/* 8. THÀNH VIÊN (Members) */}
       <section className="py-20 bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border-t border-slate-200/50 scroll-mt-32" id="section-members">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
-              Tháº¿ há»‡ tiáº¿p ná»‘i xuáº¥t sáº¯c
+              Thế hệ tiếp nối xuất sắc
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-950 uppercase italic mt-3 tracking-tight font-display">
-              ThÃ nh viÃªn CLB
+              Thành viên CLB
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              CÃ¡c mÃ´n sinh xuáº¥t sáº¯c, gÆ°Æ¡ng sÃ¡ng chÄƒm ngoan há»c giá»i vÃ  tÃ­ch cá»±c tham gia phong trÃ o thi Ä‘ua vÃµ thuáº­t Quáº­n 4.
+              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật Quận 4.
             </p>
           </div>
 
@@ -1737,15 +1736,15 @@ export default function UserView({
             value={searchMemberQuery}
             onChange={setSearchMemberQuery}
             options={memberSearchOptions}
-            placeholder="TÃ¬m theo tÃªn, nÄƒm sinh, Ä‘ai, CLB, thÃ nh tÃ­ch..."
-            ariaLabel="TÃ¬m kiáº¿m thÃ´ng minh trong thÃ nh viÃªn"
+            placeholder="Tìm theo tên, năm sinh, đai, CLB, thành tích..."
+            ariaLabel="Tìm kiếm thông minh trong thành viên"
             resultCount={visibleMembers.length}
             theme="light"
           />
           {searchMemberQuery && (
             <div className="text-center mt-2">
               <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-full">
-                Káº¿t quáº£ tÃ¬m kiáº¿m cho: <span className="text-[#0054A6]">"{searchMemberQuery}"</span> ({visibleMembers.length})
+                Kết quả tìm kiếm cho: <span className="text-[#0054A6]">"{searchMemberQuery}"</span> ({visibleMembers.length})
               </span>
             </div>
           )}
@@ -1758,20 +1757,20 @@ export default function UserView({
               onClick={() => setShowAllMembers(!showAllMembers)}
               className="px-6 py-2.5 rounded-2xl bg-white border-2 border-[#0054A6]/20 hover:border-[#0054A6] hover:bg-slate-50 text-slate-800 hover:text-[#0054A6] font-bold text-xs sm:text-sm transition-all flex items-center gap-2 shadow-md cursor-pointer active:scale-95"
             >
-              {showAllMembers ? 'Thu gá»n danh sÃ¡ch (TrÆ°á»£t ngang)' : 'Xem táº¥t cáº£ ThÃ nh viÃªn'}
+              {showAllMembers ? 'Thu gọn danh sách (Trượt ngang)' : 'Xem tất cả Thành viên'}
             </button>
           </div>
         )}
 
         {visibleMembers.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-3xl border border-slate-150 shadow-sm max-w-md mx-auto relative z-10 animate-in fade-in duration-200">
-            <span className="text-4xl">ðŸ”</span>
-            <p className="text-xs text-slate-500 font-bold mt-3">KhÃ´ng tÃ¬m tháº¥y mÃ´n sinh nÃ o phÃ¹ há»£p vá»›i tá»« khÃ³a.</p>
+            <span className="text-4xl">🔍</span>
+            <p className="text-xs text-slate-500 font-bold mt-3">Không tìm thấy môn sinh nào phù hợp với từ khóa.</p>
             <button 
               onClick={() => setSearchMemberQuery('')}
               className="mt-4 px-4 py-1.5 bg-[#0054A6] text-white rounded-lg text-xs font-bold hover:bg-blue-800 transition-colors cursor-pointer"
             >
-              XÃ³a bá»™ lá»c
+              Xóa bộ lọc
             </button>
           </div>
         ) : showAllMembers || searchMemberQuery.trim() ? (
@@ -1807,22 +1806,22 @@ export default function UserView({
                       })()}
                       {m.status !== false ? (
                         <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                          Hoáº¡t Ä‘á»™ng
+                          Hoạt động
                         </span>
                       ) : (
                         <span className="text-[8px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded-lg uppercase tracking-wider">
-                          NgÆ°ng HÄ
+                          Ngưng HĐ
                         </span>
                       )}
                     </div>
                     
                     <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
-                      Sinh nÄƒm {m.birthYear}
+                      Sinh năm {m.birthYear}
                     </div>
                   </div>
 
                   <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
-                    Há»“ sÆ¡ chi tiáº¿t â†’
+                    Hồ sơ chi tiết →
                   </div>
                 </div>
               ))}
@@ -1834,14 +1833,14 @@ export default function UserView({
               <button
                 onClick={() => scrollRow('MEMBERS', 'left')}
                 className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-                title="TrÆ°á»£t sang trÃ¡i"
+                title="Trượt sang trái"
               >
                 <ChevronLeft className="w-5 h-5 text-slate-700" />
               </button>
               <button
                 onClick={() => scrollRow('MEMBERS', 'right')}
                 className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer"
-                title="TrÆ°á»£t sang pháº£i"
+                title="Trượt sang phải"
               >
                 <ChevronRight className="w-5 h-5 text-slate-700" />
               </button>
@@ -1881,22 +1880,22 @@ export default function UserView({
                         })()}
                         {m.status !== false ? (
                           <span className="text-[8px] font-bold text-teal-700 bg-teal-50 border border-teal-100 px-1.5 py-0.5 rounded-lg uppercase tracking-wider">
-                            Hoáº¡t Ä‘á»™ng
+                            Hoạt động
                           </span>
                         ) : (
                           <span className="text-[8px] font-bold text-rose-600 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-lg uppercase tracking-wider">
-                            NgÆ°ng HÄ
+                            Ngưng HĐ
                           </span>
                         )}
                       </div>
                       
                       <div className="text-[10px] text-[#0054A6] mt-2.5 uppercase font-black tracking-wider font-mono">
-                        Sinh nÄƒm {m.birthYear}
+                        Sinh năm {m.birthYear}
                       </div>
                     </div>
 
                     <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
-                      Há»“ sÆ¡ chi tiáº¿t â†’
+                      Hồ sơ chi tiết →
                     </div>
                   </div>
                 ))}
@@ -1907,28 +1906,28 @@ export default function UserView({
       </section>
 
 
-      {/* 9. CÃ‚U Láº C Bá»˜ (Clubs - embedded map on click) */}
+      {/* 9. CÂU LẠC BỘ (Clubs - embedded map on click) */}
       <section className="py-16 sm:py-20 bg-white scroll-mt-32" id="section-clubs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-              Äá»‹a Ä‘iá»ƒm vÃµ Ä‘Æ°á»ng
+              Địa điểm võ đường
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-              CÃ¡c Ä‘iá»ƒm táº­p luyá»‡n Vovinam XÃ³m Chiáº¿u
+              Các điểm tập luyện Vovinam Xóm Chiếu
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              MÃ´n sinh cÃ³ thá»ƒ lá»±a chá»n Ä‘á»‹a Ä‘iá»ƒm phÃ²ng táº­p vÃ  thá»i gian phÃ¹ há»£p nháº¥t Ä‘á»ƒ tham gia rÃ¨n luyá»‡n. Click Ä‘á»ƒ Ä‘á»‹nh vá»‹ Google Maps.
+              Môn sinh có thể lựa chọn địa điểm phòng tập và thời gian phù hợp nhất để tham gia rèn luyện. Click để định vị Google Maps.
             </p>
           </div>
 
           <div className="relative group/slider">
             {visibleClubs.length > 1 && (<>
-              <button onClick={() => scrollRow('CLUBS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="TrÆ°á»£t sang trÃ¡i">
+              <button onClick={() => scrollRow('CLUBS', 'left')} className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang trái">
                 <ChevronLeft className="w-5 h-5 text-slate-700" />
               </button>
-              <button onClick={() => scrollRow('CLUBS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="TrÆ°á»£t sang pháº£i">
+              <button onClick={() => scrollRow('CLUBS', 'right')} className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white text-slate-800 border border-slate-200/80 p-3 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95 sm:opacity-0 sm:group-hover/slider:opacity-100 opacity-100 cursor-pointer" title="Trượt sang phải">
                 <ChevronRight className="w-5 h-5 text-slate-700" />
               </button>
             </>)}
@@ -1954,11 +1953,11 @@ export default function UserView({
                   <div className="absolute top-4 right-4 z-10">
                     {club.status !== false ? (
                       <span className="bg-emerald-600/90 text-white text-[9px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-md">
-                        Äang hoáº¡t Ä‘á»™ng
+                        Đang hoạt động
                       </span>
                     ) : (
                       <span className="bg-rose-600/90 text-white text-[9px] font-black px-3.5 py-1.5 rounded-full uppercase tracking-wider shadow-md">
-                        NgÆ°ng hoáº¡t Ä‘á»™ng
+                        Ngưng hoạt động
                       </span>
                     )}
                   </div>
@@ -1966,7 +1965,7 @@ export default function UserView({
                   {/* Map Pin Overlay */}
                   <div className="absolute bottom-4 left-4 bg-white text-slate-950 text-[10px] font-black px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 border border-slate-100">
                     <MapPin className="w-3.5 h-3.5 text-red-600 animate-bounce" />
-                    <span>Xem Báº£n Äá»“ Google Map</span>
+                    <span>Xem Bản Đồ Google Map</span>
                   </div>
                 </div>
 
@@ -1978,14 +1977,14 @@ export default function UserView({
                   <div className="space-y-2.5 text-xs text-slate-600">
                     <div className="flex items-center gap-2.5">
                       <User className="w-4 h-4 text-[#0054A6] flex-shrink-0" />
-                      <span>Phá»¥ trÃ¡ch: <strong className="text-slate-800 font-bold">{club.headCoach}</strong></span>
+                      <span>Phụ trách: <strong className="text-slate-800 font-bold">{club.headCoach}</strong></span>
                     </div>
                     <div className="flex items-center gap-2.5">
                       <Clock className="w-4 h-4 text-[#0054A6] flex-shrink-0" />
-                      <span>Lá»‹ch & Giá» táº­p: <strong className="text-slate-800 font-bold">{club.trainingDays} ({club.trainingHours})</strong></span>
+                      <span>Lịch & Giờ tập: <strong className="text-slate-800 font-bold">{club.trainingDays} ({club.trainingHours})</strong></span>
                     </div>
                     <p className="text-[11px] text-slate-400 mt-3 border-t border-slate-150 pt-2.5 line-clamp-1 italic">
-                      Ä/C: {club.address}
+                      Đ/C: {club.address}
                     </p>
                   </div>
                 </div>
@@ -1997,19 +1996,19 @@ export default function UserView({
       </section>
 
 
-      {/* 10. LIÃŠN Há»† & LIÃŠN Káº¾T */}
+      {/* 10. LIÊN HỆ & LIÊN KẾT */}
       <section className="py-16 bg-gradient-to-r from-[#0054A6] to-[#003d7a] text-white border-t-4 border-[#FFF200] scroll-mt-32" id="section-contact">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10 text-center space-y-10">
           
           <div className="max-w-2xl mx-auto">
             <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-blue-900/60 px-3 py-1 rounded-xl border border-[#FFF200]/20 inline-block mb-3">
-              Khai tÃ¢m má»Ÿ lá»‘i vÃµ nghiá»‡p
+              Khai tâm mở lối võ nghiệp
             </span>
             <h2 className="text-3xl sm:text-4xl font-black uppercase italic text-[#FFF200] font-display">
-              LiÃªn há»‡ vÃµ Ä‘Æ°á»ng
+              Liên hệ võ đường
             </h2>
             <p className="text-xs sm:text-sm text-blue-100 mt-3 leading-relaxed font-sans">
-              Báº¡n cÃ³ báº¥t cá»© tháº¯c máº¯c nÃ o vá» khÃ³a há»c, lá»‹ch rÃ¨n luyá»‡n, Ä‘Äƒng kÃ½ vÃµ phá»¥c hay tham gia cÃ¢u láº¡c bá»™? Ban huáº¥n luyá»‡n luÃ´n sáºµn sÃ ng chÃ o Ä‘Ã³n vÃ  giáº£i Ä‘Ã¡p má»i thÃ´ng tin!
+              Bạn có bất cứ thắc mắc nào về khóa học, lịch rèn luyện, đăng ký võ phục hay tham gia câu lạc bộ? Ban huấn luyện luôn sẵn sàng chào đón và giải đáp mọi thông tin!
             </p>
           </div>
 
@@ -2020,7 +2019,7 @@ export default function UserView({
                 <MapPin className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Äá»‹a chá»‰ vÃµ Ä‘Æ°á»ng chÃ­nh</p>
+                <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Địa chỉ võ đường chính</p>
                 <p className="text-slate-700 font-bold text-xs leading-relaxed">{webConfig.address}</p>
               </div>
             </div>
@@ -2031,7 +2030,7 @@ export default function UserView({
                 <Phone className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Äiá»‡n thoáº¡i hotline há»— trá»£</p>
+                <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Điện thoại hotline hỗ trợ</p>
                 <p className="text-slate-700 font-bold text-xs leading-relaxed">{webConfig.phone}</p>
               </div>
             </div>
@@ -2042,7 +2041,7 @@ export default function UserView({
                 <Mail className="w-5 h-5" />
               </div>
               <div>
-                <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">HÃ²m thÆ° Ä‘iá»‡n tá»­ Email</p>
+                <p className="font-black text-[#0054A6] uppercase text-[9px] tracking-wider mb-1">Hòm thư điện tử Email</p>
                 <p className="text-slate-700 font-bold text-xs leading-relaxed break-all">{webConfig.email}</p>
               </div>
             </div>
@@ -2050,7 +2049,7 @@ export default function UserView({
 
           {/* Social media connections */}
           <div className="pt-8 border-t border-white/10 flex flex-col items-center space-y-4">
-            <p className="text-[10px] font-black text-[#FFF200] uppercase tracking-wider">Káº¿t ná»‘i qua máº¡ng xÃ£ há»™i truyá»n thÃ´ng:</p>
+            <p className="text-[10px] font-black text-[#FFF200] uppercase tracking-wider">Kết nối qua mạng xã hội truyền thông:</p>
             <div className="flex gap-4">
               {facebookUrl && (
                 <a 
@@ -2085,7 +2084,7 @@ export default function UserView({
                   rel="noopener noreferrer"
                   className="w-11 h-11 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-[#0068ff] hover:border-[#0068ff] transition-all duration-300 font-black"
                   title={`Zalo ${zaloPhone}`}
-                  aria-label={`Má»Ÿ trang Zalo cá»§a sá»‘ ${zaloPhone}`}
+                  aria-label={`Mở trang Zalo của số ${zaloPhone}`}
                 >
                   <span className="w-7 h-6 rounded-lg bg-white text-[#0068ff] flex items-center justify-center text-[8px] font-black tracking-tight shadow-sm">
                     Zalo
@@ -2114,7 +2113,7 @@ export default function UserView({
                   title="TikTok"
                 >
                   <span className="w-7 h-6 rounded-lg bg-black text-white flex items-center justify-center text-base font-black leading-none shadow-[2px_0_0_#FE2C55,-2px_0_0_#25F4EE]">
-                    â™ª
+                    ♪
                   </span>
                 </a>
               )}
@@ -2131,14 +2130,14 @@ export default function UserView({
       {/* FOOTER */}
       <footer className="bg-slate-950 text-slate-400 py-12 border-t border-slate-900 text-center text-xs">
         <div className="max-w-7xl mx-auto px-4 space-y-6">
-          <p className="text-[#FFF200] font-black uppercase tracking-widest mb-2 font-display text-base">Vovinam XÃ³m Chiáº¿u - Viá»‡t VÃµ Äáº¡o</p>
+          <p className="text-[#FFF200] font-black uppercase tracking-widest mb-2 font-display text-base">Vovinam Xóm Chiếu - Việt Võ Đạo</p>
           <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-semibold flex-wrap">
             <span>SEO Title: {webConfig.seoTitle}</span>
-            <span>â€¢</span>
+            <span>•</span>
             <span>SEO Description: {webConfig.seoDescription}</span>
           </div>
           <div className="w-16 h-0.5 bg-slate-800 mx-auto"></div>
-          <p className="text-slate-600 text-[10px] tracking-wider font-mono">Â© 2026 ToÃ n bá»™ mÃ£ nguá»“n & báº£n quyá»n Ä‘Æ°á»£c phÃ¢n phá»‘i dÆ°á»›i giáº¥y phÃ©p Apache-2.0. PhÃ¡t triá»ƒn bá»Ÿi AI Studio.</p>
+          <p className="text-slate-600 text-[10px] tracking-wider font-mono">© 2026 Toàn bộ mã nguồn & bản quyền được phân phối dưới giấy phép Apache-2.0. Phát triển bởi AI Studio.</p>
         </div>
       </footer>
 
@@ -2156,5 +2155,3 @@ export default function UserView({
     </div>
   );
 }
-
-
