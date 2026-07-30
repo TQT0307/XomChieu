@@ -4,6 +4,7 @@ import fs from 'node:fs';
 
 const vercel = fs.readFileSync(new URL('../vercel.json', import.meta.url), 'utf8');
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const indexCss = fs.readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const vercelConfig = JSON.parse(vercel) as {
   headers: Array<{ source: string; headers: Array<Record<string, string>> }>;
 };
@@ -35,4 +36,8 @@ test('browser production bundle rejects Node test code', () => {
   assert.match(vite, /readFileSync/);
   assert.doesNotMatch(modal, /readFileSync|node:test|training form opens only from Contact navigation/);
   assert.match(html, /Website cần tải lại dữ liệu mới/);
+});
+test('stylesheet never contains server or TypeScript imports', () => {
+  assert.match(indexCss, /^@import "tailwindcss";/);
+  assert.doesNotMatch(indexCss, /import dotenv|dotenv\.config|from "express"|^import\s+\{/m);
 });
