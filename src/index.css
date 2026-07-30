@@ -1,16 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  --font-display: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  --font-mono: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  --font-sans: "Times New Roman", Times, serif;
+  --font-display: "Times New Roman", Times, serif;
+  --font-mono: "Times New Roman", Times, serif;
 }
 
 html {
   scroll-behavior: smooth;
-  font-size: 16px;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */
@@ -109,13 +106,6 @@ html {
 
 body {
   font-family: var(--font-sans);
-  font-size: 1rem;
-  line-height: 1.55;
-  font-weight: 400;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Defer paint/layout work for long public sections until they approach the
@@ -201,14 +191,7 @@ input,
 textarea,
 select,
 option {
-  font-family: inherit;
-  letter-spacing: inherit;
-}
-
-input,
-textarea,
-select {
-  font-size: max(16px, 1em);
+  font-family: "Times New Roman", Times, serif;
 }
 
 .font-display {
