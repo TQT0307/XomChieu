@@ -2127,19 +2127,9 @@ export default function UserView({
       </Suspense>
 
       {/* FOOTER */}
-      <footer className="bg-slate-950 text-slate-400 py-12 border-t border-slate-900 text-center text-xs">
-        <div className="max-w-7xl mx-auto px-4 space-y-6">
-          <p className="text-[#FFF200] font-black uppercase tracking-widest mb-2 font-display text-base">Vovinam Xóm Chiếu - Việt Võ Đạo</p>
-          <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-semibold flex-wrap">
-            <span>SEO Title: {webConfig.seoTitle}</span>
-            <span>•</span>
-            <span>SEO Description: {webConfig.seoDescription}</span>
-          </div>
-          <div className="w-16 h-0.5 bg-slate-800 mx-auto"></div>
-          <p className="text-slate-600 text-[10px] tracking-wider font-mono">© 2026 Toàn bộ mã nguồn & bản quyền được phân phối dưới giấy phép Apache-2.0. Phát triển bởi AI Studio.</p>
-        </div>
+      <footer className="border-t border-slate-900 bg-slate-950 px-4 py-3 text-center">
+        <p className="text-sm font-black uppercase tracking-widest text-[#FFF200] font-display sm:text-base">Vovinam Xóm Chiếu - Việt Võ Đạo</p>
       </footer>
-
       <Suspense fallback={null}>
       {selectedMember && (
         <MemberDetailModal 
