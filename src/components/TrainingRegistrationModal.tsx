@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CalendarDays, CheckCircle2, Clock, Mail, MapPin, Send, UserRound, X } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, LoaderCircle, Mail, MapPin, Send, UserRound, X } from 'lucide-react';
 import type { Club } from '../types';
 import useModalScrollLock from '../hooks/useModalScrollLock';
 
@@ -26,6 +26,12 @@ export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { 
         {club&&<div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-xs text-slate-700 sm:grid-cols-2"><div className="flex gap-2"><CalendarDays className="h-4 w-4 text-emerald-600"/><span><strong className="block text-emerald-800">Ngày tập</strong>{club.trainingDays||'Đang cập nhật'}</span></div><div className="flex gap-2"><Clock className="h-4 w-4 text-emerald-600"/><span><strong className="block text-emerald-800">Giờ tập</strong>{club.trainingHours||'Đang cập nhật'}</span></div><div className="flex gap-2 sm:col-span-2"><MapPin className="h-4 w-4 shrink-0 text-emerald-600"/><span><strong className="block text-emerald-800">Địa chỉ</strong>{club.address||'Đang cập nhật'}</span></div></div>}
         <label className="block space-y-1.5 text-xs font-black uppercase text-slate-600">Nội dung <span className="font-semibold normal-case text-slate-400">(không bắt buộc)</span><textarea maxLength={1000} rows={3} value={message} onChange={e=>setMessage(e.target.value)} placeholder="Điều bạn muốn trao đổi thêm…" className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium normal-case outline-none focus:border-[#0054A6] focus:ring-4 focus:ring-blue-100"/></label>
         {result&&<div role="status" aria-live="polite" className={`flex items-center gap-3 rounded-2xl border font-bold ${result.type==='success'?'border-2 border-emerald-300 bg-emerald-50 p-4 text-base text-emerald-800 shadow-[0_8px_24px_rgba(5,150,105,0.14)]':'border-rose-200 bg-rose-50 p-3 text-xs text-rose-700'}`}>{result.type==='success'&&<CheckCircle2 className="h-7 w-7 shrink-0"/>}<span className={result.type==='success'?'leading-snug':'leading-normal'}>{result.text}</span></div>}
-        <button disabled={submitting} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0054A6] to-[#0071cf] text-sm font-black uppercase tracking-wide text-white shadow-lg disabled:opacity-60"><Send className="h-4 w-4"/>{submitting?'Đang gửi…':'Gửi đăng ký tập luyện'}</button>
+        <button disabled={submitting} className={`group relative flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl border border-blue-400/40 border-b-[5px] border-b-[#003b78] bg-gradient-to-b from-[#1689e8] via-[#0874cc] to-[#0054A6] px-4 text-sm font-black uppercase tracking-wide text-white shadow-[0_9px_0_#00315f,0_14px_24px_rgba(0,49,95,0.28),inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:shadow-[0_11px_0_#00315f,0_17px_28px_rgba(0,49,95,0.32),inset_0_1px_0_rgba(255,255,255,0.4)] active:translate-y-[5px] active:border-b-0 active:shadow-[0_3px_0_#00315f,0_7px_14px_rgba(0,49,95,0.24)] disabled:cursor-wait disabled:translate-y-[2px] disabled:border-b-[3px] disabled:brightness-100 disabled:shadow-[0_6px_0_#00315f,0_10px_20px_rgba(0,49,95,0.24)] ${submitting?'animate-pulse':''}`}>
+          {submitting&&<span aria-hidden="true" className="absolute inset-y-0 -left-1/3 w-1/3 skew-x-[-20deg] bg-gradient-to-r from-transparent via-white/35 to-transparent animate-[registration-button-shine_1.15s_ease-in-out_infinite]"/>}
+          <span className="relative z-10 flex items-center gap-2 drop-shadow-[0_2px_1px_rgba(0,38,78,0.65)]">
+            {submitting?<LoaderCircle className="h-5 w-5 animate-spin"/>:<Send className="h-4 w-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"/>}
+            {submitting?'Đang gửi đăng ký…':'Gửi đăng ký tập luyện'}
+          </span>
+        </button>
       </form></div></div>;
 }

@@ -293,3 +293,8 @@ option {
   border-top: 1px solid #cbd5e1;
   margin: 1.5rem 0;
 }
+
+@keyframes registration-button-shine {
+  0% { transform: translateX(-220%) skewX(-20deg); }
+  100% { transform: translateX(520%) skewX(-20deg); }
+}
