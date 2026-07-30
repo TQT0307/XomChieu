@@ -6,7 +6,6 @@ import {
 import { WebConfig } from '../types';
 import { getSectionIdFromHash } from '../utils/detailRoutes';
 import {
-  ADMIN_SHORTCUT_MAX_GAP_MS,
   advanceAdminShortcut,
   type AdminShortcutState
 } from '../utils/adminShortcut';
@@ -73,7 +72,6 @@ export default function Header({
 }: HeaderProps) {
 
   const adminShortcutRef = useRef<AdminShortcutState>({ count: 0, lastClickAt: 0 });
-  const logoReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyNavigationFrameRef = useRef<number | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
   const [language, setLanguage] = useState<PublicLanguage>(readPublicLanguage);
@@ -186,13 +184,7 @@ export default function Header({
   }, [isAdmin, setActiveNavSection]);
 
   const handleLogoClick = () => {
-    const now = Date.now();
-    if (logoReloadTimerRef.current) {
-      clearTimeout(logoReloadTimerRef.current);
-      logoReloadTimerRef.current = null;
-    }
-
-    const shortcut = advanceAdminShortcut(adminShortcutRef.current, now);
+    const shortcut = advanceAdminShortcut(adminShortcutRef.current, Date.now());
     adminShortcutRef.current = shortcut.state;
     if (shortcut.shouldOpenAdmin) {
       window.history.pushState({ vovinamAdmin: true }, '', ADMIN_HASH);
@@ -200,14 +192,13 @@ export default function Header({
       return;
     }
 
-    // On the public site, a normal logo click returns to the homepage and forces
-    // a fresh data load. The short delay preserves the existing five-click admin
-    // shortcut when the logo is clicked repeatedly.
+    // Return home instantly without reloading React, API data, fonts or images.
     if (!isAdmin) {
-      logoReloadTimerRef.current = setTimeout(() => {
-        adminShortcutRef.current = { count: 0, lastClickAt: 0 };
-        window.location.assign('/');
-      }, ADMIN_SHORTCUT_MAX_GAP_MS);
+      if (window.location.hash) {
+        window.history.pushState({ vovinamSection: 'section-about' }, '', '/');
+      }
+      setActiveNavSection?.('section-about');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -230,7 +221,7 @@ export default function Header({
         <div 
           onClick={handleLogoClick}
           onDoubleClick={event => event.preventDefault()}
-          className="flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none touch-manipulation active:scale-95 transition-transform"
+          className="group flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none touch-manipulation active:scale-[0.98] transition-transform"
           title="CLB Vovinam Xóm Chiếu"
           role="button"
           tabIndex={0}
@@ -241,36 +232,48 @@ export default function Header({
             }
           }}
         >
-          <div className="w-12 h-12 md:w-14 md:h-14 bg-[#0054A6] rounded-full flex items-center justify-center flex-shrink-0 p-[1px] ring-2 ring-[#FFF200] shadow-md hover:rotate-6 transition-transform duration-300">
-            {webConfig.logo && !logoLoadFailed ? (
-              <img 
-                src={webConfig.logo}
-                alt="Vovinam Logo" 
-                className="block w-full h-full object-contain [image-rendering:auto]"
-                width={1024}
-                height={1024}
-                decoding="async"
-                fetchPriority="high"
-                referrerPolicy="no-referrer"
-                draggable={false}
-                onError={() => setLogoLoadFailed(true)}
-              />
-            ) : (
-              <div className="bg-[#0054A6] w-full h-full rounded-full flex items-center justify-center font-black text-[9px] text-center leading-tight uppercase">
-                Vovinam<br/>XC
-              </div>
-            )}
+          <div className="relative flex-shrink-0">
+            <span className="absolute -inset-1 rounded-full bg-[#FFF200]/35 blur-md opacity-70 transition-opacity duration-300 group-hover:opacity-100" aria-hidden="true" />
+            <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#FFF200] bg-gradient-to-br from-[#0877d1] to-[#003d7a] p-[2px] shadow-[0_0_0_3px_rgba(255,242,0,0.14),0_6px_16px_rgba(0,30,70,0.45)] transition-transform duration-500 group-hover:rotate-6 group-hover:scale-105 md:h-14 md:w-14">
+              {webConfig.logo && !logoLoadFailed ? (
+                <img 
+                  src={webConfig.logo}
+                  alt="Vovinam Logo" 
+                  className="block h-full w-full object-contain [image-rendering:auto]"
+                  width={1024}
+                  height={1024}
+                  decoding="async"
+                  fetchPriority="high"
+                  referrerPolicy="no-referrer"
+                  draggable={false}
+                  onError={() => setLogoLoadFailed(true)}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-[#0054A6] text-center text-[9px] font-black uppercase leading-tight text-white">
+                  Vovinam<br/>XC
+                </div>
+              )}
+            </div>
           </div>
-          <div>
-            <h1 className="text-xs sm:text-sm md:text-base lg:text-lg font-black tracking-tighter text-[#FFF200] uppercase italic flex items-center gap-1 leading-none">
-              <Swords className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#FFF200] animate-pulse flex-shrink-0" />
-              <span>VOVINAM XÓM CHIẾU</span>
+
+          <div className="relative min-w-0 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-r from-white/[0.09] via-white/[0.04] to-transparent px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] sm:px-3">
+            <span className="pointer-events-none absolute -left-10 top-0 h-full w-12 skew-x-[-20deg] bg-white/10 blur-sm transition-transform duration-700 group-hover:translate-x-64" aria-hidden="true" />
+            <div className="relative mb-0.5 hidden items-center gap-1.5 sm:flex">
+              <span className="h-px w-5 bg-gradient-to-r from-transparent to-[#FFF200]" />
+              <span className="text-[7px] font-black uppercase tracking-[0.22em] text-blue-100">Việt Võ Đạo</span>
+              <span className="h-px flex-1 bg-gradient-to-r from-[#FFF200] to-transparent" />
+            </div>
+            <h1 className="relative flex items-center gap-1 whitespace-nowrap text-[11px] font-black uppercase italic leading-none tracking-[-0.025em] text-[#FFF200] drop-shadow-[0_2px_2px_rgba(0,22,55,0.9)] sm:text-sm md:text-base lg:text-lg">
+              <Swords className="h-3.5 w-3.5 flex-shrink-0 text-[#FFF200] drop-shadow-[0_0_5px_rgba(255,242,0,0.8)] md:h-4 md:w-4" />
+              <span>Vovinam Xóm Chiếu</span>
             </h1>
-            <p className="text-[7px] md:text-[8px] lg:text-[9px] text-blue-100 font-medium tracking-wider uppercase hidden sm:block mt-0.5">
-              Việt Võ Đạo • Sắt son Võ Đạo Việt Nam
-            </p>
-          </div>
-        </div>
+            <div className="relative mt-1 hidden items-center gap-1.5 sm:flex">
+              <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#FFF200] shadow-[0_0_7px_rgba(255,242,0,0.9)] animate-pulse" />
+              <p className="truncate text-[7px] font-bold uppercase tracking-[0.08em] text-white/90 md:text-[8px] lg:text-[9px]">
+                Sắt son võ đạo Việt Nam
+              </p>
+            </div>
+          </div>        </div>
 
         {/* Empty Space in the Middle */}
         <div className="flex-grow hidden lg:block"></div>
