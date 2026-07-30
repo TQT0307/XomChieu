@@ -21,12 +21,31 @@ export default function CoachDetailModal({
   onSelectAchievement
 }: CoachDetailModalProps) {
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
-  useModalScrollLock(Boolean(coach));
+  useModalScrollLock(Boolean(coach), onClose);
 
   if (!coach) return null;
 
-  // Resolve Club Name
-  const clubName = clubs.find(c => c.id === coach.clubId)?.name || 'Chưa xác định';
+  const normalizeIdentity = (value?: string) =>
+    String(value || '').trim().toLocaleLowerCase('vi');
+  const coachId = normalizeIdentity(coach.id);
+  const coachName = normalizeIdentity(coach.fullName);
+  const responsibleClubs = clubs
+    .map(club => {
+      const headCoach = normalizeIdentity(club.headCoach);
+      const isPrimary = Boolean(headCoach) && (headCoach === coachId || headCoach === coachName);
+      const isAssistant = (club.coachIds || []).some(id => normalizeIdentity(id) === coachId);
+      const isLegacyAssignment = normalizeIdentity(club.id) === normalizeIdentity(coach.clubId);
+      return {
+        club,
+        role: isPrimary ? 'Chính' as const : 'Phụ' as const,
+        isAssigned: isPrimary || isAssistant || isLegacyAssignment
+      };
+    })
+    .filter(item => item.isAssigned)
+    .sort((a, b) => {
+      if (a.role !== b.role) return a.role === 'Chính' ? -1 : 1;
+      return a.club.name.localeCompare(b.club.name, 'vi');
+    });
 
   const getMedalTheme = (medalType: Achievement['medalType']) => {
     switch (medalType) {
@@ -241,13 +260,30 @@ export default function CoachDetailModal({
               })()}
             </div>
 
-            <div className="bg-slate-950/40 border border-white/5 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#FFF200]/10 flex items-center justify-center text-[#FFF200] border border-[#FFF200]/20">
+            <div className="bg-slate-950/40 border border-white/5 p-4 rounded-2xl flex items-start gap-3">
+              <div className="w-10 h-10 shrink-0 rounded-xl bg-[#FFF200]/10 flex items-center justify-center text-[#FFF200] border border-[#FFF200]/20">
                 <MapPin className="w-5 h-5" />
               </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">Câu lạc bộ sinh hoạt</span>
-                <span className="text-sm font-black text-slate-100">{clubName}</span>
+              <div className="min-w-0 flex-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">Câu lạc bộ đang phụ trách</span>
+                {responsibleClubs.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    {responsibleClubs.map(({ club, role }) => (
+                      <div key={club.id} className="flex min-w-0 items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/[0.035] px-2.5 py-2">
+                        <span className="min-w-0 break-words text-sm font-extrabold leading-snug text-slate-100">{club.name}</span>
+                        <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                          role === 'Chính'
+                            ? 'border-[#FFF200]/50 bg-[#FFF200] text-[#003b73]'
+                            : 'border-sky-400/30 bg-sky-400/10 text-sky-300'
+                        }`}>
+                          {role}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="mt-1 block text-sm font-bold text-slate-400">Chưa phân công câu lạc bộ</span>
+                )}
               </div>
             </div>
           </div>

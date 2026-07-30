@@ -3064,10 +3064,76 @@ function emailHtmlToPlainText(html: string) {
     .trim();
 }
 
+function renderTrainingConfirmationEmail(registration: any, replyMessage: string) {
+  const replyBlock = replyMessage
+    ? `<div class="email-reply" style="margin-top:16px;padding:16px;border-left:4px solid #0054A6;border-radius:10px;background:#eff6ff;color:#334155"><div class="email-accent" style="margin-bottom:6px;color:#0054A6;font-size:12px;font-weight:800">LỜI NHẮN TỪ VOVINAM XÓM CHIẾU</div><div class="email-copy" style="font-size:14px;line-height:1.65;color:#334155">${escapeEmailHtml(replyMessage).replace(/\n/g, "<br>")}</div></div>`
+    : "";
+  return `<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
+  <title>Xác nhận đăng ký thành công</title>
+  <style>
+    :root { color-scheme: light dark; supported-color-schemes: light dark; }
+    .email-link { color:#0054A6 !important; }
+    @media (prefers-color-scheme: dark) {
+      .email-page { background:#111827 !important; }
+      .email-card,.email-content { background:#1f2937 !important; }
+      .email-header { background:#0054A6 !important; }
+      .email-title,.email-copy { color:#f8fafc !important; }
+      .email-name { background:#FFF200 !important; border-color:#FFF200 !important; color:#003b73 !important; }
+      .email-details { background:#12352d !important; border-color:#34d399 !important; color:#f8fafc !important; }
+      .email-reply { background:#172554 !important; border-color:#60a5fa !important; color:#f8fafc !important; }
+      .email-accent,.email-link { color:#93c5fd !important; }
+      .email-muted { color:#cbd5e1 !important; }
+    }
+    [data-ogsc] .email-page { background:#111827 !important; }
+    [data-ogsc] .email-card,[data-ogsc] .email-content { background:#1f2937 !important; }
+    [data-ogsc] .email-title,[data-ogsc] .email-copy { color:#f8fafc !important; }
+    [data-ogsc] .email-name { background:#FFF200 !important; color:#003b73 !important; }
+    [data-ogsc] .email-details { background:#12352d !important; color:#f8fafc !important; }
+    [data-ogsc] .email-muted { color:#cbd5e1 !important; }
+  </style>
+</head>
+<body class="email-page" bgcolor="#eef4fb" style="margin:0;padding:0;background:#eef4fb;font-family:Arial,Helvetica,sans-serif;color:#1e293b">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#eef4fb" class="email-page" style="width:100%;background:#eef4fb">
+    <tr><td align="center" style="padding:28px 12px">
+      <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" class="email-card" style="width:100%;max-width:560px;overflow:hidden;border:1px solid #dbeafe;border-radius:24px;background:#ffffff">
+        <tr><td align="center" bgcolor="#0054A6" class="email-header" style="padding:30px 24px;text-align:center;background:#0054A6">
+          <div style="display:inline-block;width:56px;height:56px;line-height:56px;border-radius:50%;background:#ffffff;color:#0054A6;font-size:31px;font-weight:900">✓</div>
+          <h1 class="email-title" style="margin:15px 0 10px;color:#ffffff;font-size:23px;line-height:1.3">Xác nhận đăng ký thành công</h1>
+          <div class="email-title" style="margin-top:14px;color:#ffffff;font-size:18px;font-weight:600">Nhớ tới tập đúng giờ nhé!</div>
+          <div class="email-name" style="display:inline-block;margin-top:10px;padding:8px 18px;border:2px solid #FFF200;border-radius:999px;background:#FFF200;color:#003b73;font-size:22px;font-weight:900;letter-spacing:.2px">${escapeEmailHtml(registration.fullName)}</div>
+        </td></tr>
+        <tr><td bgcolor="#ffffff" class="email-content" style="padding:24px;background:#ffffff;color:#1e293b">
+          <p class="email-copy" style="margin:0 0 18px;color:#1e293b;font-size:15px;line-height:1.6">Lịch tập của bạn đã được xác nhận tại <strong class="email-link" style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p>
+          <div class="email-details email-copy" style="padding:17px;border:1px solid #86efac;border-radius:15px;background:#f0fdf4;color:#1e293b">
+            <p style="margin:0 0 10px"><b>Ngày tập:</b> ${escapeEmailHtml(registration.trainingDays)}</p>
+            <p style="margin:0 0 10px"><b>Giờ tập:</b> ${escapeEmailHtml(registration.trainingHours)}</p>
+            <p style="margin:0"><b>Địa chỉ:</b> ${escapeEmailHtml(registration.address)}</p>
+          </div>
+          ${replyBlock}
+          <p class="email-muted" style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ!</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
 async function sendTransactionalEmail(to: string, subject: string, html: string) {
   const plainText = emailHtmlToPlainText(html);
   const gmailUser = String(process.env.GMAIL_USER || "").trim().toLowerCase();
   const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+  const recipient = String(to || "").trim().toLowerCase();
+  const senderName = "Vovinam Xóm Chiếu";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {
+    throw new Error("Địa chỉ email người nhận không hợp lệ.");
+  }
   if (gmailUser && gmailAppPassword) {
     const transporter = nodemailer.createTransport({
       service: "gmail",
@@ -3082,13 +3148,19 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
     try {
       const info: any = await withTimeout(
         transporter.sendMail({
-          from: `Vovinam Xóm Chiếu <${gmailUser}>`,
-          to,
+          from: { name: senderName, address: gmailUser },
+          sender: { name: senderName, address: gmailUser },
+          to: [{ address: recipient }],
           subject,
           html,
           text: plainText,
-          replyTo: gmailUser,
-          envelope: { from: gmailUser, to: [to] },
+          replyTo: { name: senderName, address: gmailUser },
+          envelope: { from: gmailUser, to: [recipient] },
+          priority: "normal",
+          headers: {
+            "Auto-Submitted": "auto-generated",
+            "X-Auto-Response-Suppress": "OOF, AutoReply"
+          },
           disableFileAccess: true,
           disableUrlAccess: true
         }),
@@ -3098,7 +3170,7 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
       const accepted = Array.isArray(info?.accepted)
         ? info.accepted.map((value: unknown) => String(value).toLowerCase())
         : [];
-      if (!accepted.includes(to.toLowerCase())) {
+      if (!accepted.includes(recipient)) {
         const rejected = Array.isArray(info?.rejected) ? info.rejected.join(", ") : "";
         throw new Error(`Gmail SMTP không chấp nhận người nhận${rejected ? `: ${rejected}` : "."}`);
       }
@@ -3110,10 +3182,28 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
   const apiKey = String(process.env.RESEND_API_KEY || "").trim();
   const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam Xóm Chiếu <onboarding@resend.dev>").trim();
   if (!apiKey) throw new Error("Chưa cấu hình Gmail SMTP hoặc RESEND_API_KEY trên máy chủ.");
+  const fromAddress = from.match(/<([^<>]+)>/)?.[1]?.trim().toLowerCase() || from.toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromAddress) || /@https?:\/\//i.test(from)) {
+    throw new Error("REGISTRATION_EMAIL_FROM phải là email thuộc miền đã xác minh, ví dụ: Vovinam Xóm Chiếu <dangky@vovinamxomchieu.vn>.");
+  }
+  if (fromAddress === "onboarding@resend.dev" && recipient !== gmailUser) {
+    throw new Error("Resend đang ở chế độ thử nghiệm. Hãy xác minh tên miền gửi hoặc cấu hình Gmail SMTP để gửi đến mọi người đăng ký.");
+  }
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html, text: plainText })
+    body: JSON.stringify({
+      from,
+      to: [recipient],
+      subject,
+      html,
+      text: plainText,
+      reply_to: gmailUser || undefined,
+      headers: {
+        "Auto-Submitted": "auto-generated",
+        "X-Auto-Response-Suppress": "OOF, AutoReply"
+      }
+    })
   });
   const result: any = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result?.message || "Dịch vụ email từ chối yêu cầu.");
@@ -3232,8 +3322,8 @@ app.post("/api/training-registrations/:id/confirm", async (req, res) => {
     if (registration.status === "approved" && registration.notificationSent === true) return renderRegistrationConfirmationPage(res, "Đã xác nhận", renderConfirmedRegistrationDetails(registration));
     await ref.set({ status: "approved", reviewedAt: new Date().toISOString(), replyMessage }, { merge: true });
     try {
-      const replyBlock = replyMessage ? `<div style="margin-top:16px;padding:16px;border-left:4px solid #0054A6;border-radius:10px;background:#eff6ff"><div style="margin-bottom:6px;color:#0054A6;font-size:12px;font-weight:800">LỜI NHẮN TỪ VOVINAM XÓM CHIẾU</div><div style="font-size:14px;line-height:1.65;color:#334155">${escapeEmailHtml(replyMessage).replace(/\n/g, "<br>")}</div></div>` : "";
-      await sendTransactionalEmail(registration.email, "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu", `<div style="margin:0;background:#eef4fb;padding:28px 12px;font-family:Arial,Helvetica,sans-serif;color:#1e293b"><div style="max-width:560px;margin:0 auto;overflow:hidden;border:1px solid #dbeafe;border-radius:24px;background:#fff;box-shadow:0 14px 40px rgba(0,84,166,.14)"><div style="padding:30px 24px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e)"><div style="display:inline-block;width:56px;height:56px;line-height:56px;border-radius:50%;background:#FFF200;color:#0054A6;font-size:31px;font-weight:900">✓</div><h1 style="margin:15px 0 10px;color:#FFF200;font-size:23px">Xác nhận đăng ký thành công</h1><div style="margin-top:14px;color:#fff;font-size:18px;font-weight:600">Nhớ tới tập đúng giờ nhé!</div><div style="display:inline-block;margin-top:10px;padding:8px 18px;border:2px solid rgba(255,242,0,.65);border-radius:999px;background:rgba(255,242,0,.12);color:#FFF200;font-size:22px;font-weight:900;letter-spacing:.2px">${escapeEmailHtml(registration.fullName)}</div></div><div style="padding:24px"><p style="margin:0 0 18px;font-size:15px;line-height:1.6">Lịch tập của bạn đã được xác nhận tại <strong style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p><div style="padding:17px;border:1px solid #bbf7d0;border-radius:15px;background:#f0fdf4"><p style="margin:0 0 10px"><b>Ngày tập:</b> ${escapeEmailHtml(registration.trainingDays)}</p><p style="margin:0 0 10px"><b>Giờ tập:</b> ${escapeEmailHtml(registration.trainingHours)}</p><p style="margin:0"><b>Địa chỉ:</b> ${escapeEmailHtml(registration.address)}</p></div>${replyBlock}<p style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ!</p></div></div></div>`);
+      const confirmationEmailHtml = renderTrainingConfirmationEmail(registration, replyMessage);
+      await sendTransactionalEmail(registration.email, "Xác nhận đăng ký thành công - Vovinam Xóm Chiếu", confirmationEmailHtml);
       await ref.set({ notificationSent: true, notificationError: "" }, { merge: true });
       return renderRegistrationConfirmationPage(res, "Đã xác nhận", `${renderConfirmedRegistrationDetails({ ...registration, replyMessage })}<p style="margin-top:18px;text-align:center;color:#047857;font-weight:700">Email xác nhận đã được gửi thành công.</p>`);
     } catch (emailError: any) {
