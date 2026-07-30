@@ -232,14 +232,20 @@ export default function Header({
             }
           }}
         >
-          <div className="relative flex-shrink-0">
-            <span className="absolute -inset-1 rounded-full bg-[#FFF200]/35 blur-md opacity-70 transition-opacity duration-300 group-hover:opacity-100" aria-hidden="true" />
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#FFF200] bg-gradient-to-br from-[#0877d1] to-[#003d7a] p-[2px] shadow-[0_0_0_3px_rgba(255,242,0,0.14),0_6px_16px_rgba(0,30,70,0.45)] transition-transform duration-500 group-hover:rotate-6 group-hover:scale-105 md:h-14 md:w-14">
+          <div className="vovinam-logo-stage relative flex-shrink-0 p-1">
+            <span className="vovinam-logo-aura absolute inset-0 rounded-full bg-[#FFF200]/40 blur-md" aria-hidden="true" />
+            <span className="vovinam-logo-orbit vovinam-logo-orbit-outer absolute inset-0 rounded-full border border-dashed border-[#FFF200]/80" aria-hidden="true">
+              <span className="absolute left-1/2 top-[-3px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#FFF200] shadow-[0_0_8px_2px_rgba(255,242,0,0.9)]" />
+            </span>
+            <span className="vovinam-logo-orbit vovinam-logo-orbit-inner absolute inset-[3px] rounded-full border border-blue-200/55" aria-hidden="true">
+              <span className="absolute bottom-[-2px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white shadow-[0_0_7px_2px_rgba(255,255,255,0.8)]" />
+            </span>
+            <div className="vovinam-logo-core relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 border-[#FFF200] bg-gradient-to-br from-[#0877d1] to-[#003d7a] p-[2px] shadow-[0_0_0_3px_rgba(255,242,0,0.14),0_7px_18px_rgba(0,30,70,0.48)] transition-transform duration-500 group-hover:scale-110 md:h-14 md:w-14">
               {webConfig.logo && !logoLoadFailed ? (
                 <img 
                   src={webConfig.logo}
                   alt="Vovinam Logo" 
-                  className="block h-full w-full object-contain [image-rendering:auto]"
+                  className="vovinam-logo-image block h-full w-full object-contain [image-rendering:auto]"
                   width={1024}
                   height={1024}
                   decoding="async"
@@ -253,9 +259,10 @@ export default function Header({
                   Vovinam<br/>XC
                 </div>
               )}
+              <span className="vovinam-logo-glint pointer-events-none absolute -inset-y-2 -left-1/2 w-1/3 rotate-12 bg-gradient-to-r from-transparent via-white/55 to-transparent blur-[1px]" aria-hidden="true" />
+              <span className="pointer-events-none absolute inset-[2px] rounded-full ring-1 ring-inset ring-white/30" aria-hidden="true" />
             </div>
           </div>
-
           <div className="relative min-w-0 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-r from-white/[0.09] via-white/[0.04] to-transparent px-2.5 py-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] sm:px-3">
             <span className="pointer-events-none absolute -left-10 top-0 h-full w-12 skew-x-[-20deg] bg-white/10 blur-sm transition-transform duration-700 group-hover:translate-x-64" aria-hidden="true" />
             <div className="relative mb-0.5 hidden items-center gap-1.5 sm:flex">
