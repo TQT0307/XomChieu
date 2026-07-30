@@ -2993,7 +2993,7 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
       socketTimeout: 15000
     });
     return withTimeout(
-      transporter.sendMail({ from: `Vovinam X?m Chi?u <${gmailUser}>`, to, subject, html })
+      transporter.sendMail({ from: `Vovinam Xóm Chiếu <${gmailUser}>`, to, subject, html })
         .finally(() => transporter.close()),
       20000,
       "Gmail SMTP timed out"
@@ -3001,15 +3001,15 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
   }
 
   const apiKey = String(process.env.RESEND_API_KEY || "").trim();
-  const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam X?m Chi?u <onboarding@resend.dev>").trim();
-  if (!apiKey) throw new Error("Ch?a c?u h?nh Gmail SMTP ho?c RESEND_API_KEY tr?n m?y ch?.");
+  const from = String(process.env.REGISTRATION_EMAIL_FROM || "Vovinam Xóm Chiếu <onboarding@resend.dev>").trim();
+  if (!apiKey) throw new Error("Chưa cấu hình Gmail SMTP hoặc RESEND_API_KEY trên máy chủ.");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from, to: [to], subject, html })
   });
   const result: any = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result?.message || "D?ch v? email t? ch?i y?u c?u.");
+  if (!response.ok) throw new Error(result?.message || "Dịch vụ email từ chối yêu cầu.");
   return result;
 }
 
@@ -3075,7 +3075,7 @@ app.get("/api/training-registrations/:id/confirm", async (req, res) => {
             <div style="padding:28px 24px;text-align:center;background:linear-gradient(135deg,#0054A6,#00366e)">
               <div style="display:inline-block;width:54px;height:54px;line-height:54px;border-radius:50%;background:#FFF200;color:#0054A6;font-size:30px;font-weight:bold">✓</div>
               <h1 style="margin:16px 0 6px;color:#FFF200;font-size:23px;line-height:1.25">Xác nhận đăng ký thành công</h1>
-              <p style="margin:0;color:#dbeafe;font-size:14px">Nhớ tới tập đúng giờ nhé</p>
+              <p style="margin:8px 0 0;color:#ffffff;font-size:18px;line-height:1.5;font-weight:600">Nhớ tới tập đúng giờ nhé, <strong style="display:inline-block;color:#FFF200;font-size:20px;font-weight:800">${escapeEmailHtml(registration.fullName)}</strong>!</p>
             </div>
             <div style="padding:24px">
               <p style="margin:0 0 18px;font-size:15px;line-height:1.6">Chào <strong>${escapeEmailHtml(registration.fullName)}</strong>, lịch tập của bạn đã được xác nhận tại <strong style="color:#0054A6">${escapeEmailHtml(registration.clubName)}</strong>.</p>
