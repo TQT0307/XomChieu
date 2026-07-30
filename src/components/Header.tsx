@@ -210,18 +210,18 @@ export default function Header({
     { id: 'section-achievements', name: language === 'en' ? 'Achievements' : 'Thành tích', icon: <Award className="w-3.5 h-3.5" /> },
     { id: 'section-coaches', name: language === 'en' ? 'Coaches' : 'Huấn luyện', icon: <User className="w-3.5 h-3.5" /> },
     { id: 'section-members', name: language === 'en' ? 'Members' : 'Môn sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
-    { id: 'section-clubs', name: language === 'en' ? 'Training locations' : 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
+    { id: 'section-clubs', name: language === 'en' ? 'Locations' : 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
     { id: 'section-contact', name: language === 'en' ? 'Contact' : 'Liên hệ', icon: <Mail className="w-3.5 h-3.5" /> }
   ];
 
   return (
     <header className="bg-[#0054A6] text-white shadow-xl z-30 sticky top-0 border-b-4 border-[#FFF200]" id="vovinam-header">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex flex-row items-center justify-between gap-3 md:gap-4 overflow-hidden">
+      <div className="mx-auto flex h-20 w-full max-w-[1600px] flex-row items-center gap-2 px-2 sm:px-3 lg:px-4">
         {/* Brand Logo and Name - Left Aligned */}
         <div 
           onClick={handleLogoClick}
           onDoubleClick={event => event.preventDefault()}
-          className="group flex items-center gap-2.5 md:gap-3 flex-shrink-0 cursor-pointer select-none touch-manipulation active:scale-[0.98] transition-transform"
+          className="notranslate group flex flex-shrink-0 cursor-pointer touch-manipulation select-none items-center gap-2 active:scale-[0.98] transition-transform md:gap-2.5" translate="no"
           title="CLB Vovinam Xóm Chiếu"
           role="button"
           tabIndex={0}
@@ -267,7 +267,7 @@ export default function Header({
             <span className="pointer-events-none absolute -left-10 top-0 h-full w-12 skew-x-[-20deg] bg-white/10 blur-sm transition-transform duration-700 group-hover:translate-x-64" aria-hidden="true" />
             <div className="relative mb-0.5 hidden items-center gap-1.5 sm:flex">
               <span className="h-px w-5 bg-gradient-to-r from-transparent to-[#FFF200]" />
-              <span className="text-[7px] font-black uppercase tracking-[0.22em] text-blue-100">Việt Võ Đạo</span>
+              <span className="text-[7px] font-black uppercase tracking-[0.22em] text-blue-100">{language === 'en' ? 'Viet Vo Dao' : 'Việt Võ Đạo'}</span>
               <span className="h-px flex-1 bg-gradient-to-r from-[#FFF200] to-transparent" />
             </div>
             <h1 className="relative flex items-center gap-1 whitespace-nowrap text-[11px] font-black uppercase italic leading-none tracking-[-0.025em] text-[#FFF200] drop-shadow-[0_2px_2px_rgba(0,22,55,0.9)] sm:text-sm md:text-base lg:text-lg">
@@ -277,18 +277,15 @@ export default function Header({
             <div className="relative mt-1 hidden items-center gap-1.5 sm:flex">
               <span className="inline-flex h-1.5 w-1.5 rounded-full bg-[#FFF200] shadow-[0_0_7px_rgba(255,242,0,0.9)] animate-pulse" />
               <p className="truncate text-[7px] font-bold uppercase tracking-[0.08em] text-white/90 md:text-[8px] lg:text-[9px]">
-                Sắt son võ đạo Việt Nam
+                {language === 'en' ? 'Unwavering spirit of Vietnamese martial arts' : 'Sắt son võ đạo Việt Nam'}
               </p>
             </div>
           </div>        </div>
 
-        {/* Empty Space in the Middle */}
-        <div className="flex-grow hidden lg:block"></div>
-
-        {/* Navigation & Actions Container - Right Aligned */}
-        <div className="flex items-center justify-end gap-3 md:gap-4 flex-grow max-w-full overflow-hidden">
+{/* Navigation & Actions Container - Right Aligned */}
+        <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1.5 md:gap-2">
           {!isAdmin && (
-            <nav className="flex flex-row items-center justify-end gap-1 md:gap-1.5 py-1 overflow-x-auto no-scrollbar whitespace-nowrap px-1 max-w-[50vw] sm:max-w-[60vw] md:max-w-[70vw] lg:max-w-none">
+            <nav className="notranslate no-scrollbar flex min-w-0 flex-1 flex-row items-center justify-start gap-0.5 overflow-x-auto xl:justify-end whitespace-nowrap py-1 pl-1 md:gap-1" translate="no">
               {navSections.map((sec) => (
                 <a
                   key={sec.id}
@@ -297,7 +294,7 @@ export default function Header({
                     e.preventDefault();
                     navigateToSection(sec.id);
                   }}
-                  className={`flex items-center px-2 py-1 md:px-2.5 md:py-1.5 rounded-lg text-[8.5px] md:text-[9px] xl:text-[9.5px] font-bold uppercase tracking-wide cursor-pointer border transition-all duration-200 ${
+                  className={`flex items-center px-1.5 py-1 md:px-2 md:py-1.5 rounded-lg text-[8px] md:text-[8.5px] xl:text-[9px] font-bold uppercase tracking-wide cursor-pointer border transition-all duration-200 ${
                     activeNavSection === sec.id
                       ? 'bg-[#FFF200] text-[#0054A6] border-[#FFF200] font-black shadow-md shadow-yellow-500/20 scale-105'
                       : 'text-blue-100 hover:text-white hover:bg-white/10 hover:shadow border-transparent hover:border-white/15'
