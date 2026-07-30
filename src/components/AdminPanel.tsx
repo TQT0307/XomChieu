@@ -4957,27 +4957,19 @@ export default function AdminPanel({
                           placeholder="Ví dụ: CLB Vovinam Xóm Chiếu"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu (Tự điền)</label>
-                        <input 
-                          type="text" 
-                          list="achievement-saved-tournaments"
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                        <SearchableTextCombobox
+                          label="🏆 Giải đấu liên kết"
                           value={achievementForm.tournamentName || ''}
-                          onChange={e => {
-                            const name = e.target.value;
-                            const matchedTournament = tournaments.find(t => t.name === name);
-                            setAchievementForm({
-                              ...achievementForm,
-                              tournamentName: name,
-                              tournamentId: matchedTournament?.id || ''
-                            });
+                          options={savedAchievementTournamentNames}
+                          placeholder="Chọn giải đã có hoặc nhập tên giải mới..."
+                          helperText="Giải được liên kết với thành tích và hồ sơ người đạt giải."
+                          required
+                          onChange={name => {
+                            const matchedTournament = tournaments.find(item => item.name === name);
+                            setAchievementForm({ ...achievementForm, tournamentName: name, tournamentId: matchedTournament?.id || '' });
                           }}
-                          className="w-full text-sm border p-2 rounded-lg focus:ring-2 focus:ring-[#0054A6] outline-none" required
-                          placeholder="Ví dụ: Giải Vô địch Trẻ Vovinam 2026"
                         />
-                        <datalist id="achievement-saved-tournaments">
-                          {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
-                        </datalist>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Ngày đạt giải (Tự động tính Năm)</label>
@@ -5094,18 +5086,16 @@ export default function AdminPanel({
                           placeholder="Ví dụ: GD001"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tên giải đấu</label>
-                        <input 
-                          type="text" 
-                          list="tournament-saved-names"
+                      <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3">
+                        <SearchableTextCombobox
+                          label="🏆 Tên giải đấu"
                           value={tournamentForm.name || ''}
-                          onChange={e => setTournamentForm({ ...tournamentForm, name: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg" required
+                          options={savedAchievementTournamentNames}
+                          placeholder="Chọn tên giải cũ hoặc nhập tên giải mới..."
+                          helperText="Có thể dùng lại tên giải đã lưu và chỉnh sửa năm tổ chức."
+                          required
+                          onChange={name => setTournamentForm({ ...tournamentForm, name })}
                         />
-                        <datalist id="tournament-saved-names">
-                          {savedAchievementTournamentNames.map(name => <option key={name} value={name} />)}
-                        </datalist>
                       </div>
                       <div>
                         <ImageInput 

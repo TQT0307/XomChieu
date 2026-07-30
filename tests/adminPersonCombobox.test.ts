@@ -36,3 +36,7 @@ test('custom selectors keep menus compact and expose clear buttons beside arrows
   assert.match(comboboxSource, /Xóa toàn bộ người đã chọn/);
   assert.doesNotMatch(adminSource, /highlight-saved-achievement-tournaments/);
 });
+test('tournament, achievement and highlight forms share the compact tournament selector', () => {
+  assert.equal((adminSource.match(/<SearchableTextCombobox/g) || []).length, 3);
+  assert.doesNotMatch(adminSource, /achievement-saved-tournaments|tournament-saved-names/);
+});

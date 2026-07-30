@@ -10,3 +10,8 @@ test('Admin content navigation has unique, renderable tab definitions', () => {
   assert.equal(ADMIN_CONTENT_TABS.find(tab => tab.id === 'clubs')?.icon.displayName, 'MapPinned');
 });
 
+
+test('Admin content order places tournaments before achievements, then highlights and clubs', () => {
+  const ids = ADMIN_CONTENT_TABS.map(item => item.id);
+  assert.deepEqual(ids.slice(4, 8), ['tournaments', 'achievements', 'highlights', 'clubs']);
+});
