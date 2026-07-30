@@ -634,39 +634,7 @@ export default function UserView({
             fetchPriority="high"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/40 to-black/70"></div>
-        </div>
-
-        {/* Content Box - Centered horizontally and positioned closer to the top */}
-        <div className="relative z-10 max-w-7xl mx-auto px-6 h-full flex flex-col justify-start pt-[clamp(0.5rem,3.3vw,3rem)] items-center text-white">
-          <div className="max-w-xl flex flex-col items-center text-center">
-            <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[8.5px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2 border border-[#FFF200]/25">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FFF200] animate-ping"></span>
-              <span>Môn Phái Việt Võ Đạo</span>
-            </div>
-            
-            <h2 className="text-base sm:text-lg lg:text-xl font-black text-[#FFF200] uppercase tracking-tight italic leading-tight mb-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
-              {banners[safeCurrentBanner]?.title}
-            </h2>
-            <p className="text-[10.5px] sm:text-[11.5px] text-slate-100 font-medium leading-relaxed drop-shadow-[0_1.5px_2px_rgba(0,0,0,0.9)] max-w-sm opacity-95">
-              {banners[safeCurrentBanner]?.subtitle}
-            </p>
-            
-            <div className="mt-4 flex flex-wrap gap-2.5 justify-center">
-              <a 
-                href="#section-about"
-                className="bg-gradient-to-r from-[#FFF200] to-amber-400 hover:from-amber-400 hover:to-yellow-300 text-[#0054A6] px-4 py-1.5 rounded-lg font-black text-[9.5px] uppercase tracking-wider shadow-lg shadow-black/25 transition-all hover:scale-105 active:scale-100 duration-200"
-              >
-                Khám Phá Võ Đường
-              </a>
-              <a 
-                href="#section-highlights"
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-4 py-1.5 rounded-lg font-bold text-[9.5px] uppercase tracking-wider backdrop-blur-md transition-all hover:scale-105 active:scale-100 duration-200"
-              >
-                Thư Viện Ảnh & Video
-              </a>
-            </div>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/35"></div>
         </div>
 
         {/* Manual navigation buttons */}
