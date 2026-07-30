@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,6 +16,32 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (() => {
+        const retryKey = 'vovinam_asset_recovery';
+        const recover = () => {
+          if (sessionStorage.getItem(retryKey) === '1') return;
+          sessionStorage.setItem(retryKey, '1');
+          const url = new URL(window.location.href);
+          url.searchParams.set('refresh', Date.now().toString());
+          window.location.replace(url.toString());
+        };
+
+        window.addEventListener('error', event => {
+          const target = event.target;
+          if (target instanceof HTMLScriptElement && target.type === 'module') recover();
+        }, true);
+        window.addEventListener('vite:preloadError', recover);
+        window.setTimeout(() => {
+          const root = document.getElementById('root');
+          if (!root || root.childElementCount > 0) {
+            sessionStorage.removeItem(retryKey);
+            return;
+          }
+          recover();
+        }, 5000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
