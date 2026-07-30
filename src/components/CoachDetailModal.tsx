@@ -240,7 +240,7 @@ export default function CoachDetailModal({
         <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 space-y-6 overflow-y-auto">
           
 {/* Quick Specifications */}
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch font-sans">
   {/* Left Card: Belt Level */}
   <div className="bg-slate-950/40 border border-white/10 p-4 rounded-2xl flex items-center gap-3.5 backdrop-blur-sm">
     {(() => {
@@ -251,10 +251,10 @@ export default function CoachDetailModal({
             <Award className="w-5 h-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+            <span className="text-[11px] text-slate-400 font-semibold tracking-wide block">
               Đai đẳng môn phái
             </span>
-            <span className={`text-xs px-2.5 py-1 rounded-md border font-black uppercase tracking-wide inline-block mt-1 shadow-sm ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
+            <span className={`text-xs px-2.5 py-1 rounded-lg border font-bold uppercase tracking-wider inline-block mt-1 shadow-sm ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
               {coach.rank}
             </span>
           </div>
@@ -263,56 +263,64 @@ export default function CoachDetailModal({
     })()}
   </div>
 
-  {/* Right Card: Responsible Clubs - Clean Badge Layout */}
-  <div className="bg-slate-950/40 border border-white/10 p-4 rounded-2xl flex items-start gap-3.5 backdrop-blur-sm">
-    <div className="w-11 h-11 shrink-0 rounded-xl bg-[#FFF200]/10 flex items-center justify-center text-[#FFF200] border border-[#FFF200]/20">
-      <MapPin className="w-5 h-5" />
-    </div>
+  {/* Single Full-width Card: Responsible Clubs */}
+<div className="bg-slate-950/40 border border-white/10 p-4 sm:p-5 rounded-2xl flex items-start gap-3.5 backdrop-blur-sm">
+  {/* Map Icon */}
+  <div className="w-10 h-10 shrink-0 rounded-xl bg-[#FFF200]/10 flex items-center justify-center text-[#FFF200] border border-[#FFF200]/20">
+    <MapPin className="w-5 h-5" />
+  </div>
 
-    <div className="min-w-0 flex-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-          Câu lạc bộ đang phụ trách
-        </span>
-        {responsibleClubs.length > 0 && (
-          <span className="text-[10px] font-mono font-bold text-[#FFF200] bg-[#FFF200]/10 px-2 py-0.5 rounded-full border border-[#FFF200]/20">
-            {responsibleClubs.length}
-          </span>
-        )}
-      </div>
-
-      {responsibleClubs.length > 0 ? (
-        <div className="mt-2 flex flex-wrap gap-1.5 max-h-[96px] overflow-y-auto detail-scrollbar pr-0.5">
-          {responsibleClubs.map(({ club, role }) => (
-            <div
-              key={club.id}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
-                role === 'Chính'
-                  ? 'bg-amber-400/10 border-amber-400/30 text-amber-200'
-                  : 'bg-slate-800/80 border-white/10 text-slate-200'
-              }`}
-            >
-              <span className="leading-none">{club.name}</span>
-              <span
-                className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded leading-none ${
-                  role === 'Chính'
-                    ? 'bg-[#FFF200] text-[#003b73]'
-                    : 'bg-sky-500/20 text-sky-300 border border-sky-400/30'
-                }`}
-              >
-                {role}
-              </span>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <span className="mt-1 block text-xs font-bold text-slate-500 italic">
-          Chưa phân công câu lạc bộ
+  <div className="min-w-0 flex-1">
+    {/* Label Header */}
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-slate-400 font-medium tracking-wide">
+        Câu lạc bộ đang phụ trách
+      </span>
+      {responsibleClubs.length > 0 && (
+        <span className="text-[10px] font-mono font-bold text-[#FFF200] bg-[#FFF200]/10 px-2 py-0.5 rounded-full border border-[#FFF200]/20">
+          {responsibleClubs.length} CLB
         </span>
       )}
     </div>
+
+    {/* Clubs Horizontal Layout */}
+    {responsibleClubs.length > 0 ? (
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {responsibleClubs.map(({ club, role }) => (
+          <div
+            key={club.id}
+            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all ${
+              role === 'Chính'
+                ? 'bg-amber-400/10 border-amber-400/30 text-amber-100 shadow-sm'
+                : 'bg-slate-900/80 border-white/10 text-slate-200'
+            }`}
+          >
+            {/* Tên CLB dịu mắt, dễ đọc */}
+            <span className="text-xs font-semibold tracking-normal text-slate-100">
+              {club.name}
+            </span>
+
+            {/* Badge Vai trò */}
+            <span
+              className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-md leading-none tracking-wider ${
+                role === 'Chính'
+                  ? 'bg-[#FFF200] text-[#003b73]'
+                  : 'bg-sky-400/20 text-sky-300 border border-sky-400/30'
+              }`}
+            >
+              {role}
+            </span>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <span className="mt-1 block text-xs font-medium text-slate-500 italic">
+        Chưa phân công câu lạc bộ
+      </span>
+    )}
   </div>
 </div>
+
 
           {/* Experience / Biography */}
           <div className="space-y-3">
