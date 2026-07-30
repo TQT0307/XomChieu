@@ -3047,7 +3047,25 @@ function hasValidRegistrationConfirmation(id: string, token: string) {
   return expected.length === actual.length && timingSafeEqual(expected, actual);
 }
 
+function emailHtmlToPlainText(html: string) {
+  return html
+    .replace(/<br\s*\/?\s*>/gi, "\n")
+    .replace(/<\/(p|div|h1|h2|h3|li)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/gi, "'")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function sendTransactionalEmail(to: string, subject: string, html: string) {
+  const plainText = emailHtmlToPlainText(html);
   const gmailUser = String(process.env.GMAIL_USER || "").trim().toLowerCase();
   const gmailAppPassword = String(process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
   if (gmailUser && gmailAppPassword) {
@@ -3068,6 +3086,9 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
           to,
           subject,
           html,
+          text: plainText,
+          replyTo: gmailUser,
+          envelope: { from: gmailUser, to: [to] },
           disableFileAccess: true,
           disableUrlAccess: true
         }),
@@ -3092,7 +3113,7 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html })
+    body: JSON.stringify({ from, to: [to], subject, html, text: plainText })
   });
   const result: any = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result?.message || "Dịch vụ email từ chối yêu cầu.");
