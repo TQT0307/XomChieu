@@ -27,7 +27,7 @@ export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { 
     type="button"
     onClick={onClose}
     aria-label="Đóng form đăng ký"
-    className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 hover:bg-white/20"
+    className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 hover:bg-white/20 cursor-pointer"
   >
     <X className="h-5 w-5" />
   </button>
@@ -40,9 +40,13 @@ export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { 
   <p className="mt-1.5 text-xs text-blue-100">
     Chọn điểm tập phù hợp và chờ xác nhận qua email.
   </p>
-  <p className="mt-1 text-[11px] text-[#FFF200]/90 italic font-medium">
-    *Lưu ý: Nhớ kiểm tra thư mục spam để tránh bỏ lỡ thông báo.
-  </p>
+  
+  {/* Dòng Lưu Ý Nổi Bật */}
+  <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#FFF200]/15 px-3 py-1.5 border border-[#FFF200]/30 backdrop-blur-sm">
+    <span className="text-xs font-bold text-[#FFF200] leading-tight">
+      ⚠️ <span className="underline decoration-[#FFF200]">Lưu ý:</span> Nhớ kiểm tra thư mục <strong className="uppercase">Spam</strong> để tránh bỏ lỡ thông báo!
+    </span>
+  </div>
 </div>
       <form onSubmit={submit} className="space-y-4 p-5 sm:p-7"><div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <label className="min-w-0 space-y-1.5 text-xs font-black uppercase text-slate-600">Họ và tên <span className="text-rose-500">*</span><span className="relative block"><UserRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input required maxLength={100} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Nguyễn Văn A" className={input}/></span></label>
