@@ -104,7 +104,7 @@ export default function MemberDetailModal({
                 }
               }}
               disabled={!member.photo}
-              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 bg-slate-950 p-1 shadow-xl shadow-blue-950/40 flex-shrink-0 transition-transform ${memberBeltRingClass} ${
+              className={`w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 bg-transparent shadow-xl shadow-blue-950/40 flex-shrink-0 transition-transform ${memberBeltRingClass} ${
                 member.photo ? 'cursor-zoom-in hover:scale-105 active:scale-95' : 'cursor-default'
               }`}
               title={member.photo ? 'Bấm để xem ảnh chi tiết' : undefined}

@@ -21,7 +21,10 @@ test('coach and member details keep a strong avatar ring matching the belt', () 
   assert.match(memberModal, /memberBeltDetails\.beltColor/);
   assert.match(coachModal, /coachBeltRingClass/);
   assert.match(coachModal, /coachBeltDetails\.beltColor/);
-  assert.match(coachModal, /border-4 bg-slate-950/);
+  assert.match(coachModal, /border-4 bg-transparent/);
+  assert.match(memberModal, /border-4 bg-transparent/);
+  assert.doesNotMatch(coachModal, /bg-slate-950 p-1 shadow-xl/);
+  assert.doesNotMatch(memberModal, /bg-slate-950 p-1 shadow-xl/);
   assert.doesNotMatch(coachModal, /from-\[#FFF200\] to-orange-400/);
 });
 
