@@ -636,17 +636,17 @@ export default function UserView({
 
       {/* 1. BANNER TỰ CHUYỂN ĐỘNG */}
       <section
-        className={`relative w-full ${carouselAspectClass} touch-pan-y select-none bg-slate-950 overflow-hidden z-10`}
+        className={`vovinam-banner-stage relative w-full ${carouselAspectClass} touch-pan-y select-none bg-slate-950 overflow-hidden z-10`}
         id="section-hero-carousel"
         onTouchStart={handleBannerTouchStart}
         onTouchEnd={handleBannerTouchEnd}
       >
         {/* Carousel slide track */}
-        <div className="absolute inset-0 transition-all duration-1000 ease-in-out">
+        <div key={banners[safeCurrentBanner]?.id || safeCurrentBanner} className="vovinam-banner-slide absolute inset-0">
           <img 
             src={resolveBannerImage(banners[safeCurrentBanner]?.image)} 
             alt="Vovinam Slide" 
-            className="w-full h-full object-cover opacity-100 transition-opacity duration-1000"
+            className="vovinam-banner-image w-full h-full object-cover opacity-100"
             style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position) }}
             loading="eager"
             decoding="async"
@@ -654,6 +654,7 @@ export default function UserView({
             referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/35"></div>
+          <div className="vovinam-banner-light pointer-events-none absolute inset-0" aria-hidden="true" />
         </div>
 
         {/* Lightweight glass navigation controls keep the photo unobstructed. */}
@@ -661,7 +662,7 @@ export default function UserView({
           type="button"
           onClick={prevBanner}
           aria-label="Xem banner trước"
-          className="group absolute left-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/25 bg-slate-950/15 p-1.5 text-white opacity-45 shadow-[0_8px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm transition duration-300 hover:-translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/75 hover:text-[#FFF200] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
+          className="vovinam-banner-nav group absolute left-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/25 bg-slate-950/15 p-1.5 text-white opacity-45 shadow-[0_8px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm transition duration-300 hover:-translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/75 hover:text-[#FFF200] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
             <ChevronLeft className="h-5 w-5 stroke-[2.6] transition-transform duration-300 group-hover:-translate-x-0.5 sm:h-6 sm:w-6" />
@@ -671,7 +672,7 @@ export default function UserView({
           type="button"
           onClick={nextBanner}
           aria-label="Xem banner tiếp theo"
-          className="group absolute right-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/25 bg-slate-950/15 p-1.5 text-white opacity-45 shadow-[0_8px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm transition duration-300 hover:translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/75 hover:text-[#FFF200] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
+          className="vovinam-banner-nav group absolute right-[clamp(0.65rem,2vw,2rem)] top-1/2 z-20 -translate-y-1/2 cursor-pointer rounded-[1.15rem] border border-white/25 bg-slate-950/15 p-1.5 text-white opacity-45 shadow-[0_8px_24px_rgba(0,0,0,0.16)] backdrop-blur-sm transition duration-300 hover:translate-x-1 hover:border-[#FFF200]/80 hover:bg-[#0054A6]/75 hover:text-[#FFF200] hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FFF200]/50 sm:p-2"
         >
           <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] transition duration-300 group-hover:border-[#FFF200]/35 group-hover:bg-white/15 sm:h-11 sm:w-11">
             <ChevronRight className="h-5 w-5 stroke-[2.6] transition-transform duration-300 group-hover:translate-x-0.5 sm:h-6 sm:w-6" />

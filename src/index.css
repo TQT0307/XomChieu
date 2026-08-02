@@ -473,3 +473,75 @@ select {
   scroll-margin-top: 5.75rem;
   padding-top: clamp(2.25rem, 4vw, 3.25rem);
 }
+/* Lightweight 3D hero motion: compositor-only transforms and opacity. */
+.vovinam-banner-stage {
+  perspective: 1200px;
+  transform-style: preserve-3d;
+  isolation: isolate;
+  box-shadow:
+    0 22px 52px rgba(0, 42, 84, 0.28),
+    inset 0 -2px 0 rgba(255, 242, 0, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.vovinam-banner-slide {
+  transform-origin: center center;
+  transform-style: preserve-3d;
+  animation: vovinam-banner-enter 900ms cubic-bezier(.2,.78,.2,1) both;
+  will-change: transform, opacity;
+}
+
+.vovinam-banner-image {
+  backface-visibility: hidden;
+  animation: vovinam-banner-breathe 3.5s cubic-bezier(.18,.72,.22,1) both;
+  will-change: transform;
+}
+
+.vovinam-banner-light {
+  z-index: 2;
+  opacity: 0;
+  background: linear-gradient(112deg, transparent 22%, rgba(255,255,255,.16) 43%, rgba(255,242,0,.10) 50%, transparent 69%);
+  transform: translate3d(-45%, 0, 22px) skewX(-10deg);
+  animation: vovinam-banner-glint 1.15s 220ms ease-out both;
+  mix-blend-mode: screen;
+}
+
+.vovinam-banner-nav {
+  transform-style: preserve-3d;
+  box-shadow: 0 10px 28px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.22);
+}
+
+.vovinam-banner-nav:active {
+  filter: brightness(.94);
+}
+
+@keyframes vovinam-banner-enter {
+  0% { opacity: .35; transform: translate3d(0, 0, -34px) scale(.985); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes vovinam-banner-breathe {
+  0% { transform: scale(1.035); }
+  100% { transform: scale(1); }
+}
+
+@keyframes vovinam-banner-glint {
+  0% { opacity: 0; transform: translate3d(-45%, 0, 22px) skewX(-10deg); }
+  35% { opacity: .7; }
+  100% { opacity: 0; transform: translate3d(45%, 0, 22px) skewX(-10deg); }
+}
+
+@media (max-width: 639px) {
+  .vovinam-banner-light { opacity: .55; mix-blend-mode: normal; }
+  .vovinam-banner-image { animation-duration: 2.8s; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vovinam-banner-slide,
+  .vovinam-banner-image,
+  .vovinam-banner-light {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1;
+  }
+}

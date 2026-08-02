@@ -25,3 +25,13 @@ test('admin banner preview mirrors the public image-only banner', () => {
   assert.ok(start >= 0 && end > start);
   assert.doesNotMatch(preview, /Content Overlay|from-black\/80|Môn Phái Việt Võ Đạo|Khám phá|Thư viện/);
 });
+test('banner 3D motion stays compositor-only and respects reduced motion', () => {
+  const css = fs.readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
+  assert.match(user, /vovinam-banner-stage/);
+  assert.match(user, /vovinam-banner-slide/);
+  assert.match(user, /vovinam-banner-light/);
+  assert.match(css, /@keyframes vovinam-banner-enter/);
+  assert.match(css, /@keyframes vovinam-banner-glint/);
+  assert.match(css, /prefers-reduced-motion: reduce/);
+  assert.doesNotMatch(css, /WebGLRenderingContext|three\.js/);
+});

@@ -219,13 +219,13 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
           </div>
 
           {/* Right Side: Interactive Google Map (5 cols) */}
-          <div className="md:col-span-5 flex flex-col h-full min-h-[300px]">
+          <div className="md:col-span-5 flex flex-col self-start min-w-0">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
               <MapPin className="w-4 h-4 text-[#0054A6]" />
               Bản đồ địa điểm thi đấu
             </h4>
             
-            <div className="flex-1 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 shadow-inner relative h-[250px] md:h-full">
+            <div className="relative h-[280px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[320px]">
               <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
             </div>
             
