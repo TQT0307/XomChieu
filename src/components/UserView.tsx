@@ -617,7 +617,7 @@ export default function UserView({
     'aspect-[72/25]'; // medium (default)
 
   return (
-    <div className="bg-[#f8fafc] min-h-screen text-slate-800 font-sans selection:bg-[#0054A6]/20" id="vovinam-user-root">
+    <div className="vovinam-dimensional-ui bg-[#f8fafc] min-h-screen text-slate-800 font-sans selection:bg-[#0054A6]/20" id="vovinam-user-root">
       
       {/* Dynamic Background Pattern */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none z-0"></div>
@@ -729,9 +729,9 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               </div>
               
               <div className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans space-y-4">
-               <p className="border-l-4 border-[#0054A6] pl-4 italic">
-  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Vovinam Xóm Chiếu.
-</p>
+                <p className="border-l-4 border-[#0054A6] pl-4 italic">
+                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Quận 4.
+                </p>
                 <p>
                   Tại đây, môn sinh không chỉ được trang bị kỹ năng phòng vệ thực chiến, hệ thống đòn chân tấn công danh tiếng, mà còn được nuôi dưỡng tinh thần dũng cảm, tự tôn dân tộc và lối sống lành mạnh, có ích cho xã hội.
                 </p>
@@ -1569,7 +1569,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               <div 
                 key={coach.id}
                 onClick={() => onSelectCoach(coach)}
-                className="bg-white rounded-[2rem] p-8 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between cursor-pointer"
+                className="vovinam-depth-card bg-white rounded-[2rem] p-8 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between cursor-pointer"
               >
                 <div>
                   {/* Photo with beautiful dual ring indicator */}
@@ -1721,7 +1721,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật Phường Xóm Chiếu.
+              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật Quận 4.
             </p>
           </div>
 
@@ -1774,7 +1774,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                 <div 
                   key={m.id}
                   onClick={() => openMemberDetail(m)}
-                  className="bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
+                  className="vovinam-depth-card bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                 >
                   <div>
                     <div className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden group-hover:scale-105 group-hover:border-[#FFF200] transition-all duration-300 shadow-md">

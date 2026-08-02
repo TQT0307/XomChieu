@@ -95,7 +95,7 @@ test('registration spam protection is shared across serverless instances', () =>
 });
 test('confirmed registration link shows approved status and full form details', () => {
   assert.match(api, /renderConfirmedRegistrationDetails/);
-  assert.match(api, /ĐÃ XÁC NHẬN/);
+  assert.equal((api.match(/✓ ĐÃ XÁC NHẬN/g) || []).length, 0);
   assert.match(api, /Nội dung đăng ký/);
   assert.match(api, /registration\.trainingDays/);
   assert.match(api, /registration\.trainingHours/);

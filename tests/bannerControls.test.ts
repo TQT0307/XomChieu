@@ -17,3 +17,11 @@ test('banner navigation is accessible, lightweight and keeps automatic carousel 
   assert.match(user, /safeCurrentBanner === idx/);
   assert.match(user, /shadow-\[0_0_14px/);
 });
+test('admin banner preview mirrors the public image-only banner', () => {
+  const admin = fs.readFileSync(new URL('../src/components/AdminPanel.tsx', import.meta.url), 'utf8');
+  const start = admin.indexOf('REAL-TIME CAROUSEL MULTI-BANNER LIVE PREVIEW');
+  const end = admin.indexOf('Navigation Arrows for Preview', start);
+  const preview = admin.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.doesNotMatch(preview, /Content Overlay|from-black\/80|Môn Phái Việt Võ Đạo|Khám phá|Thư viện/);
+});

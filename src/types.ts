@@ -130,6 +130,7 @@ export interface Tournament {
   introduction?: string; // Giới thiệu giải đấu
   schedule?: string; // Lịch trình giải đấu
   rules?: string; // Điều lệ giải đấu
+  achievements?: string; // Các thành tích đạt được, mỗi dòng một nội dung
 }
 
 export interface Club {

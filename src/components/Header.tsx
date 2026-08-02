@@ -215,7 +215,7 @@ export default function Header({
   ];
 
   return (
-    <header className="bg-[#0054A6] text-white shadow-xl z-30 sticky top-0 border-b-4 border-[#FFF200]" id="vovinam-header">
+    <header className="vovinam-dimensional-header bg-[#0054A6] text-white shadow-xl z-30 sticky top-0 border-b-4 border-[#FFF200]" id="vovinam-header">
       <div className="mx-auto flex h-20 w-full max-w-[1600px] flex-row items-center gap-2 px-2 sm:px-3 lg:px-4">
         {/* Brand Logo and Name - Left Aligned */}
         <div 

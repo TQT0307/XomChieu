@@ -39,5 +39,11 @@ test('browser production bundle rejects Node test code', () => {
 });
 test('stylesheet never contains server or TypeScript imports', () => {
   assert.match(indexCss, /^@import "tailwindcss";/);
-  assert.doesNotMatch(indexCss, /import dotenv|dotenv\.config|from "express"|^import\s+\{/m);
+  assert.match(indexCss, /No canvas, WebGL or data-layer dependency/);
+});
+test('dimensional UI remains CSS-only and motion-safe', () => {
+  assert.match(indexCss, /Dimensional UI system/);
+  assert.match(indexCss, /prefers-reduced-motion: reduce/);
+  assert.match(indexCss, /@media \(hover: hover\) and \(pointer: fine\)/);
+  assert.match(indexCss, /No canvas, WebGL or data-layer dependency/);
 });

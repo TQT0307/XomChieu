@@ -3262,8 +3262,7 @@ function renderConfirmedRegistrationDetails(registration: any) {
   const reply = registration.replyMessage
     ? `<div style="margin-top:16px;padding:15px;border-left:4px solid #0054A6;border-radius:10px;background:#eff6ff"><b style="color:#0054A6">Phản hồi đã gửi:</b><div style="margin-top:6px;line-height:1.6">${escapeEmailHtml(registration.replyMessage).replace(/\n/g, "<br>")}</div></div>`
     : "";
-  return `<div style="text-align:center"><span style="display:inline-block;padding:8px 15px;border-radius:999px;background:#dcfce7;color:#047857;font-size:13px;font-weight:800">✓ ĐÃ XÁC NHẬN</span></div>
-    <div style="margin-top:18px;padding:18px;border:1px solid #dbeafe;border-radius:15px;background:#f8fafc;line-height:1.65">
+  return `<div style="padding:18px;border:1px solid #dbeafe;border-radius:15px;background:#f8fafc;line-height:1.65">
       <p style="margin:0 0 8px"><b>Họ tên:</b> ${escapeEmailHtml(registration.fullName)}</p>
       <p style="margin:0 0 8px"><b>Email:</b> <a href="mailto:${escapeEmailHtml(registration.email)}" style="color:#0054A6">${escapeEmailHtml(registration.email)}</a></p>
       <p style="margin:0 0 8px"><b>Câu lạc bộ:</b> ${escapeEmailHtml(registration.clubName)}</p>

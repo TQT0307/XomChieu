@@ -64,6 +64,7 @@ export interface Tournament {
   introduction?: string;
   schedule?: string;
   rules?: string;
+  achievements?: string;
 }
 
 export interface Club {

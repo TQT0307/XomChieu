@@ -3764,7 +3764,7 @@ export default function AdminPanel({
                         return (
                           <div className="relative">
                             {/* Drag Tip */}
-                            <div className="absolute top-2 left-2 z-30 bg-black/70 border border-slate-700/60 text-slate-300 text-[9px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-semibold pointer-events-none">
+                            <div className="mb-2 flex w-fit items-center gap-1 rounded-lg border border-slate-700/60 bg-slate-950/80 px-2.5 py-1 text-[10px] font-semibold text-slate-300">
                               <span className="animate-bounce">↕</span>
                               <span>Nhấp & kéo thả trực tiếp trên ảnh để dời tiêu điểm đứng (Y-axis)</span>
                             </div>
@@ -3800,34 +3800,7 @@ export default function AdminPanel({
                                 </div>
                               )}
 
-                              {/* Overlays */}
-                              <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/35 to-black/80 pointer-events-none"></div>
-
-                              {/* Content Overlay */}
-                              <div className="relative z-10 w-full h-full flex flex-col justify-start pt-5 px-4 text-center text-white pointer-events-none">
-                                <div className="inline-flex items-center gap-1 bg-[#0054A6]/95 text-[#FFF200] text-[7.5px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider mb-1.5 border border-[#FFF200]/25 mx-auto">
-                                  <span className="w-1 h-1 rounded-full bg-[#FFF200] animate-ping"></span>
-                                  <span>Môn Phái Việt Võ Đạo</span>
-                                </div>
-                                
-                                <h2 className="text-xs sm:text-sm font-black text-[#FFF200] uppercase tracking-tight italic mb-1 drop-shadow-md">
-                                  {activeBn?.title || "CHƯA NHẬP TIÊU ĐỀ"}
-                                </h2>
-                                <p className="text-[9px] text-slate-100 font-medium leading-tight max-w-xs mx-auto opacity-95 line-clamp-2 drop-shadow">
-                                  {activeBn?.subtitle || "Mô tả phụ cho banner."}
-                                </p>
-
-                                <div className="mt-2.5 flex gap-1.5 justify-center">
-                                  <span className="bg-[#FFF200] text-[#0054A6] px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
-                                    Khám phá
-                                  </span>
-                                  <span className="bg-white/10 text-white border border-white/15 px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider">
-                                    Thư viện
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Dragging Overlay Status */}
+{/* Dragging Overlay Status */}
                               {isDraggingY && (
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center pointer-events-none z-20">
                                   <div className="bg-[#0054A6] text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-wider flex items-center gap-1 border border-[#FFF200]/40 shadow-xl animate-pulse">
@@ -5217,6 +5190,23 @@ export default function AdminPanel({
                           rows={3}
                           placeholder="Nhập quy chế, điều lệ, và yêu cầu đăng ký thi đấu..."
                         />
+                      </div>
+                      <div className="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm">
+                        <label className="mb-1 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-800">
+                          <Trophy className="h-4 w-4 text-amber-600" />
+                          Thành tích đạt được (không bắt buộc)
+                        </label>
+                        <textarea
+                          value={tournamentForm.achievements || ''}
+                          onChange={e => setTournamentForm({ ...tournamentForm, achievements: e.target.value })}
+                          className="w-full rounded-xl border border-amber-200 bg-white p-3 text-sm font-sans outline-none transition focus:border-amber-500 focus:ring-4 focus:ring-amber-100"
+                          rows={4}
+                          maxLength={3000}
+                          placeholder={'Mỗi dòng nhập một thành tích.\nVí dụ: 03 Huy chương Vàng\nGiải Nhất toàn đoàn'}
+                        />
+                        <p className="mt-1 text-[11px] leading-relaxed text-amber-700">
+                          Chỉ hiển thị trong chi tiết giải đấu khi có nội dung.
+                        </p>
                       </div>
                     </div>
                   </div>
