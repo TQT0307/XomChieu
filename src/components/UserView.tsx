@@ -5,7 +5,7 @@ import {
   Info, Newspaper
 } from 'lucide-react';
 import { 
-  Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, compareTournamentsByStatus, getBeltStyle, getNormalizedTournamentStatus
+  Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig, compareTournamentsByStatus, getBeltStyle, getNormalizedTournamentStatus, parseBeltRank
 } from '../types';
 import PersonAvatar from './PersonAvatar';
 import SmartSearchInput from './SmartSearchInput';
@@ -84,6 +84,15 @@ const getBannerObjectPosition = (position?: string) => {
   return `center ${verticalPercent}%`;
 };
 
+const getMemberBeltHoverBorder = (rank: string) => {
+  switch (parseBeltRank(rank).beltColor) {
+    case 'blue': return 'group-hover:border-[#0054A6]';
+    case 'yellow': return 'group-hover:border-[#FFF200]';
+    case 'red': return 'group-hover:border-[#EE1C24]';
+    case 'white': return 'group-hover:border-white';
+    default: return 'group-hover:border-emerald-500';
+  }
+};
 type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'tiktok';
 
 const normalizeSocialUrl = (platform: SocialPlatform, value?: string) => {
@@ -1778,7 +1787,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                   className="vovinam-depth-card bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                 >
                   <div>
-                    <div className="w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden group-hover:scale-105 group-hover:border-[#FFF200] transition-all duration-300 shadow-md">
+                    <div className={`member-avatar-ring w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-white overflow-hidden group-hover:scale-105 transition-all duration-300 shadow-md ${getMemberBeltHoverBorder(m.rank)}`}>
                       <PersonAvatar
                         src={m.photo} 
                         alt={m.fullName} 
@@ -1816,8 +1825,8 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                     </div>
                   </div>
 
-                  <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
-                    Hồ sơ chi tiết →
+                  <div className="mt-4 pt-3 border-t border-slate-100 text-[9px] text-[#0054A6] font-black uppercase tracking-wider group-hover:text-[#FFF200] group-hover:bg-[#0054A6] py-1.5 rounded-xl transition-all duration-300">
+                    Xem chi tiết thành viên →
                   </div>
                 </div>
               ))}
@@ -1852,7 +1861,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                     className="w-[200px] sm:w-[240px] shrink-0 snap-start bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                   >
                     <div>
-                      <div className="w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-[#0054A6]/20 overflow-hidden group-hover:scale-105 group-hover:border-[#FFF200] transition-all duration-300 shadow-md">
+                      <div className={`member-avatar-ring w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-white overflow-hidden group-hover:scale-105 transition-all duration-300 shadow-md ${getMemberBeltHoverBorder(m.rank)}`}>
                         <PersonAvatar
                           src={m.photo} 
                           alt={m.fullName} 
@@ -1890,9 +1899,9 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                       </div>
                     </div>
 
-                    <div className="text-[9px] text-[#0054A6] font-extrabold uppercase mt-3.5 pt-2 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-all duration-300 tracking-wider">
-                      Hồ sơ chi tiết →
-                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-100 text-[9px] text-[#0054A6] font-black uppercase tracking-wider group-hover:text-[#FFF200] group-hover:bg-[#0054A6] py-1.5 rounded-xl transition-all duration-300">
+                    Xem chi tiết thành viên →
+                  </div>
                   </div>
                 ))}
               </div>
