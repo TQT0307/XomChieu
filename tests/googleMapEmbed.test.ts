@@ -7,10 +7,11 @@ const adminSource = readFileSync(new URL('../src/components/AdminPanel.tsx', imp
 const clubSource = readFileSync(new URL('../src/components/ClubDetailModal.tsx', import.meta.url), 'utf8');
 const tournamentSource = readFileSync(new URL('../src/components/TournamentDetailModal.tsx', import.meta.url), 'utf8');
 
-test('exact-coordinate maps render an application pin whose tip is fixed at the center', () => {
+test('all coordinate and place-name maps render an application pin fixed at the center', () => {
   assert.match(mapComponent, /left-1\/2 top-1\/2/);
   assert.match(mapComponent, /-translate-x-1\/2 -translate-y-full/);
-  assert.match(mapComponent, /searchParams\.get\('ll'\)/);
+  assert.match(mapComponent, /data-map-center-pin="true"/);
+  assert.doesNotMatch(mapComponent, /hasExactCenter/);
 });
 
 test('Admin previews and public club/tournament maps share the centered map component', () => {
