@@ -31,6 +31,7 @@ import {
   DetailKind,
   parseDetailHash,
   pushDetailRoute,
+  matchesDetailIdentifier,
 } from './utils/detailRoutes';
 import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
 import { formatBrowserTitle } from './utils/browserTitle';
@@ -734,32 +735,32 @@ export default function App() {
 
   const openArticleDetail = (article: Article) => {
     countedArticleRouteRef.current = `article:${String(article.id)}`;
-    pushDetailRoute('article', article.id);
+    pushDetailRoute('article', article.title);
     handleSelectArticle(article);
   };
 
   const openHighlightDetail = (highlight: Highlight) => {
-    pushDetailRoute('highlight', highlight.id);
+    pushDetailRoute('highlight', highlight.title);
     setSelectedHighlight(highlight);
   };
 
   const openClubDetail = (club: Club) => {
-    pushDetailRoute('club', club.id);
+    pushDetailRoute('club', club.name);
     setSelectedClub(club);
   };
 
   const openTournamentDetail = (tournament: Tournament) => {
-    pushDetailRoute('tournament', tournament.id);
+    pushDetailRoute('tournament', tournament.name);
     setSelectedTournament(tournament);
   };
 
   const openAchievementDetail = (achievement: Achievement) => {
-    pushDetailRoute('achievement', achievement.id);
+    pushDetailRoute('achievement', achievement.title);
     setSelectedAchievement(achievement);
   };
 
   const openCoachDetail = (coach: Coach) => {
-    pushDetailRoute('coach', coach.id);
+    pushDetailRoute('coach', coach.fullName);
     setSelectedCoach(coach);
   };
 
@@ -799,7 +800,7 @@ export default function App() {
       switch (route.kind) {
         case 'article': {
           const article = articles.find(
-            item => String(item.id) === route.id && item.status !== false
+            item => matchesDetailIdentifier(route.id, item.id, item.title) && item.status !== false
           );
           const routeKey = `article:${route.id}`;
           if (article && countedArticleRouteRef.current !== routeKey) {
@@ -810,27 +811,27 @@ export default function App() {
         }
         case 'highlight':
           setSelectedHighlight(
-            highlights.find(item => String(item.id) === route.id && item.status !== false) || null
+            highlights.find(item => matchesDetailIdentifier(route.id, item.id, item.title) && item.status !== false) || null
           );
           break;
         case 'club':
           setSelectedClub(
-            clubs.find(item => String(item.id) === route.id && item.status !== false) || null
+            clubs.find(item => matchesDetailIdentifier(route.id, item.id, item.name) && item.status !== false) || null
           );
           break;
         case 'coach':
           setSelectedCoach(
-            coaches.find(item => String(item.id) === route.id && item.status !== false) || null
+            coaches.find(item => matchesDetailIdentifier(route.id, item.id, item.fullName) && item.status !== false) || null
           );
           break;
         case 'tournament':
           setSelectedTournament(
-            tournaments.find(item => String(item.id) === route.id) || null
+            tournaments.find(item => matchesDetailIdentifier(route.id, item.id, item.name)) || null
           );
           break;
         case 'achievement':
           setSelectedAchievement(
-            achievements.find(item => String(item.id) === route.id && item.status !== false) || null
+            achievements.find(item => matchesDetailIdentifier(route.id, item.id, item.title) && item.status !== false) || null
           );
           break;
         case 'member':

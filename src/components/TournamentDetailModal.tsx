@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, MapPin, ShieldCheck, Award, Info, BookOpen, Trophy, Sparkles } from 'lucide-react';
+import { X, Calendar, MapPin, ShieldCheck, Info, BookOpen, Trophy, Sparkles } from 'lucide-react';
 import { Tournament, getNormalizedTournamentStatus } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
@@ -53,7 +53,6 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
           'Đóng lệ phí thi đầy đủ trước ngày thi.',
           'Tôn trọng giám khảo và giữ gìn trật tự chung.'
         ],
-        prizes: 'Môn sinh đạt yêu cầu sẽ được trao chứng nhận nâng đai chính quy của Tổng cuộc Vovinam Việt Võ Đạo Việt Nam, kèm đai mới.'
       };
     }
     
@@ -71,7 +70,6 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         'Tuyệt đối tuân thủ quyết định của Tổ trọng tài.',
         'Nghiêm cấm các hành vi phi thể thao hoặc sử dụng chất kích thích.'
       ],
-      prizes: 'Huy chương Vàng, Bạc, Đồng cho các nội dung tương ứng; Cờ lưu niệm và giải thưởng tiền mặt cho đoàn đạt thành tích xuất sắc nhất.'
     };
   };
 
@@ -217,16 +215,6 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 </ul>
               </section>
             )}
-            {/* Prizes / Certification */}
-            <div>
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
-                <Award className="w-4 h-4 text-[#0054A6]" />
-                Cơ cấu giải thưởng & Chứng nhận
-              </h4>
-              <p className="text-xs text-slate-600 leading-relaxed font-semibold bg-yellow-50 p-3 rounded-xl border border-yellow-200">
-                {details.prizes}
-              </p>
-            </div>
 
           </div>
 

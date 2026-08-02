@@ -15,7 +15,7 @@ import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
 import { articleContentToPlainText } from '../utils/articleContent';
-import { closeDetailRoute, parseDetailHash, pushDetailRoute } from '../utils/detailRoutes';
+import { closeDetailRoute, matchesDetailIdentifier, parseDetailHash, pushDetailRoute } from '../utils/detailRoutes';
 import {
   compareLatestNewsByExpiry,
   getLatestNewsExpiryMs,
@@ -192,7 +192,7 @@ export default function UserView({
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
   const openMemberDetail = (member: Member) => {
-    pushDetailRoute('member', member.id);
+    pushDetailRoute('member', member.fullName);
     setSelectedMember(member);
   };
 
@@ -209,7 +209,7 @@ export default function UserView({
         return;
       }
 
-      const member = members.find(item => String(item.id) === detailRoute.id) || null;
+      const member = members.find(item => matchesDetailIdentifier(detailRoute.id, item.id, item.fullName)) || null;
       setSelectedMember(current =>
         current && member && String(current.id) === String(member.id) ? current : member
       );

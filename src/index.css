@@ -461,3 +461,15 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+/* Keep anchored section headings close to the sticky header without changing data/layout flow. */
+#section-news,
+#section-tournaments,
+#section-highlights,
+#section-achievements,
+#section-coaches,
+#section-members,
+#section-clubs,
+#section-contact {
+  scroll-margin-top: 5.75rem;
+  padding-top: clamp(2.25rem, 4vw, 3.25rem);
+}
