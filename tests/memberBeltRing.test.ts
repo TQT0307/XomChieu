@@ -3,21 +3,26 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const user = fs.readFileSync(new URL('../src/components/UserView.tsx', import.meta.url), 'utf8');
-const modal = fs.readFileSync(new URL('../src/components/MemberDetailModal.tsx', import.meta.url), 'utf8');
+const memberModal = fs.readFileSync(new URL('../src/components/MemberDetailModal.tsx', import.meta.url), 'utf8');
+const coachModal = fs.readFileSync(new URL('../src/components/CoachDetailModal.tsx', import.meta.url), 'utf8');
 
-test('member cards use a white idle ring and belt-colored hover ring in both layouts', () => {
+test('coach and member cards use a faint belt ring that becomes clear on hover', () => {
+  assert.equal((user.match(/coach-avatar-ring/g) || []).length, 2);
   assert.equal((user.match(/member-avatar-ring/g) || []).length, 2);
-  assert.match(user, /border-2 border-white/);
-  assert.match(user, /getMemberBeltHoverBorder\(m\.rank\)/);
-  assert.match(user, /group-hover:border-\[#0054A6\]/);
-  assert.match(user, /group-hover:border-\[#FFF200\]/);
-  assert.match(user, /group-hover:border-\[#EE1C24\]/);
+  assert.equal((user.match(/getBeltAvatarRingClass\((?:coach|m)\.rank\)/g) || []).length, 4);
+  assert.match(user, /border-\[#0054A6\]\/35 group-hover:border-\[#0054A6\]/);
+  assert.match(user, /border-\[#FFF200\]\/40 group-hover:border-\[#FFF200\]/);
+  assert.match(user, /border-\[#EE1C24\]\/35 group-hover:border-\[#EE1C24\]/);
+  assert.doesNotMatch(user, /getMemberBeltHoverBorder/);
 });
 
-test('member detail keeps the avatar ring in the member belt color', () => {
-  assert.match(modal, /memberBeltRingClass/);
-  assert.match(modal, /border-4/);
-  assert.match(modal, /memberBeltDetails\.beltColor/);
+test('coach and member details keep a strong avatar ring matching the belt', () => {
+  assert.match(memberModal, /memberBeltRingClass/);
+  assert.match(memberModal, /memberBeltDetails\.beltColor/);
+  assert.match(coachModal, /coachBeltRingClass/);
+  assert.match(coachModal, /coachBeltDetails\.beltColor/);
+  assert.match(coachModal, /border-4 bg-slate-950/);
+  assert.doesNotMatch(coachModal, /from-\[#FFF200\] to-orange-400/);
 });
 
 test('member cards expose the same persistent detail action style as coach cards', () => {

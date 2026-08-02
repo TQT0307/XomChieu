@@ -84,13 +84,13 @@ const getBannerObjectPosition = (position?: string) => {
   return `center ${verticalPercent}%`;
 };
 
-const getMemberBeltHoverBorder = (rank: string) => {
+const getBeltAvatarRingClass = (rank: string) => {
   switch (parseBeltRank(rank).beltColor) {
-    case 'blue': return 'group-hover:border-[#0054A6]';
-    case 'yellow': return 'group-hover:border-[#FFF200]';
-    case 'red': return 'group-hover:border-[#EE1C24]';
-    case 'white': return 'group-hover:border-white';
-    default: return 'group-hover:border-emerald-500';
+    case 'blue': return 'border-[#0054A6]/35 group-hover:border-[#0054A6] group-hover:shadow-[0_0_0_4px_rgba(0,84,166,0.14)]';
+    case 'yellow': return 'border-[#FFF200]/40 group-hover:border-[#FFF200] group-hover:shadow-[0_0_0_4px_rgba(255,242,0,0.16)]';
+    case 'red': return 'border-[#EE1C24]/35 group-hover:border-[#EE1C24] group-hover:shadow-[0_0_0_4px_rgba(238,28,36,0.14)]';
+    case 'white': return 'border-slate-300/70 group-hover:border-white group-hover:shadow-[0_0_0_4px_rgba(255,255,255,0.32)]';
+    default: return 'border-emerald-500/35 group-hover:border-emerald-500 group-hover:shadow-[0_0_0_4px_rgba(16,185,129,0.14)]';
   }
 };
 type SocialPlatform = 'facebook' | 'instagram' | 'threads' | 'tiktok';
@@ -1583,7 +1583,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               >
                 <div>
                   {/* Photo with beautiful dual ring indicator */}
-                  <div className="w-32 h-32 mx-auto rounded-full overflow-hidden p-1.5 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-xl relative group-hover:scale-105 transition-transform duration-300">
+                  <div className={`coach-avatar-ring w-32 h-32 mx-auto rounded-full overflow-hidden p-1.5 bg-white/90 border-[3px] shadow-xl relative group-hover:scale-105 transition-all duration-300 ${getBeltAvatarRingClass(coach.rank)}`}>
                     <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
                       <PersonAvatar
                         src={coach.photo} 
@@ -1664,7 +1664,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                 >
                   <div>
                     {/* Photo with beautiful dual ring indicator */}
-                    <div className="w-28 h-28 mx-auto rounded-full overflow-hidden p-1 bg-gradient-to-tr from-[#0054A6] to-[#FFF200] shadow-md relative group-hover:scale-105 transition-transform duration-300">
+                    <div className={`coach-avatar-ring w-28 h-28 mx-auto rounded-full overflow-hidden p-1 bg-white/90 border-[3px] shadow-md relative group-hover:scale-105 transition-all duration-300 ${getBeltAvatarRingClass(coach.rank)}`}>
                       <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 border border-white">
                         <PersonAvatar
                           src={coach.photo} 
@@ -1787,7 +1787,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                   className="vovinam-depth-card bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                 >
                   <div>
-                    <div className={`member-avatar-ring w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-2 border-white overflow-hidden group-hover:scale-105 transition-all duration-300 shadow-md ${getMemberBeltHoverBorder(m.rank)}`}>
+                    <div className={`member-avatar-ring w-24 h-24 mx-auto rounded-full p-1 bg-slate-50 border-[3px] overflow-hidden group-hover:scale-105 transition-all duration-300 shadow-md ${getBeltAvatarRingClass(m.rank)}`}>
                       <PersonAvatar
                         src={m.photo} 
                         alt={m.fullName} 
@@ -1861,7 +1861,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                     className="w-[200px] sm:w-[240px] shrink-0 snap-start bg-white rounded-3xl p-6 border border-slate-150 shadow-sm text-center hover:shadow-xl hover:border-[#0054A6]/20 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer group flex flex-col justify-between min-h-[260px]"
                   >
                     <div>
-                      <div className={`member-avatar-ring w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-2 border-white overflow-hidden group-hover:scale-105 transition-all duration-300 shadow-md ${getMemberBeltHoverBorder(m.rank)}`}>
+                      <div className={`member-avatar-ring w-20 h-20 mx-auto rounded-full p-1 bg-slate-50 border-[3px] overflow-hidden group-hover:scale-105 transition-all duration-300 shadow-md ${getBeltAvatarRingClass(m.rank)}`}>
                         <PersonAvatar
                           src={m.photo} 
                           alt={m.fullName} 
