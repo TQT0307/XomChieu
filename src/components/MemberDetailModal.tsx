@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Award, Calendar, User, ShieldCheck, MapPin, Trophy, Star } from 'lucide-react';
-import { Member, Achievement, Club, getBeltStyle, parseBeltRank } from '../types';
+import { X, Calendar, User, ShieldCheck, MapPin, Trophy } from 'lucide-react';
+import { Member, Achievement, Club, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
 import PersonPhotoLightbox from './PersonPhotoLightbox';
 import useModalScrollLock from '../hooks/useModalScrollLock';
@@ -201,28 +201,8 @@ export default function MemberDetailModal({
         {/* Modal Body */}
         <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 overflow-y-auto space-y-6">
           
-          {/* Quick Profile Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">
-              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Trình độ võ thuật</span>
-              {(() => {
-                const style = getBeltStyle(member.rank);
-                return (
-                  <div className="flex items-center gap-2.5">
-                    <div className={`p-2 rounded-xl border ${style.bgClass} ${style.borderClass} ${style.textClass}`}>
-                      <Star className="w-4 h-4 fill-current" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 block font-bold">Đẳng cấp (Đai):</span>
-                      <strong className={`text-xs px-2.5 py-0.5 rounded border font-black uppercase tracking-wide inline-block mt-0.5 ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
-                        {member.rank}
-                      </strong>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
+          {/* Member club */}
+          <div>
             <div className="bg-slate-950/40 p-4 rounded-2xl border border-white/5 space-y-2.5">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Nơi sinh hoạt</span>
               <div className="flex items-center gap-2.5">

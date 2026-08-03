@@ -33,3 +33,8 @@ test('member cards expose the same persistent detail action style as coach cards
   assert.match(user, /group-hover:text-\[#FFF200\] group-hover:bg-\[#0054A6\]/);
   assert.doesNotMatch(user, /Hồ sơ chi tiết →/);
 });
+test('member detail omits the redundant martial belt summary card', () => {
+  assert.doesNotMatch(memberModal, /Trình độ võ thuật/);
+  assert.doesNotMatch(memberModal, /Đẳng cấp \(Đai\)/);
+  assert.doesNotMatch(memberModal, /getBeltStyle/);
+});
