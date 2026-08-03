@@ -49,6 +49,7 @@
   test('tournament achievements stay below the fixed map while only article content scrolls on desktop', () => {
     assert.match(modal, /md:overflow-hidden grid grid-cols-1 md:grid-cols-12/);
     assert.match(modal, /md:col-span-7[^"\n]*md:overflow-y-auto/);
+    assert.match(modal, /detail-scrollbar relative min-h-0 space-y-2\.5 md:overflow-y-auto/);
     assert.match(modal, /Fixed achieved results below the map/);
     const mapPosition = modal.indexOf('Bản đồ định vị tự động theo địa điểm thi đấu');
     const achievementPosition = modal.indexOf('Fixed achieved results below the map');

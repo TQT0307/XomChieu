@@ -227,7 +227,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
             </p>
             {/* Fixed achieved results below the map: legacy tournaments stay unchanged when empty. */}
             {achievedResults.length > 0 && (
-              <section className="relative mt-4 overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)]">
+              <section className="relative mt-4 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)] md:flex-1">
                 <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
                 <h4 className="relative mb-3 flex items-center gap-2 border-b border-amber-200 pb-2 text-xs font-black uppercase tracking-wider text-amber-900">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-yellow-500 text-amber-950 shadow-[0_7px_0_#b45309,0_11px_20px_rgba(180,83,9,0.22)]">
@@ -236,7 +236,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                   Thành tích đạt được
                   <Sparkles className="ml-auto h-4 w-4 text-amber-500" />
                 </h4>
-                <ul className="relative space-y-2.5">
+                <ul className="detail-scrollbar relative min-h-0 space-y-2.5 md:overflow-y-auto md:pr-1">
                   {achievedResults.map((achievement, index) => {
                     const medalTheme = getAchievementMedalTheme(achievement);
                     return (
