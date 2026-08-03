@@ -24,6 +24,10 @@
     assert.match(modal, /Huy chương Vàng/);
     assert.match(modal, /Huy chương Bạc/);
     assert.match(modal, /Huy chương Đồng/);
-    assert.match(modal, /<Medal className="h-5 w-5"/);
+    assert.match(modal, /emoji: '🥇'/);
+    assert.match(modal, /emoji: '🥈'/);
+    assert.match(modal, /emoji: '🥉'/);
+    assert.match(modal, /replace\(\/đ\/g, 'd'\)/);
+    assert.match(modal, /medalTheme\.emoji/);
     assert.doesNotMatch(modal, /\{index \+ 1\}/);
   });
