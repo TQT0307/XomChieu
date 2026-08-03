@@ -146,10 +146,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         </div>
 
         {/* Content Tabs/Details */}
-        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 p-6 sm:p-8 overflow-y-auto grid grid-cols-1 md:grid-cols-12 gap-8">
+        <div className="modal-scroll-region min-h-0 flex-1 overflow-y-auto p-6 sm:p-8 md:overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-8">
           
           {/* Left Side: Information details (8 cols) */}
-          <div className="md:col-span-7 space-y-6">
+          <div className="detail-scrollbar md:col-span-7 space-y-6 md:min-h-0 md:overflow-y-auto md:pr-3">
             
             {/* Quick meta section */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
@@ -207,9 +207,27 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
               </p>
             </div>
 
-            {/* Optional achieved results: legacy tournaments stay unchanged when empty. */}
+
+
+          </div>
+
+          {/* Right Side: Interactive Google Map (5 cols) */}
+          <div className="md:col-span-5 flex min-w-0 flex-col self-start md:h-full md:min-h-0">
+            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
+              <MapPin className="w-4 h-4 text-[#0054A6]" />
+              Bản đồ địa điểm thi đấu
+            </h4>
+            
+            <div className="relative h-[220px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[240px]">
+              <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
+            </div>
+            
+            <p className="text-[10px] text-slate-400 mt-2 text-center italic font-semibold">
+              Bản đồ định vị tự động theo địa điểm thi đấu
+            </p>
+            {/* Fixed achieved results below the map: legacy tournaments stay unchanged when empty. */}
             {achievedResults.length > 0 && (
-              <section className="relative overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)]">
+              <section className="relative mt-4 overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)]">
                 <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
                 <h4 className="relative mb-3 flex items-center gap-2 border-b border-amber-200 pb-2 text-xs font-black uppercase tracking-wider text-amber-900">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-yellow-500 text-amber-950 shadow-[0_7px_0_#b45309,0_11px_20px_rgba(180,83,9,0.22)]">
@@ -234,22 +252,6 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
               </section>
             )}
 
-          </div>
-
-          {/* Right Side: Interactive Google Map (5 cols) */}
-          <div className="md:col-span-5 flex flex-col self-start min-w-0">
-            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
-              <MapPin className="w-4 h-4 text-[#0054A6]" />
-              Bản đồ địa điểm thi đấu
-            </h4>
-            
-            <div className="relative h-[280px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[320px]">
-              <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
-            </div>
-            
-            <p className="text-[10px] text-slate-400 mt-2 text-center italic font-semibold">
-              Bản đồ định vị tự động theo địa điểm thi đấu
-            </p>
           </div>
 
         </div>
