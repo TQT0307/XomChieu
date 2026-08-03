@@ -234,7 +234,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                     <Trophy className="h-4 w-4" />
                   </span>
                   Thành tích đạt được
-                  <Sparkles className="ml-auto h-4 w-4 text-amber-500" />
+                  <span className="ml-auto whitespace-nowrap rounded-full border border-amber-300 bg-amber-100 px-2 py-1 text-[10px] font-black normal-case tracking-normal text-amber-900 shadow-sm">
+                    {achievedResults.length} thành tích
+                  </span>
+                  <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
                 </h4>
                 <ul className="detail-scrollbar relative min-h-0 space-y-2.5 md:overflow-y-auto md:pr-1">
                   {achievedResults.map((achievement, index) => {
@@ -249,6 +252,12 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                     );
                   })}
                 </ul>
+                {achievedResults.length > 1 && (
+                  <p className="mt-2 flex shrink-0 items-center justify-center gap-1 text-[10px] font-bold text-amber-700">
+                    <span aria-hidden="true">↕</span>
+                    Cuộn để xem đủ {achievedResults.length} thành tích
+                  </p>
+                )}
               </section>
             )}
 

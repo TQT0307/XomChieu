@@ -18,6 +18,8 @@
     assert.match(modal, /achievedResults\.length > 0/);
     assert.match(modal, /achievedResults\.map/);
     assert.match(modal, /Thành tích đạt được/);
+    assert.match(modal, /\{achievedResults\.length\} thành tích/);
+    assert.match(modal, /Cuộn để xem đủ \{achievedResults\.length\} thành tích/);
   });
   test('achievement medals use gold, silver and bronze icons based on their text', () => {
     assert.match(modal, /getAchievementMedalTheme/);
