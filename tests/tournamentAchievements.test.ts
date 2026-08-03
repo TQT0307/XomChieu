@@ -54,7 +54,7 @@
     assert.equal((modal.match(/rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4/g) || []).length, 4);
     assert.match(modal, /sm:text-\[15px\]/);
     assert.match(modal, /foregroundAspectRatio="16:9"/);
-    assert.match(modal, /h-\[clamp\(240px,38vw,380px\)\]/);
+    assert.match(modal, /h-\[clamp\(220px,34vw,340px\)\]/);
     assert.match(modal, /md:col-span-5[^"\n]*gap-4/);
     assert.match(modal, /md:min-h-\[205px\] md:flex-\[2\]/);
   });

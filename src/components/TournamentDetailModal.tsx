@@ -120,7 +120,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
       <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-white/80 bg-slate-50 text-slate-800 shadow-[0_30px_90px_rgba(15,23,42,0.38)] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
-        <div className="relative h-[clamp(240px,38vw,380px)] w-full flex-shrink-0 overflow-hidden bg-slate-950">
+        <div className="relative h-[clamp(220px,34vw,340px)] w-full flex-shrink-0 overflow-hidden bg-slate-950">
           <DetailHeroImage
             src={tournament.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80'}
             alt={tournament.name}
