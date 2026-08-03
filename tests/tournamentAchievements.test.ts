@@ -51,10 +51,11 @@
   test('tournament detail uses a readable responsive card layout', () => {
     assert.match(modal, /max-w-5xl/);
     assert.match(modal, /grid-cols-1 md:grid-cols-12/);
-    assert.equal((modal.match(/rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5/g) || []).length, 4);
+    assert.equal((modal.match(/rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4/g) || []).length, 4);
     assert.match(modal, /sm:text-\[15px\]/);
     assert.match(modal, /foregroundAspectRatio="16:9"/);
     assert.match(modal, /md:col-span-5[^"\n]*gap-4/);
+    assert.match(modal, /md:min-h-\[205px\] md:flex-\[2\]/);
   });
   test('tournament achievements stay above the compact map while only article content scrolls on desktop', () => {
     assert.match(modal, /md:overflow-hidden grid grid-cols-1 md:grid-cols-12/);

@@ -35,7 +35,7 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
       <div className="modal-scroll-region detail-scrollbar relative z-10 bg-white rounded-3xl max-w-3xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
-        <div className="relative h-[clamp(220px,42dvh,420px)] w-full overflow-hidden bg-slate-950">
+        <div className="relative h-[clamp(200px,36dvh,360px)] w-full overflow-hidden bg-slate-950">
           <DetailHeroImage
             src={article.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'}
             alt={article.title}

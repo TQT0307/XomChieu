@@ -42,10 +42,8 @@ export default function DetailHeroImage({
     <>
       <div className="pointer-events-none absolute inset-0 bg-slate-950" aria-hidden="true" />
       {foregroundAspectRatio === '16:9' ? (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="relative aspect-video h-full max-h-full max-w-full overflow-hidden">
-            {foregroundImage}
-          </div>
+        <div className="relative h-full w-full overflow-hidden">
+          {foregroundImage}
         </div>
       ) : (
         <div className="relative h-full w-full">
