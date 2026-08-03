@@ -167,6 +167,7 @@ export interface BannerConfig {
   title: string;
   subtitle: string;
   position: string; // e.g. "object-[center_70%]"
+  zoom?: number; // 100-180, legacy banners default to 100
 }
 
 export interface WebConfig {

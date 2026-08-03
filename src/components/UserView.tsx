@@ -657,7 +657,7 @@ export default function UserView({
             src={resolveBannerImage(banners[safeCurrentBanner]?.image)} 
             alt="Vovinam Slide" 
             className="vovinam-banner-image w-full h-full object-cover opacity-100"
-            style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position) }}
+            style={{ objectPosition: getBannerObjectPosition(banners[safeCurrentBanner]?.position), transform: `scale(${Math.min(180, Math.max(100, banners[safeCurrentBanner]?.zoom || 100)) / 100})` }}
             loading="eager"
             decoding="async"
             fetchPriority="high"

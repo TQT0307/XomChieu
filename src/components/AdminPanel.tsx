@@ -4,7 +4,7 @@ import {
   Plus, Edit2, Trash2, Save, X, CheckCircle2, ShieldAlert,
   Shield, History, Key, LogOut, Lock, ShieldCheck, Swords,
   User, Eye, EyeOff, ClipboardList, Info, Check, UserCheck,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, ZoomIn, ZoomOut
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig,
@@ -347,6 +347,13 @@ function ImageInput({
     };
   };
 
+  const updateEditorZoom = (requestedZoom: number) => {
+    const nextZoom = Math.round(clampNumber(requestedZoom, 100, qualityMaxZoom));
+    const nextPan = clampPan(panX, panY, nextZoom);
+    setZoom(nextZoom);
+    setPanX(nextPan.x);
+    setPanY(nextPan.y);
+  };
   useEffect(() => {
     if (zoom <= qualityMaxZoom) return;
     setZoom(qualityMaxZoom);
@@ -652,6 +659,11 @@ function ImageInput({
                   <div 
                     onMouseDown={handleMouseDown}
                     onTouchStart={handleTouchStart}
+                    onWheel={event => {
+                      if (!isCropMode) return;
+                      event.preventDefault();
+                      updateEditorZoom(zoom + (event.deltaY < 0 ? 5 : -5));
+                    }}
                     className={`relative overflow-hidden border-2 border-dashed border-[#FFF200]/50 shadow-2xl bg-slate-900 select-none ${
                       isCropMode ? 'cursor-move' : 'cursor-default'
                     } ${
@@ -765,20 +777,12 @@ function ImageInput({
                       Mặc định
                     </button>
                   </div>
-                  <input
-                    type="range"
-                    min="100"
-                    max={qualityMaxZoom}
-                    value={zoom}
-                    onChange={e => {
-                      const nextZoom = Math.max(100, parseInt(e.target.value));
-                      const nextPan = clampPan(panX, panY, nextZoom);
-                      setZoom(nextZoom);
-                      setPanX(nextPan.x);
-                      setPanY(nextPan.y);
-                    }}
-                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-[#FFF200]"
-                  />
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => updateEditorZoom(zoom - 5)} disabled={zoom <= 100} className="rounded-lg border border-white/10 bg-slate-800 p-1.5 text-[#FFF200] transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Thu nhỏ ảnh"><ZoomOut className="h-4 w-4" /></button>
+                    <input type="range" min="100" max={qualityMaxZoom} value={zoom} onChange={e => updateEditorZoom(parseInt(e.target.value))} className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-800 accent-[#FFF200]" />
+                    <button type="button" onClick={() => updateEditorZoom(zoom + 5)} disabled={zoom >= qualityMaxZoom} className="rounded-lg border border-white/10 bg-slate-800 p-1.5 text-[#FFF200] transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Phóng to ảnh"><ZoomIn className="h-4 w-4" /></button>
+                  </div>
+                  <p className="mt-1.5 text-[9px] text-slate-500">Dùng thanh trượt, nút −/+ hoặc con lăn chuột trực tiếp trên ảnh.</p>
                   {sourceDimensions && (
                     <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[9px] font-semibold leading-relaxed ${
                       qualityMaxZoom <= 100
@@ -1201,7 +1205,8 @@ export default function AdminPanel({
     image: '',
     title: '',
     subtitle: '',
-    alignmentPct: 50
+    alignmentPct: 50,
+    zoomPct: 100
   });
   const [isAddingBanner, setIsAddingBanner] = useState(false);
   const [previewBannerIndex, setPreviewBannerIndex] = useState(0);
@@ -3649,8 +3654,9 @@ export default function AdminPanel({
                           image: '',
                           title: '',
                           subtitle: '',
-                          alignmentPct: 50
-                        });
+                          alignmentPct: 50,
+    zoomPct: 100
+  });
                       }}
                       className="flex items-center gap-1.5 bg-[#0054A6]/10 hover:bg-[#0054A6]/20 text-[#0054A6] text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer"
                     >
@@ -3791,7 +3797,7 @@ export default function AdminPanel({
                                   src={resolveAdminBannerImage(activeBn.image)}
                                   alt="Preview Slide"
                                   className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-all duration-150"
-                                  style={{ objectPosition: `center ${alignment}%` }}
+                                  style={{ objectPosition: `center ${alignment}%`, transform: `scale(${Math.min(180, Math.max(100, activeBn?.zoom || 100)) / 100})` }}
                                   referrerPolicy="no-referrer"
                                 />
                               ) : (
@@ -3977,7 +3983,19 @@ export default function AdminPanel({
                           </div>
                         </div>
 
-                        {/* Right Side: LIVE PREVIEW SINGLE */}
+
+                          <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3">
+                            <div className="mb-2 flex items-center justify-between">
+                              <label className="text-[11px] font-bold uppercase text-slate-600">Phóng to ảnh</label>
+                              <span className="rounded-full bg-[#0054A6] px-2 py-0.5 text-[10px] font-black text-white">{bannerForm.zoomPct}%</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => setBannerForm({ ...bannerForm, zoomPct: Math.max(100, bannerForm.zoomPct - 5) })} disabled={bannerForm.zoomPct <= 100} className="rounded-lg border border-blue-200 bg-white p-1.5 text-[#0054A6] disabled:opacity-35" aria-label="Thu nhỏ ảnh"><ZoomOut className="h-4 w-4" /></button>
+                              <input type="range" min="100" max="180" step="1" value={bannerForm.zoomPct} onChange={e => setBannerForm({ ...bannerForm, zoomPct: parseInt(e.target.value) })} className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-blue-200 accent-[#0054A6]" />
+                              <button type="button" onClick={() => setBannerForm({ ...bannerForm, zoomPct: Math.min(180, bannerForm.zoomPct + 5) })} disabled={bannerForm.zoomPct >= 180} className="rounded-lg border border-blue-200 bg-white p-1.5 text-[#0054A6] disabled:opacity-35" aria-label="Phóng to ảnh"><ZoomIn className="h-4 w-4" /></button>
+                            </div>
+                            <p className="mt-1.5 text-[10px] text-slate-500">Phóng to từ 100% đến 180%. Xem trước bên phải cập nhật tức thời.</p>
+                          </div>                        {/* Right Side: LIVE PREVIEW SINGLE */}
                         <div className="flex flex-col h-full">
                           <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1 flex items-center gap-1">
                             <Eye className="w-3.5 h-3.5 text-[#0054A6]" />
@@ -3990,7 +4008,7 @@ export default function AdminPanel({
                                 src={resolveAdminBannerImage(bannerForm.image)}
                                 alt="Single Preview Background"
                                 className="absolute inset-0 w-full h-full object-cover"
-                                style={{ objectPosition: `center ${bannerForm.alignmentPct}%` }}
+                                style={{ objectPosition: `center ${bannerForm.alignmentPct}%`, transform: `scale(${bannerForm.zoomPct / 100})` }}
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
@@ -4040,7 +4058,8 @@ export default function AdminPanel({
                               image: bannerForm.image,
                               title: bannerForm.title || 'Tiêu Đề Banner',
                               subtitle: bannerForm.subtitle || '',
-                              position: `object-[center_${bannerForm.alignmentPct}%]`
+                              position: `object-[center_${bannerForm.alignmentPct}%]`,
+                              zoom: bannerForm.zoomPct
                             };
 
                             if (editingBannerId) {
@@ -4094,7 +4113,7 @@ export default function AdminPanel({
                                     src={resolveAdminBannerImage(banner.image)}
                                     alt="Thumbnail"
                                     className="w-full h-full object-cover"
-                                    style={{ objectPosition: `center ${pct}%` }}
+                                    style={{ objectPosition: `center ${pct}%`, transform: `scale(${Math.min(180, Math.max(100, banner.zoom || 100)) / 100})` }}
                                     referrerPolicy="no-referrer"
                                   />
                                   <div className="absolute inset-0 bg-black/10"></div>
@@ -4108,7 +4127,7 @@ export default function AdminPanel({
                                     {banner.subtitle || "Không có mô tả phụ"}
                                   </p>
                                   <span className="inline-block text-[9px] font-bold text-[#0054A6] bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5 mt-1">
-                                    Căn dọc: {pct}%
+                                    Căn dọc: {pct}% • Zoom: {Math.min(180, Math.max(100, banner.zoom || 100))}%
                                   </span>
                                 </div>
                               </div>
@@ -4158,7 +4177,8 @@ export default function AdminPanel({
                                       image: banner.image,
                                       title: banner.title,
                                       subtitle: banner.subtitle,
-                                      alignmentPct: pct
+                                      alignmentPct: pct,
+                                      zoomPct: Math.min(180, Math.max(100, banner.zoom || 100))
                                     });
                                   }}
                                   className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:text-[#0054A6] hover:bg-[#0054A6]/5 transition-colors cursor-pointer"

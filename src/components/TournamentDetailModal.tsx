@@ -213,19 +213,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
 
           {/* Right Side: Interactive Google Map (5 cols) */}
           <div className="md:col-span-5 flex min-w-0 flex-col self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:h-full md:min-h-0 sm:p-5">
-            <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
-              <MapPin className="w-4 h-4 text-[#0054A6]" />
-              Bản đồ địa điểm thi đấu
-            </h4>
-            
-            <div className="relative h-[210px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[230px] lg:h-[250px]">
-              <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
-            </div>
-            
-            <p className="mt-2 text-center text-[11px] font-semibold italic text-slate-500">
-              Bản đồ định vị tự động theo địa điểm thi đấu
-            </p>
-            {/* Fixed achieved results below the map: legacy tournaments stay unchanged when empty. */}
+            {/* Fixed achieved results above the compact map: legacy tournaments stay unchanged when empty. */}
             {achievedResults.length > 0 && (
               <section className="relative mt-4 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)] md:flex-1">
                 <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
@@ -258,6 +246,19 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                     Cuộn để xem đủ {achievedResults.length} thành tích
                   </p>
                 )}
+
+            <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
+              <MapPin className="w-4 h-4 text-[#0054A6]" />
+              Bản đồ địa điểm thi đấu
+            </h4>
+            
+            <div className="relative h-[150px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[165px] lg:h-[180px]">
+              <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
+            </div>
+            
+            <p className="mt-2 text-center text-[11px] font-semibold italic text-slate-500">
+              Bản đồ định vị tự động theo địa điểm thi đấu
+            </p>
               </section>
             )}
 

@@ -54,12 +54,12 @@
     assert.equal((modal.match(/rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5/g) || []).length, 3);
     assert.match(modal, /sm:text-\[15px\]/);
   });
-  test('tournament achievements stay below the fixed map while only article content scrolls on desktop', () => {
+  test('tournament achievements stay above the compact map while only article content scrolls on desktop', () => {
     assert.match(modal, /md:overflow-hidden grid grid-cols-1 md:grid-cols-12/);
     assert.match(modal, /md:col-span-7[^"\n]*md:overflow-y-auto/);
     assert.match(modal, /detail-scrollbar relative min-h-0 space-y-2\.5 md:overflow-y-auto/);
-    assert.match(modal, /Fixed achieved results below the map/);
+    assert.match(modal, /Fixed achieved results above the compact map/);
     const mapPosition = modal.indexOf('Bản đồ định vị tự động theo địa điểm thi đấu');
-    const achievementPosition = modal.indexOf('Fixed achieved results below the map');
-    assert.ok(mapPosition >= 0 && achievementPosition > mapPosition);
+    const achievementPosition = modal.indexOf('Fixed achieved results above the compact map');
+    assert.ok(achievementPosition >= 0 && mapPosition > achievementPosition);
   });

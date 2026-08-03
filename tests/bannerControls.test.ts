@@ -35,3 +35,13 @@ test('banner 3D motion stays compositor-only and respects reduced motion', () =>
   assert.match(css, /prefers-reduced-motion: reduce/);
   assert.doesNotMatch(css, /WebGLRenderingContext|three\.js/);
 });
+test('admin image alignment supports persisted zoom without changing legacy banners', () => {
+  const admin = fs.readFileSync(new URL('../src/components/AdminPanel.tsx', import.meta.url), 'utf8');
+  const types = fs.readFileSync(new URL('../src/types.ts', import.meta.url), 'utf8');
+  assert.match(types, /zoom\?: number/);
+  assert.match(admin, /zoomPct: 100/);
+  assert.match(admin, /Phóng to từ 100% đến 180%/);
+  assert.match(admin, /updateEditorZoom/);
+  assert.match(admin, /onWheel=\{event =>/);
+  assert.match(user, /banners\[safeCurrentBanner\]\?\.zoom \|\| 100/);
+});
