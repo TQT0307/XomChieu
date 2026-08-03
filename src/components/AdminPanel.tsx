@@ -324,7 +324,7 @@ function ImageInput({
     source.src = rawImage;
   }, [rawImage]);
 
-  const qualityMaxZoom = sourceDimensions
+  const recommendedMaxZoom = sourceDimensions
     ? getRecommendedMaxZoom(
         sourceDimensions.width,
         sourceDimensions.height,
@@ -332,6 +332,7 @@ function ImageInput({
         rotation
       )
     : 300;
+  const editorMaxZoom = 300;
 
   const clampPan = (
     nextPanX: number,
@@ -348,18 +349,18 @@ function ImageInput({
   };
 
   const updateEditorZoom = (requestedZoom: number) => {
-    const nextZoom = Math.round(clampNumber(requestedZoom, 100, qualityMaxZoom));
+    const nextZoom = Math.round(clampNumber(requestedZoom, 100, editorMaxZoom));
     const nextPan = clampPan(panX, panY, nextZoom);
     setZoom(nextZoom);
     setPanX(nextPan.x);
     setPanY(nextPan.y);
   };
   useEffect(() => {
-    if (zoom <= qualityMaxZoom) return;
-    setZoom(qualityMaxZoom);
+    if (zoom <= editorMaxZoom) return;
+    setZoom(editorMaxZoom);
     setPanX(0);
     setPanY(0);
-  }, [qualityMaxZoom, zoom]);
+  }, [editorMaxZoom, zoom]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!isCropMode) return;
@@ -779,21 +780,21 @@ function ImageInput({
                   </div>
                   <div className="flex items-center gap-2">
                     <button type="button" onClick={() => updateEditorZoom(zoom - 5)} disabled={zoom <= 100} className="rounded-lg border border-white/10 bg-slate-800 p-1.5 text-[#FFF200] transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Thu nhỏ ảnh"><ZoomOut className="h-4 w-4" /></button>
-                    <input type="range" min="100" max={qualityMaxZoom} value={zoom} onChange={e => updateEditorZoom(parseInt(e.target.value))} className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-800 accent-[#FFF200]" />
-                    <button type="button" onClick={() => updateEditorZoom(zoom + 5)} disabled={zoom >= qualityMaxZoom} className="rounded-lg border border-white/10 bg-slate-800 p-1.5 text-[#FFF200] transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Phóng to ảnh"><ZoomIn className="h-4 w-4" /></button>
+                    <input type="range" min="100" max={editorMaxZoom} value={zoom} onChange={e => updateEditorZoom(parseInt(e.target.value))} className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-800 accent-[#FFF200]" />
+                    <button type="button" onClick={() => updateEditorZoom(zoom + 5)} disabled={zoom >= editorMaxZoom} className="rounded-lg border border-white/10 bg-slate-800 p-1.5 text-[#FFF200] transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-30" aria-label="Phóng to ảnh"><ZoomIn className="h-4 w-4" /></button>
                   </div>
                   <p className="mt-1.5 text-[9px] text-slate-500">Dùng thanh trượt, nút −/+ hoặc con lăn chuột trực tiếp trên ảnh.</p>
                   {sourceDimensions && (
                     <div className={`mt-2 rounded-lg border px-2.5 py-2 text-[9px] font-semibold leading-relaxed ${
-                      qualityMaxZoom <= 100
+                      zoom > recommendedMaxZoom
                         ? 'border-amber-400/30 bg-amber-400/10 text-amber-200'
                         : 'border-emerald-400/20 bg-emerald-400/10 text-emerald-200'
                     }`}>
                       Ảnh gốc: {sourceDimensions.width}×{sourceDimensions.height}px
-                      {' • '}Zoom rõ nét tối đa: {qualityMaxZoom}%
-                      {qualityMaxZoom <= 100 && (
+                      {' • '}Mức rõ nét khuyến nghị: {recommendedMaxZoom}%
+                      {zoom > recommendedMaxZoom && (
                         <span className="block mt-0.5 text-amber-300">
-                          Ảnh nguồn chưa đủ lớn để phóng thêm mà vẫn giữ độ nét.
+                          Bạn đang phóng vượt mức khuyến nghị; ảnh vẫn lưu được nhưng có thể giảm độ nét.
                         </span>
                       )}
                     </div>

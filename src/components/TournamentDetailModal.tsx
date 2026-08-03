@@ -120,10 +120,11 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
       <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-white/80 bg-slate-50 text-slate-800 shadow-[0_30px_90px_rgba(15,23,42,0.38)] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
-        <div className="relative h-52 w-full flex-shrink-0 overflow-hidden sm:h-60 lg:h-64">
+        <div className="relative h-[clamp(220px,42dvh,420px)] w-full flex-shrink-0 overflow-hidden bg-slate-950">
           <DetailHeroImage
             src={tournament.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80'}
             alt={tournament.name}
+            foregroundAspectRatio="16:9"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent"></div>
           
@@ -212,10 +213,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
           </div>
 
           {/* Right Side: Interactive Google Map (5 cols) */}
-          <div className="md:col-span-5 flex min-w-0 flex-col self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:h-full md:min-h-0 sm:p-5">
+          <div className="md:col-span-5 flex min-w-0 flex-col gap-4 self-start md:h-full md:min-h-0">
             {/* Fixed achieved results above the compact map: legacy tournaments stay unchanged when empty. */}
             {achievedResults.length > 0 && (
-              <section className="relative mt-4 flex min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)] md:flex-1">
+              <section className="relative flex min-h-0 flex-col overflow-hidden rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-4 shadow-[0_16px_36px_rgba(217,119,6,0.16)] md:flex-1">
                 <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-amber-300/20 blur-2xl" />
                 <h4 className="relative mb-3 flex items-center gap-2 border-b border-amber-200 pb-2 text-xs font-black uppercase tracking-wider text-amber-900">
                   <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-amber-300 to-yellow-500 text-amber-950 shadow-[0_7px_0_#b45309,0_11px_20px_rgba(180,83,9,0.22)]">
@@ -246,8 +247,11 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                     Cuộn để xem đủ {achievedResults.length} thành tích
                   </p>
                 )}
+              </section>
+            )}
 
-            <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
               <MapPin className="w-4 h-4 text-[#0054A6]" />
               Bản đồ địa điểm thi đấu
             </h4>
@@ -259,8 +263,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
             <p className="mt-2 text-center text-[11px] font-semibold italic text-slate-500">
               Bản đồ định vị tự động theo địa điểm thi đấu
             </p>
-              </section>
-            )}
+            </section>
 
           </div>
 

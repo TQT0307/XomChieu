@@ -42,6 +42,8 @@ test('admin image alignment supports persisted zoom without changing legacy bann
   assert.match(admin, /zoomPct: 100/);
   assert.match(admin, /Phóng to từ 100% đến 180%/);
   assert.match(admin, /updateEditorZoom/);
+  assert.match(admin, /const editorMaxZoom = 300/);
+  assert.match(admin, /Mức rõ nét khuyến nghị/);
   assert.match(admin, /onWheel=\{event =>/);
   assert.match(user, /banners\[safeCurrentBanner\]\?\.zoom \|\| 100/);
 });

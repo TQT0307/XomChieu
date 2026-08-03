@@ -12,7 +12,7 @@ interface ArticleDetailModalProps {
 }
 
 export default function ArticleDetailModal({ article, categories, onClose }: ArticleDetailModalProps) {
-  useModalScrollLock(Boolean(article));
+  useModalScrollLock(Boolean(article), onClose);
 
   if (!article) return null;
 
@@ -32,13 +32,14 @@ export default function ArticleDetailModal({ article, categories, onClose }: Art
         onClick={onClose}
         aria-label="Đóng cửa sổ chi tiết bài viết"
       />
-      <div className="modal-scroll-region detail-scrollbar relative z-10 bg-white rounded-3xl max-w-3xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl border border-slate-200 animate-modal-3d">
+      <div className="modal-scroll-region detail-scrollbar relative z-10 bg-white rounded-3xl max-w-3xl w-full max-h-[calc(100dvh-2rem)] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
-        <div className="relative h-64 sm:h-80 w-full overflow-hidden">
+        <div className="relative h-[clamp(220px,42dvh,420px)] w-full overflow-hidden bg-slate-950">
           <DetailHeroImage
             src={article.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'}
             alt={article.title}
+            foregroundAspectRatio="16:9"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
           
