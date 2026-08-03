@@ -19,3 +19,11 @@
     assert.match(modal, /achievedResults\.map/);
     assert.match(modal, /Thành tích đạt được/);
   });
+  test('achievement medals use gold, silver and bronze icons based on their text', () => {
+    assert.match(modal, /getAchievementMedalTheme/);
+    assert.match(modal, /Huy chương Vàng/);
+    assert.match(modal, /Huy chương Bạc/);
+    assert.match(modal, /Huy chương Đồng/);
+    assert.match(modal, /<Medal className="h-5 w-5"/);
+    assert.doesNotMatch(modal, /\{index \+ 1\}/);
+  });

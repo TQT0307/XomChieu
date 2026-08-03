@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Calendar, MapPin, ShieldCheck, Info, BookOpen, Trophy, Sparkles } from 'lucide-react';
+import { X, Calendar, MapPin, ShieldCheck, Info, BookOpen, Trophy, Sparkles, Medal } from 'lucide-react';
 import { Tournament, getNormalizedTournamentStatus } from '../types';
 import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
@@ -79,6 +79,19 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
     .map(item => item.trim())
     .filter(Boolean);
 
+  const getAchievementMedalTheme = (achievement: string) => {
+    const normalized = achievement.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (/huy chuong vang|\bvang\b/.test(normalized)) {
+      return { label: 'Huy chương Vàng', icon: 'text-yellow-500', box: 'border-yellow-300 bg-yellow-50 shadow-[0_5px_12px_rgba(234,179,8,0.22)]' };
+    }
+    if (/huy chuong bac|\bbac\b/.test(normalized)) {
+      return { label: 'Huy chương Bạc', icon: 'text-slate-500', box: 'border-slate-300 bg-slate-50 shadow-[0_5px_12px_rgba(100,116,139,0.20)]' };
+    }
+    if (/huy chuong dong|\bdong\b/.test(normalized)) {
+      return { label: 'Huy chương Đồng', icon: 'text-amber-700', box: 'border-orange-300 bg-orange-50 shadow-[0_5px_12px_rgba(180,83,9,0.20)]' };
+    }
+    return { label: 'Thành tích', icon: 'text-[#0054A6]', box: 'border-blue-200 bg-blue-50 shadow-[0_5px_12px_rgba(0,84,166,0.16)]' };
+  };
   return (
     <div
       className="modal-scroll-lock fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-hidden"
@@ -204,14 +217,17 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                   <Sparkles className="ml-auto h-4 w-4 text-amber-500" />
                 </h4>
                 <ul className="relative space-y-2.5">
-                  {achievedResults.map((achievement, index) => (
-                    <li key={`${achievement}-${index}`} className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-white/85 px-3 py-2.5 text-sm font-extrabold leading-relaxed text-slate-800 shadow-sm">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500 text-[11px] font-black text-white shadow-[0_4px_10px_rgba(217,119,6,0.28)]">
-                        {index + 1}
-                      </span>
-                      <span>{achievement}</span>
-                    </li>
-                  ))}
+                  {achievedResults.map((achievement, index) => {
+                    const medalTheme = getAchievementMedalTheme(achievement);
+                    return (
+                      <li key={`${achievement}-${index}`} className="flex items-start gap-3 rounded-xl border border-amber-200/80 bg-white/85 px-3 py-2.5 text-sm font-extrabold leading-relaxed text-slate-800 shadow-sm">
+                        <span title={medalTheme.label} aria-label={medalTheme.label} className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${medalTheme.box} ${medalTheme.icon}`}>
+                          <Medal className="h-5 w-5" strokeWidth={2.4} />
+                        </span>
+                        <span className="pt-1.5">{achievement}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             )}
