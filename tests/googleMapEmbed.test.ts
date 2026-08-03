@@ -20,7 +20,7 @@ test('Admin previews and public club/tournament maps share the centered map comp
   assert.equal((tournamentSource.match(/<GoogleMapEmbed/g) || []).length, 1);
 });
 test('tournament map keeps its visual center inside the visible modal viewport', () => {
-  assert.match(tournamentSource, /h-\[220px\].*sm:h-\[240px\]/s);
+  assert.match(tournamentSource, /h-\[210px\].*sm:h-\[230px\].*lg:h-\[250px\]/s);
   assert.match(tournamentSource, /self-start/);
   assert.doesNotMatch(tournamentSource, /h-\[250px\] md:h-full/);
 });

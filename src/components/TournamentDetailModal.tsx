@@ -117,10 +117,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         onClick={onClose}
         aria-label="Đóng cửa sổ chi tiết giải đấu"
       />
-      <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white text-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[1.75rem] border border-white/80 bg-slate-50 text-slate-800 shadow-[0_30px_90px_rgba(15,23,42,0.38)] animate-in fade-in zoom-in-95 duration-200">
         
         {/* Banner Image */}
-        <div className="relative h-64 sm:h-80 w-full flex-shrink-0 overflow-hidden">
+        <div className="relative h-52 w-full flex-shrink-0 overflow-hidden sm:h-60 lg:h-64">
           <DetailHeroImage
             src={tournament.image || 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80'}
             alt={tournament.name}
@@ -129,100 +129,100 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
           
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all cursor-pointer z-10"
+            className="absolute right-4 top-4 z-10 rounded-full border border-white/40 bg-slate-950/55 p-2.5 text-white shadow-lg backdrop-blur-md transition-all hover:scale-105 hover:bg-slate-950/80 cursor-pointer"
             id="close-tournament-modal"
           >
             <X className="w-5 h-5" />
           </button>
 
-          <div className="absolute bottom-6 left-6 right-6 text-white">
+          <div className="absolute bottom-5 left-5 right-16 text-white sm:bottom-6 sm:left-7">
             <span className={`${statusInfo.bg} text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider mb-2.5 inline-block shadow-md`}>
               {statusInfo.text}
             </span>
-            <h3 className="text-xl sm:text-2xl font-black text-[#FFF200] uppercase italic tracking-tight drop-shadow-md leading-tight">
+            <h3 className="text-xl font-black uppercase italic leading-tight tracking-tight text-[#FFF200] drop-shadow-md sm:text-2xl lg:text-3xl">
               {tournament.name}
             </h3>
           </div>
         </div>
 
         {/* Content Tabs/Details */}
-        <div className="modal-scroll-region min-h-0 flex-1 overflow-y-auto p-6 sm:p-8 md:overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-8">
+        <div className="modal-scroll-region min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 md:overflow-hidden grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-6">
           
           {/* Left Side: Information details (8 cols) */}
-          <div className="detail-scrollbar md:col-span-7 space-y-6 md:min-h-0 md:overflow-y-auto md:pr-3">
+          <div className="detail-scrollbar md:col-span-7 space-y-4 md:min-h-0 md:overflow-y-auto md:pr-2 lg:pr-3">
             
             {/* Quick meta section */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="grid grid-cols-1 gap-3 rounded-2xl border border-blue-100 bg-white p-4 shadow-sm sm:grid-cols-2">
               <div className="flex items-center gap-3">
-                <div className="bg-blue-50 p-2.5 rounded-xl text-[#0054A6]">
+                <div className="rounded-xl bg-blue-50 p-2.5 text-[#0054A6] ring-1 ring-blue-100">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase text-slate-400 font-bold">Thời Gian Tổ Chức</p>
-                  <p className="text-xs sm:text-sm font-black text-slate-800">{tournament.date}</p>
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Thời Gian Tổ Chức</p>
+                  <p className="text-sm font-black leading-snug text-slate-900">{tournament.date}</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="bg-blue-50 p-2.5 rounded-xl text-[#0054A6]">
+                <div className="rounded-xl bg-blue-50 p-2.5 text-[#0054A6] ring-1 ring-blue-100">
                   <MapPin className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase text-slate-400 font-bold">Địa Điểm Thi Đấu</p>
-                  <p className="text-xs sm:text-sm font-black text-slate-800 line-clamp-1" title={tournament.location}>{tournament.location}</p>
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">Địa Điểm Thi Đấu</p>
+                  <p className="text-sm font-black leading-snug text-slate-900 line-clamp-1" title={tournament.location}>{tournament.location}</p>
                 </div>
               </div>
             </div>
 
             {/* About / Introduction */}
-            <div>
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
                 <Info className="w-4 h-4 text-[#0054A6]" />
                 Giới thiệu giải đấu
               </h4>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
+              <p className="text-sm font-medium leading-7 text-slate-700 sm:text-[15px]">
                 {introductionContent}
               </p>
-            </div>
+            </section>
 
             {/* Schedule & Activities */}
-            <div>
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
                 <Calendar className="w-4 h-4 text-[#0054A6]" />
                 Lịch trình thi đấu & Nội dung
               </h4>
-              <p className="whitespace-pre-line text-xs font-semibold leading-relaxed text-slate-600">
+              <p className="whitespace-pre-line text-sm font-semibold leading-7 text-slate-700 sm:text-[15px]">
                 {scheduleContent}
               </p>
-            </div>
+            </section>
 
             {/* Rules / Regulations */}
-            <div>
-              <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
                 <BookOpen className="w-4 h-4 text-[#0054A6]" />
                 Điều lệ & Quy định thi đấu
               </h4>
-              <p className="whitespace-pre-line text-xs font-semibold leading-relaxed text-slate-600">
+              <p className="whitespace-pre-line text-sm font-semibold leading-7 text-slate-700 sm:text-[15px]">
                 {rulesContent}
               </p>
-            </div>
+            </section>
 
 
 
           </div>
 
           {/* Right Side: Interactive Google Map (5 cols) */}
-          <div className="md:col-span-5 flex min-w-0 flex-col self-start md:h-full md:min-h-0">
-            <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider border-b pb-2 flex items-center gap-2 mb-3">
+          <div className="md:col-span-5 flex min-w-0 flex-col self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:h-full md:min-h-0 sm:p-5">
+            <h4 className="mb-3 flex items-center gap-2 border-b border-slate-200 pb-2.5 text-sm font-black uppercase tracking-wide text-slate-700">
               <MapPin className="w-4 h-4 text-[#0054A6]" />
               Bản đồ địa điểm thi đấu
             </h4>
             
-            <div className="relative h-[220px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[240px]">
+            <div className="relative h-[210px] w-full flex-none overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-inner sm:h-[230px] lg:h-[250px]">
               <GoogleMapEmbed src={mapIframeUrl} title={`Bản đồ giải đấu ${tournament.name}`} />
             </div>
             
-            <p className="text-[10px] text-slate-400 mt-2 text-center italic font-semibold">
+            <p className="mt-2 text-center text-[11px] font-semibold italic text-slate-500">
               Bản đồ định vị tự động theo địa điểm thi đấu
             </p>
             {/* Fixed achieved results below the map: legacy tournaments stay unchanged when empty. */}
@@ -266,7 +266,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
         </div>
 
         {/* Footer actions */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-center text-center text-xs text-slate-500">
+        <div className="flex items-center justify-center border-t border-slate-200 bg-white px-4 py-3 text-center text-xs text-slate-500 sm:px-6">
           <span className="flex items-center gap-1.5 font-bold">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             Thông tin Giải đấu được cung cấp chính thức bởi võ đường Vovinam Xóm Chiếu
