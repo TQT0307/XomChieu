@@ -15,6 +15,7 @@ import defaultBanner3 from '../assets/images/banner3.jpg';
 import defaultBanner4 from '../assets/images/banner4.jpg';
 import defaultBanner5 from '../assets/images/banner5.jpg';
 import { articleContentToPlainText } from '../utils/articleContent';
+import { compareArticlesNewestFirst } from '../utils/articleSort';
 import { closeDetailRoute, matchesDetailIdentifier, parseDetailHash, pushDetailRoute } from '../utils/detailRoutes';
 import {
   compareLatestNewsByExpiry,
@@ -387,7 +388,7 @@ export default function UserView({
 
   // Filter visible items based on status
   const visibleArticles = useMemo(
-    () => articles.filter(a => a.status !== false),
+    () => articles.filter(a => a.status !== false).sort(compareArticlesNewestFirst),
     [articles]
   );
   const [latestNewsClock, setLatestNewsClock] = useState(() => Date.now());

@@ -31,3 +31,18 @@
     assert.match(modal, /medalTheme\.emoji/);
     assert.doesNotMatch(modal, /\{index \+ 1\}/);
   });
+  test('public tournament details prefer the exact Admin content over legacy samples', () => {
+    assert.match(modal, /tournament\.introduction\?\.trim\(\) \|\| details\.about/);
+    assert.match(modal, /tournament\.schedule\?\.trim\(\) \|\| details\.schedule\.join/);
+    assert.match(modal, /tournament\.rules\?\.trim\(\) \|\| details\.rules\.join/);
+    assert.match(modal, /\{introductionContent\}/);
+    assert.match(modal, /\{scheduleContent\}/);
+    assert.match(modal, /\{rulesContent\}/);
+    assert.match(modal, /whitespace-pre-line/);
+  });
+
+  test('accented medal names are matched directly before normalized fallback', () => {
+    assert.match(modal, /huy chương\\s\*đồng/);
+    assert.match(modal, /huy chương\\s\*bạc/);
+    assert.match(modal, /huy chương\\s\*vàng/);
+  });

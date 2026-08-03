@@ -74,12 +74,24 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
   };
 
   const details = getTournamentDetails(tournament.name);
+  const introductionContent = tournament.introduction?.trim() || details.about;
+  const scheduleContent = tournament.schedule?.trim() || details.schedule.join('\n');
+  const rulesContent = tournament.rules?.trim() || details.rules.join('\n');
   const achievedResults = String(tournament.achievements || '')
     .split(/\r?\n/)
     .map(item => item.trim())
     .filter(Boolean);
 
   const getAchievementMedalTheme = (achievement: string) => {
+    if (/huy chương\s*vàng/i.test(achievement)) {
+      return { label: 'Huy chương Vàng', emoji: '🥇', icon: 'text-yellow-500', box: 'border-yellow-300 bg-yellow-50 shadow-[0_5px_12px_rgba(234,179,8,0.22)]' };
+    }
+    if (/huy chương\s*bạc/i.test(achievement)) {
+      return { label: 'Huy chương Bạc', emoji: '🥈', icon: 'text-slate-500', box: 'border-slate-300 bg-slate-50 shadow-[0_5px_12px_rgba(100,116,139,0.20)]' };
+    }
+    if (/huy chương\s*đồng/i.test(achievement)) {
+      return { label: 'Huy chương Đồng', emoji: '🥉', icon: 'text-amber-700', box: 'border-orange-300 bg-orange-50 shadow-[0_5px_12px_rgba(180,83,9,0.20)]' };
+    }
     const normalized = achievement.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
     if (/huy chuong vang|\bvang\b/.test(normalized)) {
       return { label: 'Huy chương Vàng', emoji: '🥇', icon: 'text-yellow-500', box: 'border-yellow-300 bg-yellow-50 shadow-[0_5px_12px_rgba(234,179,8,0.22)]' };
@@ -169,7 +181,7 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 Giới thiệu giải đấu
               </h4>
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed font-medium">
-                {details.about}
+                {introductionContent}
               </p>
             </div>
 
@@ -179,14 +191,9 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 <Calendar className="w-4 h-4 text-[#0054A6]" />
                 Lịch trình thi đấu & Nội dung
               </h4>
-              <ul className="space-y-2">
-                {details.schedule.map((item, index) => (
-                  <li key={index} className="text-xs text-slate-600 flex items-start gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#0054A6] mt-1.5 flex-shrink-0" />
-                    <span className="font-semibold">{item}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="whitespace-pre-line text-xs font-semibold leading-relaxed text-slate-600">
+                {scheduleContent}
+              </p>
             </div>
 
             {/* Rules / Regulations */}
@@ -195,14 +202,9 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 <BookOpen className="w-4 h-4 text-[#0054A6]" />
                 Điều lệ & Quy định thi đấu
               </h4>
-              <ul className="space-y-2">
-                {details.rules.map((item, index) => (
-                  <li key={index} className="text-xs text-slate-600 flex items-start gap-2">
-                    <span className="text-red-500 font-bold flex-shrink-0">•</span>
-                    <span className="font-semibold">{item}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="whitespace-pre-line text-xs font-semibold leading-relaxed text-slate-600">
+                {rulesContent}
+              </p>
             </div>
 
             {/* Optional achieved results: legacy tournaments stay unchanged when empty. */}
