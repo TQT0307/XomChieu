@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, MapPin, Award, Star, Quote, Trophy } from 'lucide-react';
-import { Coach, Club, Achievement, getBeltStyle, parseBeltRank } from '../types';
+import { X, MapPin, Star, Quote, Trophy } from 'lucide-react';
+import { Coach, Club, Achievement, parseBeltRank } from '../types';
 import PersonAvatar from './PersonAvatar';
 import PersonPhotoLightbox from './PersonPhotoLightbox';
 import useModalScrollLock from '../hooks/useModalScrollLock';
@@ -244,28 +244,8 @@ export default function CoachDetailModal({
         {/* Modal Body */}
         <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 space-y-6 overflow-y-auto">
           
-          {/* Quick Specifications */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-slate-950/40 border border-white/5 p-4 rounded-2xl flex items-center gap-3">
-              {(() => {
-                const style = getBeltStyle(coach.rank);
-                return (
-                  <>
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${style.bgClass} ${style.borderClass} ${style.textClass}`}>
-                      <Award className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase block tracking-wider">Đai đẳng môn phái</span>
-                      <span className={`text-xs px-2 py-0.5 rounded border font-black uppercase tracking-wide inline-block mt-0.5 ${style.bgClass} ${style.textClass} ${style.borderClass}`}>
-                        {coach.rank}
-                      </span>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
-            <div className="vovinam-depth-card sm:col-span-2 rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/70 to-slate-900/45 p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+          {/* Club responsibilities */}
+          <div>            <div className="vovinam-depth-card rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/70 to-slate-900/45 p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
               <div className="flex items-center gap-3 border-b border-white/10 pb-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#FFF200]/25 bg-[#FFF200]/10 text-[#FFF200] shadow-[0_8px_20px_rgba(255,242,0,0.08)]">
                   <MapPin className="h-5 w-5" />
@@ -276,7 +256,7 @@ export default function CoachDetailModal({
                 </div>
               </div>
               {responsibleClubs.length > 0 ? (
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="mt-3 space-y-2">
                   {responsibleClubs.map(({ club, role }) => (
                     <div key={club.id} className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 ${
                       role === 'Chính'

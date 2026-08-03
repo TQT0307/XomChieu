@@ -461,7 +461,9 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
-/* Keep anchored section headings close to the sticky header without changing data/layout flow. */
+/* Keep every anchored section close to the sticky header. The small heading gap
+   matches the public Highlights layout and avoids a large blank strip after navigation. */
+#section-about,
 #section-news,
 #section-tournaments,
 #section-highlights,
@@ -470,8 +472,18 @@ select {
 #section-members,
 #section-clubs,
 #section-contact {
-  scroll-margin-top: 5.75rem;
-  padding-top: clamp(2.25rem, 4vw, 3.25rem);
+  scroll-margin-top: 5.25rem;
+}
+
+#section-news,
+#section-tournaments,
+#section-highlights,
+#section-achievements,
+#section-coaches,
+#section-members,
+#section-clubs,
+#section-contact {
+  padding-top: clamp(1.25rem, 2vw, 1.75rem);
 }
 /* Lightweight 3D hero motion: compositor-only transforms and opacity. */
 .vovinam-banner-stage {
@@ -585,4 +597,4 @@ select {
   .training-form-scrollbar::-webkit-scrollbar {
     width: 4px;
   }
-}
+}`r`n
