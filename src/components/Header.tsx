@@ -51,6 +51,30 @@ const writeGoogleTranslateCookie = (language: PublicLanguage) => {
   document.cookie = `googtrans=; expires=${expires}; domain=${hostname}; path=/; SameSite=Lax`;
 };
 
+/**
+ * Google Translate rewrites text nodes outside React. Guard the two DOM
+ * operations that otherwise throw NotFoundError when React updates a translated
+ * carousel or API-backed section. Installed only for an English session.
+ */
+const installGoogleTranslateReactSafety = () => {
+  const nodePrototype = Node.prototype as any;
+  if (nodePrototype.__vovinamTranslateSafetyInstalled) return;
+
+  const originalRemoveChild = nodePrototype.removeChild;
+  const originalInsertBefore = nodePrototype.insertBefore;
+
+  nodePrototype.removeChild = function (child: Node) {
+    if (child?.parentNode !== this) return child;
+    return originalRemoveChild.call(this, child);
+  };
+  nodePrototype.insertBefore = function (newNode: Node, referenceNode: Node | null) {
+    if (referenceNode && referenceNode.parentNode !== this) {
+      return this.appendChild(newNode);
+    }
+    return originalInsertBefore.call(this, newNode, referenceNode);
+  };
+  nodePrototype.__vovinamTranslateSafetyInstalled = true;
+};
 interface HeaderProps {
   isAdmin: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
@@ -74,18 +98,25 @@ export default function Header({
   const adminShortcutRef = useRef<AdminShortcutState>({ count: 0, lastClickAt: 0 });
   const historyNavigationFrameRef = useRef<number | null>(null);
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-  const [language, setLanguage] = useState<PublicLanguage>(readPublicLanguage);
+  const [language] = useState<PublicLanguage>(readPublicLanguage);
+  const [isLanguageSwitching, setIsLanguageSwitching] = useState(false);
 
   useEffect(() => {
     document.documentElement.lang = language;
+    if (language !== 'en') return;
 
+    installGoogleTranslateReactSafety();
     const initializeTranslate = () => {
-      const googleTranslate = (window as any).google?.translate?.TranslateElement;
-      if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
-      new googleTranslate(
-        { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
-        'google_translate_element'
-      );
+      try {
+        const googleTranslate = (window as any).google?.translate?.TranslateElement;
+        if (!googleTranslate || document.querySelector('.goog-te-combo')) return;
+        new googleTranslate(
+          { pageLanguage: 'vi', includedLanguages: 'en,vi', autoDisplay: false },
+          'google_translate_element'
+        );
+      } catch (error) {
+        console.error('[Language] Không thể khởi tạo bản dịch an toàn.', error);
+      }
     };
 
     (window as any).vovinamGoogleTranslateInit = initializeTranslate;
@@ -96,23 +127,24 @@ export default function Header({
       script.id = 'google-translate-script';
       script.src = 'https://translate.google.com/translate_a/element.js?cb=vovinamGoogleTranslateInit';
       script.async = true;
-      script.onerror = () => {
-        console.error('[Language] Không thể tải dịch vụ Google Translate.');
-      };
+      script.defer = true;
+      script.onerror = () => console.error('[Language] Không thể tải dịch vụ Google Translate.');
       document.head.appendChild(script);
     }
-  }, []);
+  }, [language]);
 
   const handleLanguageChange = (nextLanguage: PublicLanguage) => {
-    if (nextLanguage === language) return;
-    setLanguage(nextLanguage);
-    localStorage.setItem('vovinam_language', nextLanguage);
-    document.documentElement.lang = nextLanguage;
-    writeGoogleTranslateCookie(nextLanguage);
-    // The previously working implementation reloads once after writing the
-    // Google Translate cookie. This lets Google translate the complete React
-    // tree, including API data and detail modals, from a clean document.
-    window.location.reload();
+    if (nextLanguage === language || isLanguageSwitching) return;
+    setIsLanguageSwitching(true);
+    try {
+      localStorage.setItem('vovinam_language', nextLanguage);
+      writeGoogleTranslateCookie(nextLanguage);
+    } catch (error) {
+      console.error('[Language] Không thể lưu lựa chọn ngôn ngữ.', error);
+    }
+    // Let the progress layer paint first, then reload exactly once. Avoiding a
+    // state render before reload reduces work on image-heavy pages.
+    window.setTimeout(() => window.location.reload(), 80);
   };
 
   useEffect(() => {
@@ -216,6 +248,15 @@ export default function Header({
 
   return (
     <header className="vovinam-dimensional-header bg-[#0054A6] text-white shadow-xl z-30 sticky top-0 border-b-4 border-[#FFF200]" id="vovinam-header">
+      {isLanguageSwitching && (
+        <div className="notranslate fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm" translate="no" role="status" aria-live="polite">
+          <div className="rounded-2xl border border-white/20 bg-[#0054A6] px-6 py-5 text-center shadow-2xl">
+            <span className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-white/30 border-t-[#FFF200]" />
+            <p className="text-sm font-black text-white">{language === 'vi' ? 'Đang chuyển sang English…' : 'Switching to Vietnamese…'}</p>
+            <p className="mt-1 text-xs text-blue-100">Vui lòng chờ trong giây lát</p>
+          </div>
+        </div>
+      )}
       <div className="mx-auto flex h-20 w-full max-w-[1600px] flex-row items-center gap-2 px-2 sm:px-3 lg:px-4">
         {/* Brand Logo and Name - Left Aligned */}
         <div 
@@ -313,6 +354,8 @@ export default function Header({
               </span>
               <select
                 value={language}
+                disabled={isLanguageSwitching}
+                aria-busy={isLanguageSwitching}
                 onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
                 aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
                 className="h-9 appearance-none rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 pl-8 pr-7 text-[10px] font-black text-white shadow-sm outline-none transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:border-[#FFF200] focus:ring-2 focus:ring-[#FFF200]/20 cursor-pointer"

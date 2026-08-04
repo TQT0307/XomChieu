@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import UserView from './components/UserView';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
+import PublicErrorBoundary from './components/PublicErrorBoundary';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
@@ -938,6 +939,7 @@ export default function App() {
           </Suspense>
           </AdminErrorBoundary>
         ) : (
+          <PublicErrorBoundary>
           <UserView 
             categories={categories}
             articles={articles}
@@ -957,6 +959,7 @@ export default function App() {
             activeNavSection={activeNavSection}
             setActiveNavSection={setActiveNavSection}
           />
+          </PublicErrorBoundary>
         )}
       </main>
 
