@@ -5,6 +5,7 @@ import { buildGoogleMapsEmbedUrl } from '../utils/googleMaps';
 import DetailHeroImage from './DetailHeroImage';
 import GoogleMapEmbed from './GoogleMapEmbed';
 import useModalScrollLock from '../hooks/useModalScrollLock';
+import { sanitizeArticleHtml } from '../utils/articleContent';
 
 interface TournamentDetailModalProps {
   tournament: Tournament | null;
@@ -77,6 +78,9 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
   const introductionContent = tournament.introduction?.trim() || details.about;
   const scheduleContent = tournament.schedule?.trim() || details.schedule.join('\n');
   const rulesContent = tournament.rules?.trim() || details.rules.join('\n');
+  const introductionHtml = sanitizeArticleHtml(introductionContent);
+  const scheduleHtml = sanitizeArticleHtml(scheduleContent);
+  const rulesHtml = sanitizeArticleHtml(rulesContent);
   const achievedResults = String(tournament.achievements || '')
     .split(/\r?\n/)
     .map(item => item.trim())
@@ -181,9 +185,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 <Info className="w-4 h-4 text-[#0054A6]" />
                 Giới thiệu giải đấu
               </h4>
-              <p className="text-sm font-medium leading-7 text-slate-700 sm:text-[15px]">
-                {introductionContent}
-              </p>
+              <div
+                className="article-content text-sm font-medium leading-7 text-slate-700 sm:text-[15px]"
+                dangerouslySetInnerHTML={{ __html: introductionHtml }}
+              />
             </section>
 
             {/* Schedule & Activities */}
@@ -192,9 +197,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 <Calendar className="w-4 h-4 text-[#0054A6]" />
                 Lịch trình thi đấu & Nội dung
               </h4>
-              <p className="whitespace-pre-line text-sm font-semibold leading-7 text-slate-700 sm:text-[15px]">
-                {scheduleContent}
-              </p>
+              <div
+                className="article-content text-sm font-semibold leading-7 text-slate-700 sm:text-[15px]"
+                dangerouslySetInnerHTML={{ __html: scheduleHtml }}
+              />
             </section>
 
             {/* Rules / Regulations */}
@@ -203,9 +209,10 @@ export default function TournamentDetailModal({ tournament, onClose }: Tournamen
                 <BookOpen className="w-4 h-4 text-[#0054A6]" />
                 Điều lệ & Quy định thi đấu
               </h4>
-              <p className="whitespace-pre-line text-sm font-semibold leading-7 text-slate-700 sm:text-[15px]">
-                {rulesContent}
-              </p>
+              <div
+                className="article-content text-sm font-semibold leading-7 text-slate-700 sm:text-[15px]"
+                dangerouslySetInnerHTML={{ __html: rulesHtml }}
+              />
             </section>
 
 

@@ -37,10 +37,12 @@
     assert.match(modal, /tournament\.introduction\?\.trim\(\) \|\| details\.about/);
     assert.match(modal, /tournament\.schedule\?\.trim\(\) \|\| details\.schedule\.join/);
     assert.match(modal, /tournament\.rules\?\.trim\(\) \|\| details\.rules\.join/);
-    assert.match(modal, /\{introductionContent\}/);
-    assert.match(modal, /\{scheduleContent\}/);
-    assert.match(modal, /\{rulesContent\}/);
-    assert.match(modal, /whitespace-pre-line/);
+    assert.match(modal, /sanitizeArticleHtml\(introductionContent\)/);
+    assert.match(modal, /sanitizeArticleHtml\(scheduleContent\)/);
+    assert.match(modal, /sanitizeArticleHtml\(rulesContent\)/);
+    assert.match(modal, /dangerouslySetInnerHTML=\{\{ __html: introductionHtml \}\}/);
+    assert.match(modal, /dangerouslySetInnerHTML=\{\{ __html: scheduleHtml \}\}/);
+    assert.match(modal, /dangerouslySetInnerHTML=\{\{ __html: rulesHtml \}\}/);
   });
 
   test('accented medal names are matched directly before normalized fallback', () => {

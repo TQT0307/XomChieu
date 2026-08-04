@@ -1872,7 +1872,10 @@ export default function AdminPanel({
         id,
         location: tournamentLocation,
         googleMapPlaceName: tournamentPlaceName,
-        googleMapUrl: buildGoogleMapsEmbedUrl(tournamentForm.googleMapUrl, tournamentMapQuery)
+        googleMapUrl: buildGoogleMapsEmbedUrl(tournamentForm.googleMapUrl, tournamentMapQuery),
+        introduction: normalizeArticleContentForStorage(tournamentForm.introduction || ''),
+        schedule: normalizeArticleContentForStorage(tournamentForm.schedule || ''),
+        rules: normalizeArticleContentForStorage(tournamentForm.rules || '')
       } as Tournament;
       if (editId === null) {
         if (tournaments.some(t => t.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
@@ -5184,32 +5187,32 @@ export default function AdminPanel({
                     <div className="space-y-4 border-t pt-4">
                       <div>
                         <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Giới thiệu giải đấu</label>
-                        <textarea 
+                        <RichTextEditor
                           value={tournamentForm.introduction || ''}
-                          onChange={e => setTournamentForm({ ...tournamentForm, introduction: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg font-sans focus:ring-1 focus:ring-[#0054A6] outline-none"
-                          rows={3}
+                          onChange={introduction => setTournamentForm(current => ({ ...current, introduction }))}
                           placeholder="Nhập thông tin giới thiệu chi tiết về giải đấu..."
+                          ariaLabel="Giới thiệu giải đấu"
+                          compact
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Lịch trình giải đấu</label>
-                        <textarea 
+                        <RichTextEditor
                           value={tournamentForm.schedule || ''}
-                          onChange={e => setTournamentForm({ ...tournamentForm, schedule: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg font-mono focus:ring-1 focus:ring-[#0054A6] outline-none"
-                          rows={3}
+                          onChange={schedule => setTournamentForm(current => ({ ...current, schedule }))}
                           placeholder="Nhập chi tiết lịch trình thi đấu..."
+                          ariaLabel="Lịch trình giải đấu"
+                          compact
                         />
                       </div>
                       <div>
                         <label className="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Điều lệ giải đấu</label>
-                        <textarea 
+                        <RichTextEditor
                           value={tournamentForm.rules || ''}
-                          onChange={e => setTournamentForm({ ...tournamentForm, rules: e.target.value })}
-                          className="w-full text-sm border p-2 rounded-lg font-sans focus:ring-1 focus:ring-[#0054A6] outline-none"
-                          rows={3}
-                          placeholder="Nhập quy chế, điều lệ, và yêu cầu đăng ký thi đấu..."
+                          onChange={rules => setTournamentForm(current => ({ ...current, rules }))}
+                          placeholder="Nhập quy chế, điều lệ và yêu cầu đăng ký thi đấu..."
+                          ariaLabel="Điều lệ giải đấu"
+                          compact
                         />
                       </div>
                       <div className="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-yellow-50 p-4 shadow-sm">

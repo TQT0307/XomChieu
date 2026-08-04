@@ -26,6 +26,8 @@ interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  ariaLabel?: string;
+  compact?: boolean;
 }
 
 type EditorButtonProps = {
@@ -53,6 +55,8 @@ export default function RichTextEditor({
   value,
   onChange,
   placeholder = 'Nhập nội dung bài viết...',
+  ariaLabel = 'Nội dung bài viết',
+  compact = false,
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
@@ -97,6 +101,7 @@ export default function RichTextEditor({
 
   const runCommand = (command: string, commandValue?: string) => {
     restoreSelection();
+    document.execCommand('styleWithCSS', false, 'true');
     document.execCommand(command, false, commandValue);
     saveSelection();
     emitContent();
@@ -128,6 +133,61 @@ export default function RichTextEditor({
           <option value="blockquote">Trích dẫn</option>
         </select>
 
+        <select
+          aria-label="Kiểu chữ"
+          title="Kiểu chữ"
+          defaultValue="Inter"
+          onMouseDown={saveSelection}
+          onChange={event => runCommand('fontName', event.target.value)}
+          className="h-8 max-w-32 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+        >
+          <option value="Inter">Inter</option>
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+          <option value="Times New Roman">Times New Roman</option>
+          <option value="Verdana">Verdana</option>
+          <option value="Tahoma">Tahoma</option>
+        </select>
+
+        <select
+          aria-label="Cỡ chữ"
+          title="Cỡ chữ"
+          defaultValue="3"
+          onMouseDown={saveSelection}
+          onChange={event => runCommand('fontSize', event.target.value)}
+          className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+        >
+          <option value="2">12</option>
+          <option value="3">16</option>
+          <option value="4">18</option>
+          <option value="5">24</option>
+          <option value="6">32</option>
+          <option value="7">48</option>
+        </select>
+
+        <label className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600" title="Màu chữ">
+          Chữ
+          <input
+            type="color"
+            defaultValue="#1e293b"
+            aria-label="Màu chữ"
+            onMouseDown={saveSelection}
+            onChange={event => runCommand('foreColor', event.target.value)}
+            className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
+          />
+        </label>
+
+        <label className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[11px] font-bold text-slate-600" title="Màu nền chữ">
+          Nền
+          <input
+            type="color"
+            defaultValue="#fff2a8"
+            aria-label="Màu nền chữ"
+            onMouseDown={saveSelection}
+            onChange={event => runCommand('hiliteColor', event.target.value)}
+            className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
+          />
+        </label>
         <span className="mx-0.5 h-6 w-px bg-slate-200" />
         <EditorButton label="In đậm" onRun={() => runCommand('bold')}><Bold className="h-4 w-4" /></EditorButton>
         <EditorButton label="In nghiêng" onRun={() => runCommand('italic')}><Italic className="h-4 w-4" /></EditorButton>
@@ -165,17 +225,17 @@ export default function RichTextEditor({
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
-          aria-label="Nội dung bài viết"
+          aria-label={ariaLabel}
           onInput={() => emitContent()}
           onMouseUp={saveSelection}
           onKeyUp={saveSelection}
           onFocus={saveSelection}
           onBlur={() => emitContent(true)}
-          className="rich-text-editor detail-scrollbar min-h-64 max-h-[32rem] overflow-y-auto px-4 py-3 text-sm text-slate-800 outline-none"
+          className={`rich-text-editor detail-scrollbar max-h-[32rem] overflow-y-auto px-4 py-3 text-sm text-slate-800 outline-none ${compact ? 'min-h-36' : 'min-h-64'}`}
         />
       </div>
       <div className="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[10px] text-slate-500">
-        Có thể tạo tiêu đề, đoạn văn, danh sách, trích dẫn, căn lề và thụt dòng như bài báo.
+        Có thể chọn kiểu chữ, cỡ chữ, màu chữ, tô nền, tiêu đề, danh sách, trích dẫn, căn lề và thụt dòng như trình soạn thảo bài báo.
       </div>
     </div>
   );

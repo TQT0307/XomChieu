@@ -78,6 +78,30 @@ const sanitizeStyle = (value: string) => {
       /^(?:0|(?:[0-9]|[1-9][0-9]|1[0-9]{2}|200)(?:px|em|rem)?)$/.test(styleValue)
     ) {
       safeDeclarations.push(`${property}: ${styleValue}`);
+      continue;
+    }
+
+    if (
+      property === 'font-family' &&
+      /^(inter|arial|georgia|verdana|tahoma|"times new roman"|'times new roman'|times new roman)(?:\s*,\s*(?:sans-serif|serif))?$/.test(styleValue)
+    ) {
+      safeDeclarations.push(`${property}: ${styleValue}`);
+      continue;
+    }
+
+    if (
+      property === 'font-size' &&
+      /^(?:(?:12|14|16|18|20|24|28|32|36|40|48)px|xx-small|x-small|small|medium|large|x-large|xx-large|xxx-large)$/.test(styleValue)
+    ) {
+      safeDeclarations.push(`${property}: ${styleValue}`);
+      continue;
+    }
+
+    if (
+      (property === 'color' || property === 'background-color') &&
+      /^(?:#[0-9a-f]{3}|#[0-9a-f]{6}|rgb\(\s*(?:\d{1,3}\s*,\s*){2}\d{1,3}\s*\)|rgba\(\s*(?:\d{1,3}\s*,\s*){3}(?:0|1|0?\.\d+)\s*\))$/.test(styleValue)
+    ) {
+      safeDeclarations.push(`${property}: ${styleValue}`);
     }
   }
 
