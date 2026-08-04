@@ -96,6 +96,23 @@ const sanitizeStyle = (value: string) => {
       safeDeclarations.push(`${property}: ${styleValue}`);
       continue;
     }
+    if (property === 'font-weight' && /^(?:normal|bold|[1-9]00)$/.test(styleValue)) {
+      safeDeclarations.push(`${property}: ${styleValue}`);
+      continue;
+    }
+
+    if (property === 'font-style' && /^(?:normal|italic|oblique)$/.test(styleValue)) {
+      safeDeclarations.push(`${property}: ${styleValue}`);
+      continue;
+    }
+
+    if (
+      (property === 'text-decoration' || property === 'text-decoration-line') &&
+      /^(?:none|underline|line-through|underline line-through|line-through underline)$/.test(styleValue)
+    ) {
+      safeDeclarations.push(`${property}: ${styleValue}`);
+      continue;
+    }
 
     if (
       (property === 'color' || property === 'background-color') &&

@@ -60,13 +60,14 @@ export default function RichTextEditor({
 }: RichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const savedRangeRef = useRef<Range | null>(null);
+  const lastEmittedValueRef = useRef<string | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
   const emitContent = (sanitize = false) => {
     const editor = editorRef.current;
     if (!editor) return;
     const nextValue = sanitize ? sanitizeArticleHtml(editor.innerHTML) : editor.innerHTML;
-    if (sanitize && nextValue !== editor.innerHTML) editor.innerHTML = nextValue;
+    lastEmittedValueRef.current = nextValue;
     setIsEmpty(!(editor.textContent || '').trim() && !editor.querySelector('img,hr'));
     onChange(nextValue);
   };
@@ -74,6 +75,7 @@ export default function RichTextEditor({
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
+    if (value === lastEmittedValueRef.current) return;
     const nextHtml = articleContentToEditorHtml(value);
     if (editor.innerHTML !== nextHtml) editor.innerHTML = nextHtml;
     setIsEmpty(!(editor.textContent || '').trim() && !editor.querySelector('img,hr'));
@@ -102,7 +104,10 @@ export default function RichTextEditor({
   const runCommand = (command: string, commandValue?: string) => {
     restoreSelection();
     document.execCommand('styleWithCSS', false, 'true');
-    document.execCommand(command, false, commandValue);
+    const applied = document.execCommand(command, false, commandValue);
+    if (!applied && command === 'hiliteColor') {
+      document.execCommand('backColor', false, commandValue);
+    }
     saveSelection();
     emitContent();
   };
@@ -115,7 +120,7 @@ export default function RichTextEditor({
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm focus-within:border-[#0054A6] focus-within:ring-2 focus-within:ring-blue-100">
-      <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 bg-slate-50 p-2">
+      <div onPointerDownCapture={saveSelection} className="flex flex-wrap items-center gap-1.5 border-b border-slate-200 bg-slate-50 p-2">
         <select
           aria-label="Kiểu đoạn văn"
           title="Kiểu đoạn văn"
