@@ -11,6 +11,7 @@ test('training form opens only from Contact navigation or Contact intersection',
   assert.match(header, /sectionId === 'section-contact'/);
   assert.match(user, /vovinam-open-training-registration/);
   assert.match(user, /IntersectionObserver/);
+  assert.match(user, /rootMargin: '-30% 0px -55% 0px'/);
   assert.doesNotMatch(header, /sectionId !== 'section-contact'[\s\S]*vovinam-open-training-registration/);
 });
 

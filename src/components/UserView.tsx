@@ -346,7 +346,13 @@ export default function UserView({
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !contactWasVisibleRef.current) setIsRegistrationOpen(true);
       contactWasVisibleRef.current = entry.isIntersecting;
-    }, { threshold: 0.35 });
+    }, {
+      threshold: 0,
+      // Trigger only when Contact reaches the reading area near the middle of
+      // the screen. Merely navigating to the preceding Clubs section must not
+      // open the registration form because Contact peeks into the viewport.
+      rootMargin: '-30% 0px -55% 0px'
+    });
     observer.observe(section);
     return () => { observer.disconnect(); window.removeEventListener('vovinam-open-training-registration', openFromNavigation); };
   }, []);

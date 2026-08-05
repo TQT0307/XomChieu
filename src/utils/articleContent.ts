@@ -81,11 +81,24 @@ const sanitizeStyle = (value: string) => {
       continue;
     }
 
-    if (
-      property === 'font-family' &&
-      /^(inter|arial|georgia|verdana|tahoma|"times new roman"|'times new roman'|times new roman)(?:\s*,\s*(?:sans-serif|serif))?$/.test(styleValue)
-    ) {
-      safeDeclarations.push(`${property}: ${styleValue}`);
+    if (property === 'font-family') {
+      const primaryFont = styleValue.split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+      const safeFontFamilies: Record<string, string> = {
+        inter: 'Inter',
+        arial: 'Arial',
+        georgia: 'Georgia',
+        verdana: 'Verdana',
+        tahoma: 'Tahoma',
+        'times new roman': '"Times New Roman"',
+      };
+      const safeFontFamily = safeFontFamilies[primaryFont];
+      if (safeFontFamily) {
+        // Explicit emoji fallbacks keep icons visible even when the selected
+        // article font does not contain color emoji glyphs.
+        safeDeclarations.push(
+          `${property}: ${safeFontFamily}, "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`
+        );
+      }
       continue;
     }
 
