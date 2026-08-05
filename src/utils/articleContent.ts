@@ -1,5 +1,9 @@
 const ARTICLE_TAG_PATTERN = /<\/?[a-z][\s\S]*?>/i;
 
+const EMOJI_SEQUENCE_PATTERN = /(?:\p{Regional_Indicator}{2}|[#*0-9]\uFE0F?\u20E3|\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?)*)/gu;
+
+export const extractInlineEmojiText = (value: string) =>
+  (String(value || '').match(EMOJI_SEQUENCE_PATTERN) || []).join('');
 const ALLOWED_TAGS = new Set([
   'a',
   'b',
@@ -167,6 +171,19 @@ export const sanitizeArticleHtml = (value: string) => {
     const sourceElement = node as HTMLElement;
     const tagName = sourceElement.tagName.toLowerCase();
     if (BLOCKED_TAGS.has(tagName)) return null;
+
+    if (tagName === 'img') {
+      // Word, browser emoji pickers and some input methods paste emoji as a
+      // tiny image. Keep only the Unicode emoji exposed in its accessible
+      // label; never retain the image URL/data payload itself.
+      const emojiText = extractInlineEmojiText(
+        sourceElement.getAttribute('alt')
+        || sourceElement.getAttribute('aria-label')
+        || sourceElement.getAttribute('title')
+        || ''
+      );
+      return emojiText ? targetDocument.createTextNode(emojiText) : null;
+    }
 
     if (!ALLOWED_TAGS.has(tagName)) {
       const fragment = targetDocument.createDocumentFragment();

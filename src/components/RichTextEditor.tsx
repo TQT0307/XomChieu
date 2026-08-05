@@ -193,6 +193,31 @@ export default function RichTextEditor({
             className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
           />
         </label>
+        <select
+          aria-label="Chèn biểu tượng"
+          title="Chèn biểu tượng"
+          defaultValue=""
+          onMouseDown={saveSelection}
+          onChange={event => {
+            if (event.target.value) runCommand('insertText', event.target.value);
+            event.target.value = '';
+          }}
+          className="h-8 max-w-36 rounded-lg border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700"
+        >
+          <option value="">Biểu tượng</option>
+          <option value="🏆">🏆 Cúp</option>
+          <option value="🥇">🥇 Huy chương vàng</option>
+          <option value="🥈">🥈 Huy chương bạc</option>
+          <option value="🥉">🥉 Huy chương đồng</option>
+          <option value="🥋">🥋 Võ phục</option>
+          <option value="🎬">🎬 Video</option>
+          <option value="🎙️">🎙️ Thông báo</option>
+          <option value="⏰">⏰ Thời gian</option>
+          <option value="📍">📍 Địa điểm</option>
+          <option value="✨">✨ Nổi bật</option>
+          <option value="✅">✅ Hoàn tất</option>
+          <option value="📌">📌 Ghi chú</option>
+        </select>
         <span className="mx-0.5 h-6 w-px bg-slate-200" />
         <EditorButton label="In đậm" onRun={() => runCommand('bold')}><Bold className="h-4 w-4" /></EditorButton>
         <EditorButton label="In nghiêng" onRun={() => runCommand('italic')}><Italic className="h-4 w-4" /></EditorButton>
