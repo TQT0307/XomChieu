@@ -15,6 +15,11 @@ test('training form opens only from Contact navigation or Contact intersection',
   assert.doesNotMatch(header, /sectionId !== 'section-contact'[\s\S]*vovinam-open-training-registration/);
 });
 
+test('scroll spy activates Contact in the reading area and at page bottom', () => {
+  assert.match(user, /window\.innerHeight \* 0\.4/);
+  assert.match(user, /documentElement\.scrollHeight - 24/);
+  assert.match(user, /visibleSectionId = 'section-contact'/);
+});
 test('training form contains required identity and club fields plus optional message', () => {
   assert.match(modal, /fullName/); assert.match(modal, /type="email"/);
   assert.match(modal, /clubId/); assert.match(modal, /không bắt buộc/);

@@ -266,8 +266,16 @@ export default function UserView({
         if ((window as any)._isManualScrolling) return;
         if (parseDetailHash(window.location.hash)) return;
 
-        const scrollPosition = window.scrollY + 160;
+        // Activate the section in the upper reading area instead of waiting
+        // for it to touch a fixed 160px line. This keeps the active menu
+        // accurate on tall desktop screens as well as compact mobile screens.
+        const activationOffset = Math.max(160, Math.min(window.innerHeight * 0.4, 360));
+        const scrollPosition = window.scrollY + activationOffset;
         let visibleSectionId = navSections[0].id;
+
+        const documentElement = document.documentElement;
+        const isNearPageBottom =
+          window.scrollY + window.innerHeight >= documentElement.scrollHeight - 24;
 
         // Use the last section whose top edge has passed the sticky header.
         // This also covers spacing between sections, where the previous
@@ -280,6 +288,13 @@ export default function UserView({
           } else {
             break;
           }
+        }
+
+        // The contact section is the final section. At the bottom of the page
+        // its top edge may never cross the activation line, so explicitly
+        // select it once the user reaches the end of the document.
+        if (isNearPageBottom && document.getElementById('section-contact')) {
+          visibleSectionId = 'section-contact';
         }
 
         setActiveNavSection(visibleSectionId);
@@ -1738,7 +1753,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật.
+              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật Quận 4.
             </p>
           </div>
 
