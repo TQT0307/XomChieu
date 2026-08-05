@@ -292,7 +292,7 @@ export const initialWebConfig: WebConfig = {
   address: 'Số 122 Đường Xóm Chiếu, Phường 14, Quận 4, TP. Hồ Chí Minh',
   phone: '0903.123.456 - 0989.987.789',
   email: 'vovinamxomchieu@gmail.com',
-  facebook: 'https://facebook.com/vovinamxomchieu',
+  facebook: 'https://www.facebook.com/profile.php?id=61591252636205',
   instagram: 'https://instagram.com/vovinamxomchieu',
   threads: 'https://threads.net/@vovinamxomchieu',
   tiktok: 'https://tiktok.com/@vovinamxomchieu',

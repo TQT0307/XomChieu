@@ -2012,15 +2012,15 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
       <section className="py-16 bg-gradient-to-r from-[#0054A6] to-[#003d7a] text-white border-t-4 border-[#FFF200] scroll-mt-32" id="section-contact">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 relative z-10 text-center space-y-10">
           
-          <div className="max-w-2xl mx-auto">
-            <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-blue-900/60 px-3 py-1 rounded-xl border border-[#FFF200]/20 inline-block mb-3">
-              Khai tâm mở lối võ nghiệp
-            </span>
-            <h2 className="text-3xl sm:text-4xl font-black uppercase italic text-[#FFF200] font-display">
+          <div className="max-w-3xl mx-auto" data-seo-content="visible">
+            <span className="text-[#FFF200] text-[10px] sm:text-xs font-black uppercase tracking-widest bg-blue-900/60 px-4 py-1.5 rounded-xl border border-[#FFF200]/30 inline-block mb-4 shadow-lg">
               Liên hệ võ đường
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-black uppercase italic text-[#FFF200] font-display leading-tight drop-shadow-md">
+              {webConfig.seoTitle?.trim() || 'CLB Vovinam Xóm Chiếu - Việt Võ Đạo Quận 4'}
             </h2>
-            <p className="text-xs sm:text-sm text-blue-100 mt-3 leading-relaxed font-sans">
-              Bạn có bất cứ thắc mắc nào về khóa học, lịch rèn luyện, đăng ký võ phục hay tham gia câu lạc bộ? Ban huấn luyện luôn sẵn sàng chào đón và giải đáp mọi thông tin!
+            <p className="text-sm sm:text-base text-blue-50 mt-4 leading-relaxed font-sans max-w-2xl mx-auto">
+              {webConfig.seoDescription?.trim() || 'Câu lạc bộ Vovinam Xóm Chiếu tại Quận 4, TP.HCM: lịch tập, huấn luyện viên, giải đấu, thành tích, tin tức và đăng ký tập luyện.'}
             </p>
           </div>
 

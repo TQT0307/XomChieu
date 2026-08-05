@@ -29,3 +29,8 @@ test('mobile edge swipe closes every public detail and registration modal', () =
     assert.match(source, /useModalScrollLock\([^;]+, onClose\);/, modalFiles[index]);
   });
 });
+test('public contact section renders Admin SEO title and description as visible content', () => {
+  assert.match(user, /data-seo-content="visible"/);
+  assert.match(user, /webConfig\.seoTitle\?\.trim\(\)/);
+  assert.match(user, /webConfig\.seoDescription\?\.trim\(\)/);
+});
