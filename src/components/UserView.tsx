@@ -747,7 +747,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               
               <div className="text-xs sm:text-sm text-slate-600 leading-relaxed font-sans space-y-4">
                 <p className="border-l-4 border-[#0054A6] pl-4 italic">
-                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Quận 4.
+                  Được thành lập với tôn chỉ truyền thụ võ thuật và võ đạo Việt Nam, Câu lạc bộ Vovinam Xóm Chiếu là điểm đến rèn luyện sức khỏe, kỷ luật bản thân, và tinh thần tương thân tương ái tuyệt vời của các môn sinh tại Xóm Chiếu.
                 </p>
                 <p>
                   Tại đây, môn sinh không chỉ được trang bị kỹ năng phòng vệ thực chiến, hệ thống đòn chân tấn công danh tiếng, mà còn được nuôi dưỡng tinh thần dũng cảm, tự tôn dân tộc và lối sống lành mạnh, có ích cho xã hội.
@@ -1738,7 +1738,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật Quận 4.
+              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật.
             </p>
           </div>
 
