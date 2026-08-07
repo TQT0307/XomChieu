@@ -14,7 +14,7 @@ interface ClubDetailModalProps {
 }
 
 export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach }: ClubDetailModalProps) {
-  useModalScrollLock(Boolean(club));
+  useModalScrollLock(Boolean(club), onClose);
 
   if (!club) return null;
 
@@ -59,13 +59,12 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
         >
           <X className="w-6 h-6" strokeWidth={2.5} />
         </button>
-
-        <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 overflow-y-auto">
-        {/* Header Block */}
-        <div className="relative h-48 sm:h-60 w-full overflow-hidden">
+        {/* Header Block: stays fixed while the details below scroll */}
+        <div className="relative h-48 sm:h-60 w-full shrink-0 overflow-hidden">
           <DetailHeroImage
             src={club.image || 'https://images.unsplash.com/photo-1555597673-b21d5c935865?auto=format&fit=crop&w=800&q=80'}
             alt={club.name}
+            foregroundAspectRatio="16:9"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
           
@@ -85,6 +84,7 @@ export default function ClubDetailModal({ club, coaches, onClose, onSelectCoach 
           </div>
         </div>
 
+                <div className="modal-scroll-region detail-scrollbar min-h-0 flex-1 overflow-y-auto">
         {/* Content Area */}
         <div className="p-6 sm:p-8 grid grid-cols-1 md:grid-cols-2 gap-6 pb-4">
           {/* Left Column: Details */}

@@ -24,7 +24,7 @@ test('training form contains required identity and club fields plus optional mes
   assert.match(modal, /fullName/); assert.match(modal, /type="email"/);
   assert.match(modal, /clubId/); assert.match(modal, /không bắt buộc/);
   assert.match(modal, /trainingDays/); assert.match(modal, /trainingHours/); assert.match(modal, /club\.address/);
-  assert.match(modal, /e\.target===e\.currentTarget/); assert.match(modal, /aria-label="Đóng form đăng ký"/);
+  assert.match(modal, /e\.target===e\.currentTarget/); assert.match(modal, /aria-label=\{copy\.close\}/);
 });
 
 test('registration API stores a signed one-time approval and emails both parties', () => {
@@ -60,8 +60,8 @@ test('Gmail SMTP is preferred and Resend remains a fallback', () => {
 
 
 test('form closes after a successful registration but stays open on failure', () => {
-  assert.match(modal, /window\.setTimeout\(\(\)=>\{[\s\S]*onClose\(\)\}, 3000\)/);
-  assert.match(modal, /if\(!r\.ok\)throw new Error/);
+  assert.match(modal, /window\.setTimeout/);
+  assert.match(modal, /if \(!response\.ok\)/);
 });
 
 
@@ -108,9 +108,9 @@ test('confirmed registration link shows approved status and full form details', 
 });
 
 test('successful registration remains visible before the form closes', () => {
-  assert.match(modal, /\\u0110\\u0103ng k\\u00fd th\\u00e0nh c\\u00f4ng/);
+  assert.match(modal, /success:\s*'Registration successful!/);
   assert.match(modal, /3000/);
-  assert.match(modal, /setResult\(null\);onClose\(\)/);
+  assert.match(modal, /setResult\(null\);\s*onClose\(\)/);
 });
 test('Gmail dark mode keeps confirmation text readable', () => {
   assert.match(api, /gmail-blend-screen/);
@@ -135,4 +135,18 @@ test('confirmation email is uniquely traceable and avoids automated-mail headers
   assert.match(api, /notificationMessageId/);
   assert.match(api, /Xác nhận đăng ký tập luyện - \$\{registration\.fullName\}/);
   assert.doesNotMatch(api, /"Auto-Submitted": "auto-generated"/);
+});
+
+test('training form has stable built-in Vietnamese and English copy', () => {
+  assert.match(modal, /REGISTRATION_COPY/);
+  assert.match(modal, /Training registration/);
+  assert.match(modal, /Begin your Vovinam journey/);
+  assert.match(modal, /Submit training registration/);
+  assert.match(modal, /readRegistrationLanguage/);
+  assert.match(modal, /translate="no"/);
+});
+
+test('club detail hero fills the same 16:9 frame as other public details', () => {
+  const clubModal = fs.readFileSync(new URL('../src/components/ClubDetailModal.tsx', import.meta.url), 'utf8');
+  assert.match(clubModal, /foregroundAspectRatio="16:9"/);
 });
