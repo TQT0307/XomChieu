@@ -613,9 +613,10 @@ async function readAdminAccounts(force = false) {
       const value = await client.get("vovinam_admin_accounts");
       if (value) accounts = JSON.parse(value);
     });
-    if (accounts && Array.isArray(accounts) && accounts.length > 0) {
+    const loadedAccounts = accounts as any[] | null;
+    if (loadedAccounts?.length) {
       adminAccountsCache = {
-        accounts,
+        accounts: loadedAccounts,
         exists: true,
         expiresAt: Date.now() + 15_000
       };
@@ -1493,9 +1494,10 @@ async function readFirebaseCurrentForBackup(dbInstance: any) {
     }
   });
 
-  if (achievementIds) {
-    current.achievements = achievementIds
-      .map(itemId => achievementItems.get(itemId))
+  const resolvedAchievementIds = achievementIds as string[] | null;
+  if (resolvedAchievementIds) {
+    current.achievements = resolvedAchievementIds
+      .map((itemId: string) => achievementItems.get(itemId))
       .filter(Boolean);
   }
   if (splitBanners.length > 0) {
@@ -1977,8 +1979,9 @@ function rebuildPitrCandidates(restDocuments: any[], minutesAgo: number): Recove
     }
   });
 
-  if (achievementIds) {
-    current.achievements = achievementIds.map(id => achievementItems.get(id)).filter(Boolean);
+  const resolvedAchievementIds = achievementIds as string[] | null;
+  if (resolvedAchievementIds) {
+    current.achievements = resolvedAchievementIds.map((id: string) => achievementItems.get(id)).filter(Boolean);
   }
   if (banners.length > 0) {
     current.webConfig = current.webConfig || {};
@@ -2056,9 +2059,10 @@ async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
     }
   });
 
-  if (achievementIds) {
-    current.achievements = achievementIds
-      .map(itemId => achievementItems.get(itemId))
+  const resolvedAchievementIds = achievementIds as string[] | null;
+  if (resolvedAchievementIds) {
+    current.achievements = resolvedAchievementIds
+      .map((itemId: string) => achievementItems.get(itemId))
       .filter(Boolean);
   }
   if (splitBanners.length > 0) {
@@ -2071,7 +2075,7 @@ async function readFirebaseRecoveryCandidates(): Promise<RecoveryCandidate[]> {
   const candidates: RecoveryCandidate[] = [];
   if (hasCurrent) candidates.push({ source: "firebase-current", data: current });
   if (legacy) candidates.push({ source: "firebase-legacy", data: legacy });
-  const referencedAchievementIds = new Set(achievementIds || []);
+  const referencedAchievementIds = new Set<string>(resolvedAchievementIds ?? []);
   const orphanedAchievements = Array.from(achievementItems.entries())
     .filter(([itemId]) => !referencedAchievementIds.has(itemId))
     .map(([, item]) => item);
