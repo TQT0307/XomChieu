@@ -887,7 +887,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
         <div className="absolute top-1/4 left-10 w-72 h-72 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute bottom-10 right-10 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="text-center max-w-2xl mx-auto mb-12 relative z-10">
+        <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-12 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
             Báo chí & Tin tức võ phái
           </span>
@@ -1162,7 +1162,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
       <section className="py-16 sm:py-20 bg-gradient-to-b from-[#f1f5f9] to-white relative scroll-mt-32" id="section-tournaments">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
               Lịch trình thi đấu & Võ nghiệp
             </span>
@@ -1234,7 +1234,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                   <ChevronRight className="w-5 h-5 text-slate-700" />
                 </button>
               </>)}
-              <div ref={(el) => (rowScrollRefs.current['TOURNAMENTS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
+              <div ref={(el) => { rowScrollRefs.current['TOURNAMENTS'] = el; }} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
               {visibleTournaments.map((t) => (
                 <div 
                   key={t.id}
@@ -1300,7 +1300,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
         {/* Soft background decor to avoid monotony */}
         <div className="absolute top-1/3 right-12 w-64 h-64 bg-yellow-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
+        <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
             Khoảnh khắc thi đấu
           </span>
@@ -1341,7 +1341,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               <ChevronRight className="w-5 h-5 text-slate-700" />
             </button>
           </>)}
-          <div ref={(el) => (rowScrollRefs.current['HIGHLIGHTS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
+          <div ref={(el) => { rowScrollRefs.current['HIGHLIGHTS'] = el; }} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
           {visibleHighlights.map((hl) => (
             <div 
               key={hl.id}
@@ -1405,7 +1405,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#FFF200] text-[10px] font-black uppercase tracking-widest bg-slate-900 px-4 py-1.5 rounded-full border border-slate-800 shadow-xl inline-block">
               Vinh danh thành tích
             </span>
@@ -1539,7 +1539,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
         {/* Soft background glow */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-blue-500/5 rounded-full blur-3xl pointer-events-none"></div>
 
-        <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
+        <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
             Đội ngũ võ sư tâm huyết
           </span>
@@ -1675,7 +1675,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </button>
 
             <div
-              ref={(el) => (rowScrollRefs.current['COACHES'] = el)}
+              ref={(el) => { rowScrollRefs.current['COACHES'] = el; }}
               className="flex gap-6 overflow-x-auto scrollbar-none pb-6 scroll-smooth snap-x snap-mandatory px-2"
             >
               {visibleCoaches.map((coach) => (
@@ -1744,7 +1744,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
       {/* 8. THÀNH VIÊN (Members) */}
       <section className="py-20 bg-gradient-to-b from-[#f8fafc] to-[#f1f5f9] border-t border-slate-200/50 scroll-mt-32" id="section-members">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
               Thế hệ tiếp nối xuất sắc
             </span>
@@ -1873,7 +1873,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               </button>
 
               <div
-                ref={(el) => (rowScrollRefs.current['MEMBERS'] = el)}
+                ref={(el) => { rowScrollRefs.current['MEMBERS'] = el; }}
                 className="flex gap-6 overflow-x-auto scrollbar-none pb-6 scroll-smooth snap-x snap-mandatory px-2"
               >
                 {visibleMembers.map((m) => (
@@ -1936,7 +1936,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
       {/* 9. CÂU LẠC BỘ (Clubs - embedded map on click) */}
       <section className="py-16 sm:py-20 bg-white scroll-mt-32" id="section-clubs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-2xl mx-auto mb-10">
+          <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
               Địa điểm võ đường
             </span>
@@ -1958,7 +1958,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                 <ChevronRight className="w-5 h-5 text-slate-700" />
               </button>
             </>)}
-            <div ref={(el) => (rowScrollRefs.current['CLUBS'] = el)} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
+            <div ref={(el) => { rowScrollRefs.current['CLUBS'] = el; }} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
             {visibleClubs.map((club) => (
               <div 
                 key={club.id}
