@@ -3123,6 +3123,7 @@ function renderTrainingConfirmationEmail(registration: any, replyMessage: string
             <p style="margin:0"><b>Địa chỉ:</b> ${escapeEmailHtml(registration.address)}</p>
           </div>
           ${replyBlock}
+          <p class="email-muted" style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Bạn nhận email này vì đã gửi form đăng ký tập luyện tại Vovinam Xóm Chiếu.</p>
           <p class="email-muted" style="margin:20px 0 0;text-align:center;color:#64748b;font-size:12px">Hẹn gặp bạn tại câu lạc bộ!</p>
         </td></tr>
       </table>
@@ -3143,21 +3144,23 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
   }
   if (gmailUser && gmailAppPassword) {
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: { user: gmailUser, pass: gmailAppPassword },
       pool: true,
       maxConnections: 1,
       maxMessages: 20,
       connectionTimeout: 10000,
       greetingTimeout: 10000,
-      socketTimeout: 15000
+      socketTimeout: 15000,
+      tls: { minVersion: "TLSv1.2", servername: "smtp.gmail.com" }
     });
     try {
       const info: any = await withTimeout(
         transporter.sendMail({
           from: { name: senderName, address: gmailUser },
-          sender: { name: senderName, address: gmailUser },
-          to: [{ address: recipient }],
+          to: recipient,
           subject,
           html,
           text: plainText,
@@ -3190,7 +3193,7 @@ async function sendTransactionalEmail(to: string, subject: string, html: string)
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fromAddress) || /@https?:\/\//i.test(from)) {
     throw new Error("REGISTRATION_EMAIL_FROM phải là email thuộc miền đã xác minh, ví dụ: Vovinam Xóm Chiếu <dangky@vovinamxomchieu.vn>.");
   }
-  if (fromAddress === "onboarding@resend.dev" && recipient !== gmailUser) {
+  if (/@resend\.dev$/i.test(fromAddress)) {
     throw new Error("Resend đang ở chế độ thử nghiệm. Hãy xác minh tên miền gửi hoặc cấu hình Gmail SMTP để gửi đến mọi người đăng ký.");
   }
   const response = await fetch("https://api.resend.com/emails", {
