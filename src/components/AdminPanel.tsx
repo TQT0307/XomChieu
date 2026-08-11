@@ -246,7 +246,13 @@ async function uploadHighlightVideo(file: File, durationSeconds: number): Promis
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || typeof result.url !== 'string') {
-    throw new Error(result.error || result.message || 'Không thể lưu clip vào Firebase Storage.');
+    const summary = typeof result.error === 'string' && result.error.trim()
+      ? result.error.trim()
+      : 'Không thể lưu clip vào Firebase Storage.';
+    const technicalDetail = typeof result.message === 'string' ? result.message.trim() : '';
+    throw new Error(technicalDetail && technicalDetail !== summary
+      ? `${summary} Chi tiết Firebase: ${technicalDetail}`
+      : summary);
   }
   return result.url;
 }
@@ -2902,7 +2908,19 @@ export default function AdminPanel({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {onBackToWebsite && (
+            <button
+              type="button"
+              onClick={onBackToWebsite}
+              aria-label="Quay lại Website"
+              className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 hover:bg-[#0054A6] hover:text-white active:scale-[0.98] text-[#0054A6] px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span>Quay lại Website</span>
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('changePassword')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${

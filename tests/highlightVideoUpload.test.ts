@@ -24,6 +24,8 @@ test('Admin validates a local clip before uploading and still supports pasted li
   assert.match(source, /accept="video\/mp4,video\/webm"/);
   assert.match(source, /readVideoDurationSeconds\(typedFile\)/);
   assert.match(source, /file\.size > MAX_HIGHLIGHT_VIDEO_BYTES/);
-  assert.match(source, /fetch\('\/api\/media\/video'/);
+  assert.ok(source.includes("fetch('/api/media/video'"));
+  assert.match(source, /Chi tiết Firebase:/);
+  assert.match(source, /result\.message/);
   assert.match(source, /Dán URL ảnh, YouTube hoặc MP4\/WebM/);
 });
