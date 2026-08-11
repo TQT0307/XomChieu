@@ -70,27 +70,15 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   if (!highlight) return null;
 
   const mediaItems = (highlight.mediaUrls || [])
-    .filter(Boolean)
     .map((url, index) => ({
       url,
       note: highlight.mediaNotes?.[index]?.trim() || ''
-    }));
+    }))
+    .filter(item => Boolean(item.url) && item.url !== highlight.thumbnail);
 
-  // The public card uses `thumbnail`. Keep that exact same image first in the
-  // detail viewer, then show the remaining gallery items without duplicates.
-  if (highlight.thumbnail) {
-    const thumbnailIndex = mediaItems.findIndex(item => item.url === highlight.thumbnail);
-    if (thumbnailIndex > 0) {
-      const [thumbnailItem] = mediaItems.splice(thumbnailIndex, 1);
-      mediaItems.unshift(thumbnailItem);
-    } else if (thumbnailIndex === -1) {
-      mediaItems.unshift({ url: highlight.thumbnail, note: '' });
-    }
-  }
-
-  const mediaList = mediaItems.length > 0
-    ? mediaItems.map(item => item.url)
-    : [highlight.thumbnail];
+  // Thumbnail is reserved for the public listing card. The detail viewer only
+  // shows media explicitly added to the detail gallery.
+  const mediaList = mediaItems.map(item => item.url);
   const activeMediaNote = mediaItems[activeMediaIndex]?.note || '';
 
   const handleNext = () => {
@@ -127,7 +115,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
 
   const isVideoUrl = (url: string) => getHighlightMediaKind(url) === 'video';
   const mediaCounts = getHighlightMediaCounts(highlight.mediaUrls || []);
-  const activeMediaUrl = mediaList[activeMediaIndex];
+  const activeMediaUrl = mediaList[activeMediaIndex] || '';
   const activeVideoEmbedUrl = getHighlightVideoEmbedUrl(activeMediaUrl);
   const activeVideoProvider = getHighlightVideoProvider(activeMediaUrl);
   const activeVideoProviderLabel = getHighlightVideoProviderLabel(activeMediaUrl);
@@ -182,7 +170,13 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             ref={mediaViewportRef}
             className="w-full h-full flex items-center justify-center overflow-hidden"
           >
-            {activeVideoEmbedUrl ? (
+            {!activeMediaUrl ? (
+              <div className="mx-5 max-w-md rounded-2xl border border-slate-700 bg-slate-900/80 p-6 text-center shadow-xl">
+                <ImageIcon className="mx-auto h-10 w-10 text-slate-500" />
+                <p className="mt-3 text-base font-bold text-white">{'Ch\u01b0a c\u00f3 \u1ea3nh/clip chi ti\u1ebft'}</p>
+                <p className="mt-1 text-sm text-slate-400">{'Thumbnail ch\u1ec9 hi\u1ec3n th\u1ecb \u1edf danh s\u00e1ch Highlights.'}</p>
+              </div>
+            ) : activeVideoEmbedUrl ? (
               <iframe
                 src={activeVideoEmbedUrl}
                 title={`${highlight.title} - clip ${activeMediaIndex + 1}`}
@@ -202,7 +196,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             ) : activeVideoProvider ? (
               <div className="mx-5 max-w-md rounded-2xl border border-slate-600 bg-slate-800 p-6 text-center shadow-xl">
                 <Film className="mx-auto h-10 w-10 text-[#FFF200]" />
-                <p className="mt-3 text-base font-bold text-white">{'Video t\u1eeb ' + activeVideoProviderLabel}</p>
+                <p className="mt-3 text-base font-bold text-white">{'N\u1ed9i dung t\u1eeb ' + activeVideoProviderLabel}</p>
                 <p className="mt-1 text-sm text-slate-300">{'N\u1ec1n t\u1ea3ng n\u00e0y gi\u1edbi h\u1ea1n ph\u00e1t nh\u00fang. M\u1edf b\u00e0i g\u1ed1c \u0111\u1ec3 xem \u0111\u1ea7y \u0111\u1ee7.'}</p>
                 <a
                   href={activeMediaUrl}
@@ -273,7 +267,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             )}
           </div>
 
-          {isVideoUrl(activeMediaUrl) && typeof document !== 'undefined' && document.fullscreenEnabled && (
+          {Boolean(activeMediaUrl) && isVideoUrl(activeMediaUrl) && typeof document !== 'undefined' && document.fullscreenEnabled && (
             <button
               type="button"
               onClick={() => void toggleMediaFullscreen()}
@@ -286,7 +280,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             </button>
           )}
 
-          {!isVideoUrl(mediaList[activeMediaIndex]) && (
+          {Boolean(activeMediaUrl) && !isVideoUrl(activeMediaUrl) && (
             <div className="absolute top-3 right-3 flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800/90 p-1.5 shadow-lg">
               <button
                 type="button"
@@ -340,11 +334,13 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           )}
 
           {/* Media Count Indicator */}
-          <div className="absolute bottom-4 right-4 bg-slate-800/90 text-xs px-3 py-1 rounded-full border border-slate-600">
-            {activeMediaIndex + 1} / {mediaList.length}
-          </div>
+          {mediaList.length > 0 && (
+            <div className="absolute bottom-4 right-4 bg-slate-800/90 text-xs px-3 py-1 rounded-full border border-slate-600">
+              {activeMediaIndex + 1} / {mediaList.length}
+            </div>
+          )}
 
-          {!isVideoUrl(mediaList[activeMediaIndex]) && zoom > 1 && (
+          {Boolean(activeMediaUrl) && !isVideoUrl(activeMediaUrl) && zoom > 1 && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full border border-slate-600 bg-slate-800/90 px-3 py-1 text-[10px] text-slate-100 pointer-events-none">
               <Move className="w-3 h-3" />
               Kéo ảnh để căn vị trí
@@ -353,6 +349,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         </div>
 
         {/* The note always follows the currently selected image. */}
+        {mediaList.length > 0 && (
         <div className="px-5 py-3 bg-slate-950 border-t border-slate-800">
           <p className="text-[10px] font-black uppercase tracking-wider text-[#FFF200] mb-1">
             Ghi chú tư liệu {activeMediaIndex + 1}/{mediaList.length}
@@ -363,6 +360,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             {activeMediaNote || 'Tư liệu này chưa có ghi chú.'}
           </p>
         </div>
+        )}
 
         {/* Thumbnails Strip / Multi-Media Selector */}
         {mediaList.length > 1 && (

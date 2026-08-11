@@ -48,15 +48,26 @@ test('recognizes Vimeo links and creates a privacy-friendly iframe URL', () => {
   assert.equal(getHighlightVideoEmbedUrl(url), 'https://player.vimeo.com/video/76979871?dnt=1&autoplay=0');
 });
 
-test('accepts Dailymotion, Facebook and Instagram video links without treating them as images', () => {
+test('accepts supported social post links without treating them as images', () => {
   const dailymotion = 'https://www.dailymotion.com/video/x84sh87';
   const facebook = 'https://www.facebook.com/example/videos/123456789';
   const instagram = 'https://www.instagram.com/reel/ABC123xyz/';
+  const instagramPost = 'https://www.instagram.com/p/DEF456xyz/';
+  const threads = 'https://www.threads.com/@vovinam/post/ABC123xyz';
+  const x = 'https://x.com/vovinam/status/1234567890123456789';
   assert.equal(getDailymotionVideoId(dailymotion), 'x84sh87');
   assert.equal(getHighlightVideoProvider(dailymotion), 'dailymotion');
   assert.equal(getHighlightVideoProvider(facebook), 'facebook');
   assert.equal(getHighlightVideoProvider(instagram), 'instagram');
-  assert.deepEqual(getHighlightMediaCounts([dailymotion, facebook, instagram]), { images: 0, videos: 3, total: 3 });
+  assert.equal(getHighlightVideoProvider(instagramPost), 'instagram');
+  assert.equal(getHighlightVideoProvider(threads), 'threads');
+  assert.equal(getHighlightVideoProvider(x), 'x');
+  assert.equal(getHighlightVideoProvider('https://www.threads.com/@vovinam'), null);
+  assert.equal(getHighlightVideoProvider('https://x.com/vovinam'), null);
+  assert.deepEqual(
+    getHighlightMediaCounts([dailymotion, facebook, instagram, instagramPost, threads, x]),
+    { images: 0, videos: 6, total: 6 }
+  );
 });
 test('counts images and clips separately', () => {
   assert.deepEqual(getHighlightMediaCounts([
@@ -72,6 +83,13 @@ test('enforces twenty images and three clips', () => {
   assert.equal(validateHighlightMediaUrls(Array.from({ length: MAX_HIGHLIGHT_VIDEOS }, (_, i) => `https://youtu.be/clip${i}`)), null);
   assert.match(validateHighlightMediaUrls(Array.from({ length: MAX_HIGHLIGHT_VIDEOS + 1 }, (_, i) => `https://youtu.be/clip${i}`)) || '', /3 clip/);
   assert.match(validateHighlightMediaUrls(['data:video/mp4;base64,AAAA']) || '', /base64/);
+});
+
+test('detail viewer does not inject the listing thumbnail into detail media', () => {
+  const source = readFileSync('src/components/HighlightDetailModal.tsx', 'utf8');
+  assert.match(source, /const mediaList = mediaItems\.map/);
+  assert.doesNotMatch(source, /mediaItems\.unshift/);
+  assert.doesNotMatch(source, /\[highlight\.thumbnail\]/);
 });
 
 test('highlight video viewer supports uncropped fullscreen playback', () => {

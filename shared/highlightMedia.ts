@@ -6,6 +6,8 @@ export type HighlightVideoProvider =
   | 'dailymotion'
   | 'facebook'
   | 'instagram'
+  | 'threads'
+  | 'x'
   | 'direct';
 
 export const MAX_HIGHLIGHT_IMAGES = 20;
@@ -129,7 +131,23 @@ export const isFacebookVideoUrl = (value: unknown): boolean => {
 export const isInstagramVideoUrl = (value: unknown): boolean => {
   const url = getParsedMediaUrl(value);
   if (!url || !isHostname(normalizeHostname(url), 'instagram.com')) return false;
-  return /^\/(?:reel|reels|tv)\//i.test(url.pathname);
+  return /^\/(?:p|reel|reels|tv)\/[^/]+/i.test(url.pathname);
+};
+
+export const isThreadsPostUrl = (value: unknown): boolean => {
+  const url = getParsedMediaUrl(value);
+  if (!url) return false;
+  const hostname = normalizeHostname(url);
+  if (!isHostname(hostname, 'threads.net') && !isHostname(hostname, 'threads.com')) return false;
+  return /^\/@[^/]+\/post\/[^/]+/i.test(url.pathname);
+};
+
+export const isXPostUrl = (value: unknown): boolean => {
+  const url = getParsedMediaUrl(value);
+  if (!url) return false;
+  const hostname = normalizeHostname(url);
+  if (!isHostname(hostname, 'x.com') && !isHostname(hostname, 'twitter.com')) return false;
+  return /^\/[^/]+\/status\/\d+/i.test(url.pathname);
 };
 
 export const isDirectVideoUrl = (value: unknown): boolean => {
@@ -150,6 +168,8 @@ export const getHighlightVideoProvider = (value: unknown): HighlightVideoProvide
   if (isDailymotionUrl(value)) return 'dailymotion';
   if (isFacebookVideoUrl(value)) return 'facebook';
   if (isInstagramVideoUrl(value)) return 'instagram';
+  if (isThreadsPostUrl(value)) return 'threads';
+  if (isXPostUrl(value)) return 'x';
   if (isDirectVideoUrl(value)) return 'direct';
   return null;
 };
@@ -165,6 +185,8 @@ export const getHighlightVideoProviderLabel = (value: unknown): string => {
     provider === 'dailymotion' ? 'Dailymotion' :
     provider === 'facebook' ? 'Facebook' :
     provider === 'instagram' ? 'Instagram' :
+    provider === 'threads' ? 'Threads' :
+    provider === 'x' ? 'X' :
     'video';
 };
 

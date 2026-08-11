@@ -27,5 +27,5 @@ test('Admin validates a local clip before uploading and still supports pasted li
   assert.ok(source.includes("fetch('/api/media/video'"));
   assert.match(source, /Chi tiết Firebase:/);
   assert.match(source, /result\.message/);
-  assert.match(source, /Vimeo, Dailymotion, Facebook\/Instagram Reel/);
+  assert.match(source, /Vimeo, Dailymotion, Facebook\/Instagram, Threads\/X/);
 });

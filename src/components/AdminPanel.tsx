@@ -5710,7 +5710,7 @@ export default function AdminPanel({
                       </div>
                       <p className="mb-3 text-[10px] leading-relaxed text-slate-600">
                         Thumbnail lưu riêng. Ảnh từ máy được tự nén dưới 650 KB/ảnh. Clip có thể chọn từ máy (MP4/WebM, tối đa {MAX_HIGHLIGHT_VIDEO_SECONDS} giây và {MAX_HIGHLIGHT_VIDEO_MB} MB)
-                        hoặc dán liên kết TikTok/YouTube/MP4/WebM. Link video trực tiếp nên dưới {RECOMMENDED_DIRECT_VIDEO_MB} MB. Video chỉ tải metadata khi người xem mở chi tiết, không tự phát.
+                        hoặc dán liên kết YouTube/TikTok/Vimeo/Facebook/Instagram/Threads/X hoặc MP4/WebM. Link video trực tiếp nên dưới {RECOMMENDED_DIRECT_VIDEO_MB} MB. Video chỉ tải metadata khi người xem mở chi tiết, không tự phát.
                       </p>
 
                       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -5803,7 +5803,7 @@ export default function AdminPanel({
                                 <input 
                                   type="text"
                                   value={isBase64 ? '📁 [Tập tin đã chọn từ máy]' : url}
-                                  placeholder={'D\u00e1n URL \u1ea3nh; YouTube, TikTok, Vimeo, Dailymotion, Facebook/Instagram Reel ho\u1eb7c MP4/WebM...'}
+                                  placeholder={'D\u00e1n URL \u1ea3nh; YouTube, TikTok, Vimeo, Dailymotion, Facebook/Instagram, Threads/X ho\u1eb7c MP4/WebM...'}
                                   disabled={isBase64}
                                   onChange={e => {
                                     const copy = [...(highlightForm.mediaUrls || [])];
