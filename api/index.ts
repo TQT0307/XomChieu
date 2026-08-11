@@ -12,6 +12,11 @@ import { createClient as createRedisRawClient } from "redis";
 import { initializeApp, getApps, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import {
+  MAX_HIGHLIGHT_VIDEO_BYTES,
+  MAX_HIGHLIGHT_VIDEO_SECONDS,
+  validateHighlightMediaUrls
+} from "../shared/highlightMedia.js";
+import {
   canAccessAdminPermission,
   hashPassword,
   isAllowedRequestOrigin,
@@ -84,6 +89,32 @@ const AUTO_BACKUP_MIN_INTERVAL_MS = 10 * 60 * 1000;
 const ADMIN_SESSION_COOKIE = "vovinam_admin_session";
 const LOGIN_ATTEMPT_LIMIT = 8;
 const LOGIN_ATTEMPT_WINDOW_SECONDS = 15 * 60;
+const ANALYTICS_COLLECTION = "vovinam_analytics";
+const ANALYTICS_ACTIVE_WINDOW_MS = 15 * 60 * 1000;
+const ANALYTICS_RATE_LIMIT_MS = 10 * 1000;
+const ANALYTICS_RECENT_VISITOR_LIMIT = 100;
+
+type AnalyticsEvent = "pageview" | "heartbeat";
+type AnalyticsVisitorRecord = {
+  visitorCode: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastSeenDay: string;
+  currentSessionId: string;
+  totalPageviews: number;
+  totalSessions: number;
+  currentPath: string;
+  device: "desktop" | "mobile" | "tablet";
+  browser: string;
+  os: string;
+  language: string;
+  referrerHost: string;
+};
+
+const analyticsMemoryVisitors = new Map<string, AnalyticsVisitorRecord>();
+const analyticsMemoryDays = new Map<string, { date: string; pageviews: number; sessions: number; visitors: number }>();
+const analyticsMemorySummary = { totalPageviews: 0, totalSessions: 0, totalVisitors: 0, updatedAt: "" };
+const analyticsRateLimits = new Map<string, number>();
 
 // Body parser
 app.use(express.json({ limit: "8mb" }));
@@ -786,6 +817,46 @@ function detectImageContentType(buffer: Buffer): string | null {
     return "image/gif";
   }
   return null;
+}
+
+function detectVideoContentType(buffer: Buffer): "video/mp4" | "video/webm" | null {
+  if (buffer.length >= 12 && buffer.subarray(4, 8).toString("ascii") === "ftyp") {
+    return "video/mp4";
+  }
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3
+  ) {
+    return "video/webm";
+  }
+  return null;
+}
+
+async function storeVideoInFirebaseStorage(
+  id: string,
+  videoBuffer: Buffer,
+  contentType: "video/mp4" | "video/webm"
+) {
+  if (!firebaseStorageBucketName) return null;
+  const { getStorage } = await import("firebase-admin/storage");
+  const bucket = getStorage().bucket(firebaseStorageBucketName);
+  const extension = contentType === "video/webm" ? "webm" : "mp4";
+  const objectPath = 'vovinam-media/videos/' + id + '.' + extension;
+  const downloadToken = randomUUID();
+  await withTimeout(
+    bucket.file(objectPath).save(videoBuffer, {
+      resumable: false,
+      metadata: {
+        contentType,
+        contentDisposition: "inline",
+        cacheControl: "public,max-age=31536000,immutable",
+        metadata: { firebaseStorageDownloadTokens: downloadToken }
+      }
+    }),
+    20000,
+    "Firebase Storage video upload timed out"
+  );
+  return 'https://firebasestorage.googleapis.com/v0/b/' + encodeURIComponent(bucket.name) + '/o/' + encodeURIComponent(objectPath) + '?alt=media&token=' + downloadToken;
 }
 
 async function storeImageInFirebaseStorage(
@@ -2394,6 +2465,299 @@ app.post(
   }
 );
 
+function analyticsDayKey(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date);
+}
+
+function analyticsRecentDays(count = 14) {
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date();
+    date.setUTCDate(date.getUTCDate() - (count - index - 1));
+    return analyticsDayKey(date);
+  });
+}
+
+function normalizeAnalyticsId(value: unknown) {
+  const normalized = String(value || "").trim();
+  return /^[A-Za-z0-9_-]{16,80}$/.test(normalized) ? normalized : "";
+}
+
+function normalizeAnalyticsPath(value: unknown) {
+  const raw = String(value || "").trim().slice(0, 160);
+  const section = raw.match(/^#(section-[a-z-]+)/i)?.[1];
+  return section ? `#${section.toLowerCase()}` : "#section-about";
+}
+
+function normalizeAnalyticsLanguage(value: unknown) {
+  const language = String(value || "").trim().toLowerCase().slice(0, 12);
+  return /^[a-z]{2,3}(?:-[a-z]{2,4})?$/.test(language) ? language : "vi";
+}
+
+function normalizeReferrerHost(value: unknown) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.hostname.slice(0, 120);
+  } catch {
+    return "trực tiếp";
+  }
+}
+
+function getAnalyticsDevice(req: express.Request) {
+  const userAgent = String(req.headers["user-agent"] || "").slice(0, 500);
+  const isTablet = /ipad|tablet|kindle|silk|playbook/i.test(userAgent);
+  const isMobile = !isTablet && /mobile|iphone|ipod|android/i.test(userAgent);
+  const device: AnalyticsVisitorRecord["device"] = isTablet ? "tablet" : isMobile ? "mobile" : "desktop";
+  const browser = /edg\//i.test(userAgent) ? "Edge"
+    : /opr\//i.test(userAgent) ? "Opera"
+    : /chrome\//i.test(userAgent) ? "Chrome"
+    : /firefox\//i.test(userAgent) ? "Firefox"
+    : /safari\//i.test(userAgent) ? "Safari" : "Khác";
+  const os = /windows/i.test(userAgent) ? "Windows"
+    : /android/i.test(userAgent) ? "Android"
+    : /iphone|ipad|ipod/i.test(userAgent) ? "iOS"
+    : /mac os|macintosh/i.test(userAgent) ? "macOS"
+    : /linux/i.test(userAgent) ? "Linux" : "Khác";
+  return { device, browser, os };
+}
+
+function isAnalyticsBot(req: express.Request) {
+  return /bot|crawler|spider|slurp|headless|lighthouse|preview|facebookexternalhit|whatsapp/i.test(
+    String(req.headers["user-agent"] || "")
+  );
+}
+
+function analyticsVisitorHash(visitorId: string) {
+  return createHash("sha256").update(`vovinam-analytics|${visitorId}`).digest("hex");
+}
+
+type AnalyticsTrackPayload = {
+  visitorHash: string;
+  sessionHash: string;
+  event: AnalyticsEvent;
+  path: string;
+  language: string;
+  referrerHost: string;
+  device: AnalyticsVisitorRecord["device"];
+  browser: string;
+  os: string;
+  nowIso: string;
+  day: string;
+};
+
+function trackAnalyticsInMemory(payload: AnalyticsTrackPayload) {
+  const existing = analyticsMemoryVisitors.get(payload.visitorHash);
+  const isNewVisitor = !existing;
+  const isNewSession = !existing || existing.currentSessionId !== payload.sessionHash;
+  const isNewDay = !existing || existing.lastSeenDay !== payload.day;
+  const pageviewIncrement = payload.event === "pageview" ? 1 : 0;
+  analyticsMemoryVisitors.set(payload.visitorHash, {
+    visitorCode: payload.visitorHash.slice(0, 8).toUpperCase(),
+    firstSeenAt: existing?.firstSeenAt || payload.nowIso,
+    lastSeenAt: payload.nowIso,
+    lastSeenDay: payload.day,
+    currentSessionId: payload.sessionHash,
+    totalPageviews: (existing?.totalPageviews || 0) + pageviewIncrement,
+    totalSessions: (existing?.totalSessions || 0) + (isNewSession ? 1 : 0),
+    currentPath: payload.path,
+    device: payload.device,
+    browser: payload.browser,
+    os: payload.os,
+    language: payload.language,
+    referrerHost: payload.referrerHost
+  });
+  analyticsMemorySummary.totalPageviews += pageviewIncrement;
+  analyticsMemorySummary.totalSessions += isNewSession ? 1 : 0;
+  analyticsMemorySummary.totalVisitors += isNewVisitor ? 1 : 0;
+  analyticsMemorySummary.updatedAt = payload.nowIso;
+  const day = analyticsMemoryDays.get(payload.day) || { date: payload.day, pageviews: 0, sessions: 0, visitors: 0 };
+  day.pageviews += pageviewIncrement;
+  day.sessions += isNewSession ? 1 : 0;
+  day.visitors += isNewDay ? 1 : 0;
+  analyticsMemoryDays.set(payload.day, day);
+}
+
+async function trackAnalyticsInFirestore(dbInstance: any, payload: AnalyticsTrackPayload) {
+  const collection = dbInstance.collection(ANALYTICS_COLLECTION);
+  const visitorRef = collection.doc(`visitor_${payload.visitorHash}`);
+  const summaryRef = collection.doc("summary");
+  const dayRef = collection.doc(`day_${payload.day}`);
+  await withTimeout(
+    dbInstance.runTransaction(async (transaction: any) => {
+      const visitorSnapshot = await transaction.get(visitorRef);
+      const existing = visitorSnapshot.exists ? visitorSnapshot.data() || {} : {};
+      const isNewVisitor = !visitorSnapshot.exists;
+      const isNewSession = !visitorSnapshot.exists || existing.currentSessionId !== payload.sessionHash;
+      const isNewDay = !visitorSnapshot.exists || existing.lastSeenDay !== payload.day;
+      const pageviewIncrement = payload.event === "pageview" ? 1 : 0;
+      let summary: any = {};
+      let day: any = {};
+      if (pageviewIncrement || isNewVisitor || isNewSession || isNewDay) {
+        const [summarySnapshot, daySnapshot] = await Promise.all([
+          transaction.get(summaryRef), transaction.get(dayRef)
+        ]);
+        summary = summarySnapshot.exists ? summarySnapshot.data() || {} : {};
+        day = daySnapshot.exists ? daySnapshot.data() || {} : {};
+      }
+      transaction.set(visitorRef, {
+        visitorCode: payload.visitorHash.slice(0, 8).toUpperCase(),
+        firstSeenAt: existing.firstSeenAt || payload.nowIso,
+        lastSeenAt: payload.nowIso,
+        lastSeenDay: payload.day,
+        currentSessionId: payload.sessionHash,
+        totalPageviews: Number(existing.totalPageviews || 0) + pageviewIncrement,
+        totalSessions: Number(existing.totalSessions || 0) + (isNewSession ? 1 : 0),
+        currentPath: payload.path,
+        device: payload.device,
+        browser: payload.browser,
+        os: payload.os,
+        language: payload.language,
+        referrerHost: payload.referrerHost
+      }, { merge: true });
+      if (pageviewIncrement || isNewVisitor || isNewSession) {
+        transaction.set(summaryRef, {
+          totalPageviews: Number(summary.totalPageviews || 0) + pageviewIncrement,
+          totalSessions: Number(summary.totalSessions || 0) + (isNewSession ? 1 : 0),
+          totalVisitors: Number(summary.totalVisitors || 0) + (isNewVisitor ? 1 : 0),
+          updatedAt: payload.nowIso
+        }, { merge: true });
+      }
+      if (pageviewIncrement || isNewSession || isNewDay) {
+        transaction.set(dayRef, {
+          date: payload.day,
+          pageviews: Number(day.pageviews || 0) + pageviewIncrement,
+          sessions: Number(day.sessions || 0) + (isNewSession ? 1 : 0),
+          visitors: Number(day.visitors || 0) + (isNewDay ? 1 : 0),
+          updatedAt: payload.nowIso
+        }, { merge: true });
+      }
+    }), 7000, "Visitor analytics transaction timed out"
+  );
+}
+
+function buildMemoryAnalyticsResponse() {
+  const now = Date.now();
+  const visitors = Array.from(analyticsMemoryVisitors.values())
+    .sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt))
+    .slice(0, ANALYTICS_RECENT_VISITOR_LIMIT);
+  const days = analyticsRecentDays().map(date => analyticsMemoryDays.get(date) || {
+    date, pageviews: 0, sessions: 0, visitors: 0
+  });
+  return {
+    summary: {
+      ...analyticsMemorySummary,
+      activeVisitors: visitors.filter(visitor => now - Date.parse(visitor.lastSeenAt) <= ANALYTICS_ACTIVE_WINDOW_MS).length,
+      today: days[days.length - 1]
+    },
+    days,
+    recentVisitors: visitors,
+    storage: "memory"
+  };
+}
+
+app.post("/api/analytics/track", requireSameOrigin, async (req, res) => {
+  try {
+    if (isAnalyticsBot(req)) return res.status(202).json({ accepted: true, ignored: "bot" });
+    const visitorId = normalizeAnalyticsId(req.body?.visitorId);
+    const sessionId = normalizeAnalyticsId(req.body?.sessionId);
+    if (!visitorId || !sessionId) return res.status(400).json({ error: "Phiên thống kê không hợp lệ." });
+    const visitorHash = analyticsVisitorHash(visitorId);
+    const now = Date.now();
+    const lastAcceptedAt = analyticsRateLimits.get(visitorHash) || 0;
+    if (now - lastAcceptedAt < ANALYTICS_RATE_LIMIT_MS) {
+      return res.status(202).json({ accepted: true, throttled: true });
+    }
+    analyticsRateLimits.set(visitorHash, now);
+    if (analyticsRateLimits.size > 5000) {
+      for (const [key, acceptedAt] of analyticsRateLimits) {
+        if (now - acceptedAt > 60 * 60 * 1000) analyticsRateLimits.delete(key);
+      }
+    }
+    const event: AnalyticsEvent = req.body?.event === "heartbeat" ? "heartbeat" : "pageview";
+    const payload: AnalyticsTrackPayload = {
+      visitorHash,
+      sessionHash: createHash("sha256").update(sessionId).digest("hex").slice(0, 32),
+      event,
+      path: normalizeAnalyticsPath(req.body?.path),
+      language: normalizeAnalyticsLanguage(req.body?.language),
+      referrerHost: normalizeReferrerHost(req.body?.referrer),
+      ...getAnalyticsDevice(req),
+      nowIso: new Date(now).toISOString(),
+      day: analyticsDayKey(new Date(now))
+    };
+    const dbInstance = await getFirebaseFirestore();
+    if (dbInstance) await trackAnalyticsInFirestore(dbInstance, payload);
+    else trackAnalyticsInMemory(payload);
+    return res.status(202).json({ accepted: true });
+  } catch (error: any) {
+    console.error("[visitor-analytics] Track failed:", error?.message || error);
+    return res.status(202).json({ accepted: false });
+  }
+});
+
+app.get("/api/analytics/summary", requireAdminSession, requireSuperAdmin, async (_req, res) => {
+  try {
+    const dbInstance = await getFirebaseFirestore();
+    if (!dbInstance) return res.json(buildMemoryAnalyticsResponse());
+    const collection = dbInstance.collection(ANALYTICS_COLLECTION);
+    const dayKeys = analyticsRecentDays();
+    const results: any[] = await withTimeout(Promise.all([
+      collection.doc("summary").get(),
+      ...dayKeys.map(date => collection.doc(`day_${date}`).get()),
+      collection.orderBy("lastSeenAt", "desc").limit(ANALYTICS_RECENT_VISITOR_LIMIT).get()
+    ]), 8000, "Visitor analytics summary timed out");
+    const summarySnapshot: any = results[0];
+    const daySnapshots: any[] = results.slice(1, 1 + dayKeys.length);
+    const visitorQuery: any = results[results.length - 1];
+    const days = dayKeys.map((date, index) => {
+      const value = daySnapshots[index]?.exists ? daySnapshots[index].data() || {} : {};
+      return { date, pageviews: Number(value.pageviews || 0), sessions: Number(value.sessions || 0), visitors: Number(value.visitors || 0) };
+    });
+    const recentVisitors: AnalyticsVisitorRecord[] = [];
+    visitorQuery.forEach((snapshot: any) => {
+      if (!snapshot.id.startsWith("visitor_")) return;
+      const value = snapshot.data() || {};
+      recentVisitors.push({
+        visitorCode: String(value.visitorCode || snapshot.id.slice(8, 16)).toUpperCase(),
+        firstSeenAt: String(value.firstSeenAt || ""),
+        lastSeenAt: String(value.lastSeenAt || ""),
+        lastSeenDay: String(value.lastSeenDay || ""),
+        currentSessionId: "",
+        totalPageviews: Number(value.totalPageviews || 0),
+        totalSessions: Number(value.totalSessions || 0),
+        currentPath: normalizeAnalyticsPath(value.currentPath),
+        device: ["desktop", "mobile", "tablet"].includes(value.device) ? value.device : "desktop",
+        browser: String(value.browser || "Khác").slice(0, 30),
+        os: String(value.os || "Khác").slice(0, 30),
+        language: normalizeAnalyticsLanguage(value.language),
+        referrerHost: String(value.referrerHost || "trực tiếp").slice(0, 120)
+      });
+    });
+    const summary = summarySnapshot.exists ? summarySnapshot.data() || {} : {};
+    const now = Date.now();
+    res.json({
+      summary: {
+        totalPageviews: Number(summary.totalPageviews || 0),
+        totalSessions: Number(summary.totalSessions || 0),
+        totalVisitors: Number(summary.totalVisitors || 0),
+        updatedAt: String(summary.updatedAt || ""),
+        activeVisitors: recentVisitors.filter(visitor => visitor.lastSeenAt && now - Date.parse(visitor.lastSeenAt) <= ANALYTICS_ACTIVE_WINDOW_MS).length,
+        today: days[days.length - 1]
+      },
+      days,
+      recentVisitors,
+      storage: "firebase"
+    });
+  } catch (error: any) {
+    console.error("[visitor-analytics] Summary failed:", error?.message || error);
+    res.status(500).json({ error: "Không thể tải thống kê truy cập lúc này." });
+  }
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, service: "vovinam-api", timestamp: Date.now() });
 });
@@ -2811,6 +3175,64 @@ app.post(
     }
   }
 );
+
+app.post("/api/media/video", requireSameOrigin, requireAdminSession, async (req, res) => {
+  try {
+    if (!firebaseStorageBucketName) {
+      return res.status(503).json({
+        error: "Chưa cấu hình FIREBASE_STORAGE_BUCKET. Clip không được lưu vào Firestore để tránh phình dữ liệu."
+      });
+    }
+
+    const dataUrl = typeof req.body?.dataUrl === "string" ? req.body.dataUrl.trim() : "";
+    const match = /^data:(video\/(?:mp4|webm));base64,([A-Za-z0-9+/=\r\n]+)$/i.exec(dataUrl);
+    if (!match) {
+      return res.status(400).json({ error: "Chỉ chấp nhận clip MP4 hoặc WebM hợp lệ." });
+    }
+
+    const durationSeconds = Number(req.body?.durationSeconds);
+    if (!Number.isFinite(durationSeconds) || durationSeconds <= 0 || durationSeconds > MAX_HIGHLIGHT_VIDEO_SECONDS + 0.25) {
+      return res.status(400).json({
+        error: 'Clip phải có thời lượng từ 0 đến ' + MAX_HIGHLIGHT_VIDEO_SECONDS + ' giây.'
+      });
+    }
+
+    const encoded = match[2].replace(/\s/g, "");
+    const videoBuffer = Buffer.from(encoded, "base64");
+    if (videoBuffer.length === 0 || videoBuffer.length > MAX_HIGHLIGHT_VIDEO_BYTES) {
+      return res.status(413).json({
+        error: 'Clip tải từ máy phải nhỏ hơn ' + Math.round(MAX_HIGHLIGHT_VIDEO_BYTES / 1024 / 1024) + ' MB.'
+      });
+    }
+
+    const detectedContentType = detectVideoContentType(videoBuffer);
+    const declaredContentType = match[1].toLowerCase();
+    if (!detectedContentType || detectedContentType !== declaredContentType) {
+      return res.status(400).json({ error: "Chữ ký file clip không khớp với định dạng đã khai báo." });
+    }
+
+    const id = String(Date.now()) + '_' + randomUUID();
+    const storageUrl = await storeVideoInFirebaseStorage(id, videoBuffer, detectedContentType);
+    if (!storageUrl) {
+      return res.status(503).json({ error: "Firebase Storage chưa sẵn sàng để lưu clip." });
+    }
+
+    return res.status(201).json({
+      success: true,
+      id,
+      url: storageUrl,
+      byteSize: videoBuffer.length,
+      durationSeconds,
+      storageBackend: "firebase-storage"
+    });
+  } catch (err: any) {
+    console.error("[media/video POST]", err);
+    return res.status(503).json({
+      error: "Không thể lưu clip vào Firebase Storage. Bài đang soạn chưa bị thay đổi.",
+      message: err?.message || String(err)
+    });
+  }
+});
 
 app.post("/api/media/image", requireSameOrigin, requireAdminSession, async (req, res) => {
   try {
@@ -3546,6 +3968,14 @@ app.post(
     if (data === undefined || data === null) {
       return res.status(400).json({ error: "Missing data; existing cloud data was not changed" });
     }
+    if (key === "highlights" && Array.isArray(data)) {
+      for (const highlight of data) {
+        const mediaError = validateHighlightMediaUrls(highlight?.mediaUrls || []);
+        if (mediaError) {
+          return res.status(400).json({ error: mediaError, highlightId: highlight?.id || null });
+        }
+      }
+    }
     
     const db = await getDbData();
     const previousDb = { ...db };
@@ -3727,6 +4157,14 @@ app.post(
   async (req, res) => {
   try {
     const { categories, articles, members, coaches, achievements, tournaments, clubs, highlights, webConfig } = req.body;
+    if (Array.isArray(highlights)) {
+      for (const highlight of highlights) {
+        const mediaError = validateHighlightMediaUrls(highlight?.mediaUrls || []);
+        if (mediaError) {
+          return res.status(400).json({ error: mediaError, highlightId: highlight?.id || null });
+        }
+      }
+    }
     const existing = await getDbData();
     const incomingByKey: Record<string, any> = {
       categories, articles, members, coaches, achievements, tournaments, clubs, highlights

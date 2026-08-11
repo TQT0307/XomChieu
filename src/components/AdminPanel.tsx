@@ -4,7 +4,7 @@ import {
   Plus, Edit2, Trash2, Save, X, CheckCircle2, ShieldAlert,
   Shield, History, Key, LogOut, Lock, ShieldCheck, Swords,
   User, Eye, EyeOff, ClipboardList, Info, Check, UserCheck,
-  ChevronLeft, ChevronRight, ZoomIn, ZoomOut
+  ChevronLeft, ChevronRight, ZoomIn, ZoomOut, BarChart3
 } from 'lucide-react';
 import { 
   Category, Article, Member, Coach, Achievement, Tournament, Club, Highlight, WebConfig,
@@ -44,6 +44,20 @@ import {
   parseStoredEditHistories
 } from '../utils/adminStorage';
 import { ADMIN_CONTENT_TABS } from '../utils/adminNavigation';
+import {
+  MAX_HIGHLIGHT_IMAGES,
+  MAX_HIGHLIGHT_VIDEOS,
+  MAX_HIGHLIGHT_VIDEO_BYTES,
+  MAX_HIGHLIGHT_VIDEO_MB,
+  MAX_HIGHLIGHT_VIDEO_SECONDS,
+  RECOMMENDED_DIRECT_VIDEO_MB,
+  getHighlightMediaCounts,
+  getHighlightMediaKind,
+  getYouTubeEmbedUrl,
+  validateHighlightMediaUrls
+} from '../../shared/highlightMedia';
+
+const AdminAnalyticsPanel = React.lazy(() => import('./AdminAnalyticsPanel'));
 
 const adminBundledBannerImages: Record<string, string> = {
   '/src/assets/images/banner1.jpg': defaultBanner1,
@@ -56,7 +70,6 @@ const adminBundledBannerImages: Record<string, string> = {
 const resolveAdminBannerImage = (image?: string) =>
   (image && adminBundledBannerImages[image]) || image || defaultBanner1;
 
-const MAX_HIGHLIGHT_IMAGES = 50;
 const MAX_SOURCE_IMAGE_BYTES = 15 * 1024 * 1024;
 const TARGET_STORED_IMAGE_BYTES = 620 * 1024;
 const HARD_STORED_IMAGE_BYTES = 650 * 1024;
@@ -194,6 +207,50 @@ async function compressAndUploadHighlightImage(file: File): Promise<string> {
   return uploadHighlightImageDataUrl(await compressHighlightImage(file));
 }
 
+const readVideoDurationSeconds = (file: File) => new Promise<number>((resolve, reject) => {
+  const objectUrl = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  const cleanup = () => {
+    video.removeAttribute('src');
+    video.load();
+    URL.revokeObjectURL(objectUrl);
+  };
+  const timeoutId = window.setTimeout(() => {
+    cleanup();
+    reject(new Error('Không đọc được thời lượng clip. Hãy thử file MP4/WebM khác.'));
+  }, 10000);
+  video.preload = 'metadata';
+  video.onloadedmetadata = () => {
+    window.clearTimeout(timeoutId);
+    const duration = video.duration;
+    cleanup();
+    if (!Number.isFinite(duration) || duration <= 0) {
+      reject(new Error('Clip không có thời lượng hợp lệ.'));
+      return;
+    }
+    resolve(duration);
+  };
+  video.onerror = () => {
+    window.clearTimeout(timeoutId);
+    cleanup();
+    reject(new Error('Trình duyệt không đọc được clip MP4/WebM này.'));
+  };
+  video.src = objectUrl;
+});
+
+async function uploadHighlightVideo(file: File, durationSeconds: number): Promise<string> {
+  const response = await fetch('/api/media/video', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dataUrl: await blobToDataUrl(file), durationSeconds })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || typeof result.url !== 'string') {
+    throw new Error(result.error || result.message || 'Không thể lưu clip vào Firebase Storage.');
+  }
+  return result.url;
+}
+
 interface AdminPanelProps {
   categories: Category[];
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
@@ -229,6 +286,7 @@ type AdminTab =
   | 'webConfig'
   | 'admins'
   | 'history'
+  | 'analytics'
   | 'dbSync'
   | 'changePassword';
 
@@ -1130,6 +1188,7 @@ export default function AdminPanel({
   const [clubForm, setClubForm] = useState<Partial<Club>>({});
   const [highlightForm, setHighlightForm] = useState<Partial<Highlight>>({ mediaUrls: [], mediaNotes: [] });
   const [isUploadingHighlightMedia, setIsUploadingHighlightMedia] = useState(false);
+  const [isUploadingHighlightVideo, setIsUploadingHighlightVideo] = useState(false);
   const [highlightUploadProgress, setHighlightUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [webConfigForm, setWebConfigForm] = useState<WebConfig>(webConfig);
   const savedAchievementTournamentNames = useMemo(() => Array.from(new Set(
@@ -1142,11 +1201,70 @@ export default function AdminPanel({
     ].filter((name): name is string => Boolean(name))
   )).sort((a, b) => a.localeCompare(b, 'vi')), [achievements, highlights, tournaments]);
 
+  const handleHighlightVideoUpload = async (file: File, replaceIndex?: number) => {
+    if (isUploadingHighlightMedia || isUploadingHighlightVideo) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+    const normalizedType = file.type.toLowerCase() ||
+      (extension === 'mp4' ? 'video/mp4' : extension === 'webm' ? 'video/webm' : '');
+    if (!['video/mp4', 'video/webm'].includes(normalizedType)) {
+      showToast('Chỉ chấp nhận clip MP4 hoặc WebM.', 'error');
+      return;
+    }
+    const typedFile = file.type === normalizedType
+      ? file
+      : new File([file], file.name, { type: normalizedType, lastModified: file.lastModified });
+    if (file.size <= 0 || file.size > MAX_HIGHLIGHT_VIDEO_BYTES) {
+      showToast('Clip từ máy phải nhỏ hơn ' + MAX_HIGHLIGHT_VIDEO_MB + ' MB.', 'error');
+      return;
+    }
+
+    const counts = getHighlightMediaCounts(highlightForm.mediaUrls);
+    const replacingVideo = replaceIndex !== undefined &&
+      getHighlightMediaKind(highlightForm.mediaUrls?.[replaceIndex] || '') === 'video';
+    if (counts.videos + (replacingVideo ? 0 : 1) > MAX_HIGHLIGHT_VIDEOS) {
+      showToast('Mỗi Highlight được lưu tối đa ' + MAX_HIGHLIGHT_VIDEOS + ' clip.', 'error');
+      return;
+    }
+
+    setIsUploadingHighlightVideo(true);
+    try {
+      const durationSeconds = await readVideoDurationSeconds(typedFile);
+      if (durationSeconds > MAX_HIGHLIGHT_VIDEO_SECONDS + 0.25) {
+        throw new Error('Clip từ máy không được dài quá ' + MAX_HIGHLIGHT_VIDEO_SECONDS + ' giây.');
+      }
+      const uploadedUrl = await uploadHighlightVideo(typedFile, durationSeconds);
+      setHighlightForm(previous => {
+        const pairs = (previous.mediaUrls || []).map((url, index) => ({
+          url,
+          note: previous.mediaNotes?.[index] || ''
+        }));
+        if (replaceIndex !== undefined) {
+          while (pairs.length <= replaceIndex) pairs.push({ url: '', note: '' });
+          pairs[replaceIndex] = { ...pairs[replaceIndex], url: uploadedUrl };
+        } else {
+          pairs.push({ url: uploadedUrl, note: '' });
+        }
+        const nonEmptyPairs = pairs.filter(item => item.url.trim() !== '');
+        return {
+          ...previous,
+          mediaUrls: nonEmptyPairs.map(item => item.url),
+          mediaNotes: nonEmptyPairs.map(item => item.note)
+        };
+      });
+      showToast('Đã lưu clip ' + Math.ceil(durationSeconds) + ' giây vào Firebase Storage.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không thể tải clip lên Firebase Storage.', 'error');
+    } finally {
+      setIsUploadingHighlightVideo(false);
+    }
+  };
+
   const handleHighlightImageUpload = async (files: File[], replaceIndex?: number) => {
-    if (isUploadingHighlightMedia || files.length === 0) return;
+    if (isUploadingHighlightMedia || isUploadingHighlightVideo || files.length === 0) return;
 
     const selectedFiles = replaceIndex === undefined ? files : files.slice(0, 1);
-    const existingImageCount = (highlightForm.mediaUrls || []).filter(url => url.trim() !== '').length;
+    const existingImageCount = getHighlightMediaCounts(highlightForm.mediaUrls).images;
     if (replaceIndex === undefined && existingImageCount + selectedFiles.length > MAX_HIGHLIGHT_IMAGES) {
       showToast(`Mỗi Highlight được lưu tối đa ${MAX_HIGHLIGHT_IMAGES} ảnh.`, 'error');
       return;
@@ -1672,7 +1790,7 @@ export default function AdminPanel({
           athleteIds,
           mediaUrls: item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''],
           mediaNotes: (item.mediaUrls && item.mediaUrls.length > 0 ? item.mediaUrls : [''])
-            .map((_, index) => item.mediaNotes?.[index] || '')
+            .map((_: string, index: number) => item.mediaNotes?.[index] || '')
         });
         setTypedHighlightAthleteId(athleteIds[0] || '');
         break;
@@ -1946,8 +2064,8 @@ export default function AdminPanel({
         showToast('Cập nhật câu lạc bộ thành công!', 'success');
       }
     } else if (activeTab === 'highlights') {
-      if (isUploadingHighlightMedia) {
-        showToast('Vui lòng chờ ảnh tải xong rồi mới bấm Lưu dữ liệu.', 'info');
+      if (isUploadingHighlightMedia || isUploadingHighlightVideo) {
+        showToast('Vui lòng chờ ảnh/clip tải xong rồi mới bấm Lưu dữ liệu.', 'info');
         return;
       }
       const id = highlightForm.id?.trim() || '';
@@ -1955,8 +2073,9 @@ export default function AdminPanel({
       const mediaPairs = (highlightForm.mediaUrls || [])
         .map((url, index) => ({ url: url.trim(), note: highlightForm.mediaNotes?.[index]?.trim() || '' }))
         .filter(item => item.url !== '');
-      if (mediaPairs.length > MAX_HIGHLIGHT_IMAGES) {
-        showToast(`Mỗi Highlight được lưu tối đa ${MAX_HIGHLIGHT_IMAGES} ảnh.`, 'error');
+      const mediaValidationError = validateHighlightMediaUrls(mediaPairs.map(item => item.url));
+      if (mediaValidationError) {
+        showToast(mediaValidationError, 'error');
         return;
       }
 
@@ -2003,9 +2122,17 @@ export default function AdminPanel({
 
       const finalMediaUrls = mediaPairs.map(item => item.url);
       const finalMediaNotes = mediaPairs.map(item => item.note);
+      const finalMediaCounts = getHighlightMediaCounts(finalMediaUrls);
+      const finalHighlightForm = {
+        ...highlightForm,
+        contentType: highlightForm.contentType || 'thi đấu',
+        mediaType: finalMediaCounts.videos > 0 ? 'video' as const : 'ảnh' as const,
+        mediaUrls: finalMediaUrls,
+        mediaNotes: finalMediaNotes
+      };
       if (editId === null) {
         if (highlights.some(h => h.id === id)) { showToast('ID này đã tồn tại!', 'error'); return; }
-        setHighlights(prev => [...prev, { ...highlightForm, mediaUrls: finalMediaUrls, mediaNotes: finalMediaNotes } as Highlight]);
+        setHighlights(prev => [...prev, finalHighlightForm as Highlight]);
         addLog('Thêm', 'highlights', `Đã thêm Highlight mới: "${highlightForm.title}" (ID: ${id})`);
         showToast('Thêm highlight mới thành công!', 'success');
       } else {
@@ -2013,7 +2140,7 @@ export default function AdminPanel({
           showToast('Mã ID mới này đã tồn tại trên hệ thống!', 'error');
           return;
         }
-        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...highlightForm, id, mediaUrls: finalMediaUrls, mediaNotes: finalMediaNotes } as Highlight : h));
+        setHighlights(prev => prev.map(h => h.id === editId ? { ...h, ...finalHighlightForm, id } as Highlight : h));
         addLog('Sửa', 'highlights', `Đã cập nhật Highlight: "${highlightForm.title}" (ID: ${id})`);
         showToast('Cập nhật highlight thành công!', 'success');
       }
@@ -2840,6 +2967,16 @@ export default function AdminPanel({
                   </button>
 
                   <button
+                    onClick={() => { setActiveTab('analytics'); setIsEditing(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      activeTab === 'analytics' ? 'bg-[#0054A6] text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <BarChart3 className={`w-4 h-4 ${activeTab === 'analytics' ? 'text-[#FFF200]' : 'text-cyan-600'}`} />
+                    <span>Thống kê truy cập</span>
+                  </button>
+
+                  <button
                     onClick={() => { setActiveTab('history'); setIsEditing(false); }}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       activeTab === 'history' ? 'bg-[#0054A6] text-white shadow-md' : 'text-slate-600 hover:bg-slate-50'
@@ -2936,6 +3073,17 @@ export default function AdminPanel({
                 </button>
               </form>
             </div>
+          )}
+
+          {/* Privacy-safe visitor analytics (Super Admin only). */}
+          {activeTab === 'analytics' && currentAdmin?.role === 'super' && (
+            <React.Suspense fallback={(
+              <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-bold text-[#0054A6] shadow-sm">
+                Đang tải thống kê truy cập...
+              </div>
+            )}>
+              <AdminAnalyticsPanel />
+            </React.Suspense>
           )}
 
           {/* Manage Admin Accounts View (Super Admin Only) */}
@@ -3325,7 +3473,7 @@ export default function AdminPanel({
           )}
 
           {/* Quick Notice - Only shown for Super Admin */}
-          {activeTab !== 'changePassword' && activeTab !== 'admins' && activeTab !== 'history' && currentAdmin?.role === 'super' && (
+          {activeTab !== 'changePassword' && activeTab !== 'admins' && activeTab !== 'history' && activeTab !== 'analytics' && currentAdmin?.role === 'super' && (
             <div className="bg-blue-50 border-l-4 border-[#0054A6] p-4 rounded-xl mb-6 text-xs text-blue-800 flex gap-2 items-center">
               <CheckCircle2 className="w-4 h-4 text-[#0054A6]" />
               <p>
@@ -5465,14 +5613,17 @@ export default function AdminPanel({
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại truyền thông chính</label>
-                          <select 
-                            value={highlightForm.mediaType || 'video'}
-                            onChange={e => setHighlightForm({ ...highlightForm, mediaType: e.target.value as any })}
+                          <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại bài đăng</label>
+                          <select
+                            value={highlightForm.contentType || 'thi đấu'}
+                            onChange={e => setHighlightForm({
+                              ...highlightForm,
+                              contentType: e.target.value as Highlight['contentType']
+                            })}
                             className="w-full text-sm border p-2 rounded-lg" required
                           >
-                            <option value="video">🎥 Video chính</option>
-                            <option value="ảnh">🖼️ Bộ sưu tập hình ảnh</option>
+                            <option value="thi đấu">🏆 Highlight trận đấu</option>
+                            <option value="tập luyện">🥋 Ảnh / clip tập luyện hằng ngày</option>
                           </select>
                         </div>
 
@@ -5519,14 +5670,32 @@ export default function AdminPanel({
                       <h4 className="text-xs font-black text-slate-700 uppercase tracking-wide mb-1 flex items-center gap-1.5">
                         <span>Quản lý các nguồn ảnh / video chi tiết ({highlightForm.mediaUrls?.length || 0})</span>
                       </h4>
-                      <p className="text-[10px] text-slate-500 mb-3">
-                        Ảnh từ máy sẽ được tự nén và lưu từng ảnh riêng trong Firebase. Tối đa 50 ảnh/Highlight,
-                        mỗi ảnh gốc tối đa 15 MB. Video vui lòng dùng đường dẫn URL/YouTube.
+                      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-center">
+                          <strong className="block text-sm text-[#0054A6]">{MAX_HIGHLIGHT_IMAGES} ảnh chi tiết</strong>
+                          <span className="text-[10px] text-slate-600">tối đa mỗi bài</span>
+                        </div>
+                        <div className="rounded-lg border border-violet-200 bg-violet-50 p-2 text-center">
+                          <strong className="block text-sm text-violet-700">{MAX_HIGHLIGHT_VIDEOS} clip</strong>
+                          <span className="text-[10px] text-slate-600">tối đa mỗi bài</span>
+                        </div>
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-2 text-center">
+                          <strong className="block text-sm text-amber-700">≤ {MAX_HIGHLIGHT_VIDEO_SECONDS} giây</strong>
+                          <span className="text-[10px] text-slate-600">mỗi clip</span>
+                        </div>
+                        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-center">
+                          <strong className="block text-sm text-emerald-700">≤ {MAX_HIGHLIGHT_VIDEO_MB} MB</strong>
+                          <span className="text-[10px] text-slate-600">clip chọn từ máy</span>
+                        </div>
+                      </div>
+                      <p className="mb-3 text-[10px] leading-relaxed text-slate-600">
+                        Thumbnail lưu riêng. Ảnh từ máy được tự nén dưới 650 KB/ảnh. Clip có thể chọn từ máy (MP4/WebM, tối đa {MAX_HIGHLIGHT_VIDEO_SECONDS} giây và {MAX_HIGHLIGHT_VIDEO_MB} MB)
+                        hoặc dán liên kết YouTube/MP4/WebM. Link video trực tiếp nên dưới {RECOMMENDED_DIRECT_VIDEO_MB} MB. Video chỉ tải metadata khi người xem mở chi tiết, không tự phát.
                       </p>
 
                       <div className="flex flex-wrap items-center gap-2 mb-4">
                         <label className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition-all ${
-                          isUploadingHighlightMedia
+                          isUploadingHighlightMedia || isUploadingHighlightVideo
                             ? 'bg-slate-400 cursor-not-allowed'
                             : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
                         }`}>
@@ -5534,7 +5703,7 @@ export default function AdminPanel({
                             type="file"
                             accept="image/*"
                             multiple
-                            disabled={isUploadingHighlightMedia}
+                            disabled={isUploadingHighlightMedia || isUploadingHighlightVideo}
                             className="hidden"
                             onChange={event => {
                               const files = Array.from(event.currentTarget.files || []) as File[];
@@ -5545,8 +5714,23 @@ export default function AdminPanel({
                           <Plus className="w-3.5 h-3.5" />
                           Chọn nhiều ảnh từ máy
                         </label>
+                        <label className={'inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-white transition-all ' + (isUploadingHighlightMedia || isUploadingHighlightVideo ? 'bg-slate-400 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700 cursor-pointer')}>
+                          <input
+                            type="file"
+                            accept="video/mp4,video/webm"
+                            disabled={isUploadingHighlightMedia || isUploadingHighlightVideo}
+                            className="hidden"
+                            onChange={event => {
+                              const file = event.currentTarget.files?.[0];
+                              event.currentTarget.value = '';
+                              if (file) void handleHighlightVideoUpload(file);
+                            }}
+                          />
+                          <Film className="w-3.5 h-3.5" />
+                          {isUploadingHighlightVideo ? 'Đang kiểm tra & tải clip…' : 'Chọn clip từ máy'}
+                        </label>
                         <span className="text-[10px] font-semibold text-slate-500">
-                          JPEG, PNG, WebP hoặc GIF • giữ độ phân giải cao, tự tối ưu dưới 650 KB/ảnh
+                          Ảnh: JPEG/PNG/WebP/GIF • Clip: MP4/WebM, ≤ {MAX_HIGHLIGHT_VIDEO_SECONDS} giây, ≤ {MAX_HIGHLIGHT_VIDEO_MB} MB
                         </span>
                       </div>
 
@@ -5573,7 +5757,8 @@ export default function AdminPanel({
                       <div className="space-y-3">
                         {highlightForm.mediaUrls?.map((url, idx) => {
                           const isBase64 = url.startsWith('data:');
-                          const isVideo = url.startsWith('data:video') || url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg');
+                          const isVideo = getHighlightMediaKind(url) === 'video';
+                          const youtubeEmbedUrl = getYouTubeEmbedUrl(url);
                           return (
                             <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
                               <div className="flex items-center justify-between">
@@ -5596,7 +5781,7 @@ export default function AdminPanel({
                                 <input 
                                   type="text"
                                   value={isBase64 ? '📁 [Tập tin đã chọn từ máy]' : url}
-                                  placeholder="Dán đường dẫn URL tại đây hoặc chọn Tải từ máy..."
+                                  placeholder="Dán URL ảnh, YouTube hoặc MP4/WebM tại đây..."
                                   disabled={isBase64}
                                   onChange={e => {
                                     const copy = [...(highlightForm.mediaUrls || [])];
@@ -5610,7 +5795,7 @@ export default function AdminPanel({
                                     <input 
                                       type="file"
                                       accept="image/*"
-                                      disabled={isUploadingHighlightMedia}
+                                      disabled={isUploadingHighlightMedia || isUploadingHighlightVideo}
                                       className="hidden"
                                       onChange={e => {
                                         const file = e.target.files?.[0];
@@ -5619,6 +5804,20 @@ export default function AdminPanel({
                                       }}
                                     />
                                     <span>Tải ảnh từ máy</span>
+                                  </label>
+                                  <label className="bg-violet-50 text-violet-700 hover:bg-violet-100 text-xs font-bold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-1 transition-all">
+                                    <input
+                                      type="file"
+                                      accept="video/mp4,video/webm"
+                                      disabled={isUploadingHighlightMedia || isUploadingHighlightVideo}
+                                      className="hidden"
+                                      onChange={event => {
+                                        const file = event.currentTarget.files?.[0];
+                                        event.currentTarget.value = '';
+                                        if (file) void handleHighlightVideoUpload(file, idx);
+                                      }}
+                                    />
+                                    <span>Tải clip từ máy</span>
                                   </label>
                                   {isBase64 && (
                                     <button
@@ -5658,7 +5857,17 @@ export default function AdminPanel({
                                   {isVideo ? (
                                     <div className="text-[10px] text-purple-600 font-bold flex items-center gap-1.5">
                                       <span>🎥 Xem trước video:</span>
-                                      <video src={url} className="w-20 h-12 object-cover rounded border bg-black" controls />
+                                      {youtubeEmbedUrl ? (
+                                        <iframe
+                                          src={youtubeEmbedUrl}
+                                          title={`Xem trước clip ${idx + 1}`}
+                                          className="h-16 w-28 rounded border bg-black"
+                                          loading="lazy"
+                                          allow="encrypted-media; picture-in-picture"
+                                        />
+                                      ) : (
+                                        <video src={url} className="w-20 h-12 object-cover rounded border bg-black" controls preload="metadata" />
+                                      )}
                                     </div>
                                   ) : (
                                     <div className="text-[10px] text-emerald-600 font-bold flex items-center gap-1.5">

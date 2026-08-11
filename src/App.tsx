@@ -163,6 +163,26 @@ export default function App() {
     openAdminFromDirectUrl();
     return () => window.removeEventListener('hashchange', openAdminFromDirectUrl);
   }, []);
+
+  // Load the tiny analytics client after the public UI is already interactive.
+  useEffect(() => {
+    if (isAdmin) return;
+    let dispose;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void import('./utils/visitorAnalytics').then(module => {
+        if (cancelled) return;
+        dispose = module.startVisitorAnalytics();
+      }).catch(() => {
+        // Statistics are best-effort and must never interrupt the public UI.
+      });
+    }, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      dispose?.();
+    };
+  }, [isAdmin]);
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
   const hasLoadedServerDataRef = useRef(false);
 
