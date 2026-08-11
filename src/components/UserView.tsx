@@ -238,9 +238,10 @@ export default function UserView({
   // Decode the next slide before it becomes visible so transitions do not wait
   // for image loading on slower connections.
   useEffect(() => {
-    if (banners.length < 2) return;
+    if (banners.length < 2 || document.hidden) return;
     const nextIndex = (safeCurrentBanner + 1) % banners.length;
     const preloadImage = new Image();
+    preloadImage.decoding = 'async';
     preloadImage.src = resolveBannerImage(banners[nextIndex]?.image);
   }, [safeCurrentBanner, banners]);
 
@@ -323,10 +324,33 @@ export default function UserView({
   }, [setActiveNavSection]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentBanner((prev) => (prev + 1) % banners.length);
-    }, 3500);
-    return () => clearInterval(timer);
+    if (banners.length < 2) return;
+
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let timer: ReturnType<typeof window.setInterval> | undefined;
+
+    const stopCarousel = () => {
+      if (timer !== undefined) window.clearInterval(timer);
+      timer = undefined;
+    };
+    const startCarousel = () => {
+      stopCarousel();
+      if (document.hidden || reducedMotionQuery.matches) return;
+      timer = window.setInterval(() => {
+        setCurrentBanner((prev) => (prev + 1) % banners.length);
+      }, 3500);
+    };
+
+    const handleMotionPreference = () => startCarousel();
+    startCarousel();
+    document.addEventListener('visibilitychange', startCarousel);
+    reducedMotionQuery.addEventListener?.('change', handleMotionPreference);
+
+    return () => {
+      stopCarousel();
+      document.removeEventListener('visibilitychange', startCarousel);
+      reducedMotionQuery.removeEventListener?.('change', handleMotionPreference);
+    };
   }, [banners.length]);
 
   const nextBanner = () => {

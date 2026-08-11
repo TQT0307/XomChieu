@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import test from 'node:test';
 
 const apiSource = readFileSync(new URL('../api/index.ts', import.meta.url), 'utf8');
@@ -23,6 +23,14 @@ test('detail hero decodes one high-priority image instead of duplicate foregroun
 
 test('page connects early to Firebase Storage for cloud images', () => {
   assert.match(htmlSource, /rel="preconnect" href="https:\/\/firebasestorage\.googleapis\.com"/);
+});
+
+test('default favicon and social preview logo exists and stays lightweight', () => {
+  const logoUrl = new URL('../public/logo-sharp.png', import.meta.url);
+  assert.equal(existsSync(logoUrl), true);
+  assert.ok(statSync(logoUrl).size < 512 * 1024);
+  assert.match(htmlSource, /href="\/logo-sharp\.png"/);
+  assert.match(htmlSource, /content="https:\/\/vvnxomchieu\.vercel\.app\/logo-sharp\.png"/);
 });
 test('critical images warm immediately and thumbnails warm with bounded concurrency', () => {
   assert.match(appSource, /warmImageCache\(\[webConfig\.logo, bannerImages\[0\], bannerImages\[1\]\], 3\)/);

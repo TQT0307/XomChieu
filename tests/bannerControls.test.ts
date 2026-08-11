@@ -16,6 +16,9 @@ test('banner navigation is accessible, lightweight and keeps automatic carousel 
   assert.match(user, /opacity-45/);
   assert.match(user, /safeCurrentBanner === idx/);
   assert.match(user, /shadow-\[0_0_14px/);
+  assert.match(user, /document\.hidden/);
+  assert.match(user, /prefers-reduced-motion: reduce/);
+  assert.match(user, /visibilitychange/);
 });
 test('admin banner preview mirrors the public image-only banner', () => {
   const admin = fs.readFileSync(new URL('../src/components/AdminPanel.tsx', import.meta.url), 'utf8');
