@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X, Play, Image as ImageIcon, Film, User, ChevronLeft, ChevronRight,
-  ZoomIn, ZoomOut, RotateCcw, Move, ExternalLink
+  ZoomIn, ZoomOut, RotateCcw, Move, ExternalLink, Maximize2, Minimize2
 } from 'lucide-react';
 import { Highlight } from '../types';
 import useModalScrollLock from '../hooks/useModalScrollLock';
@@ -25,7 +25,9 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   const [maxZoom, setMaxZoom] = useState(1);
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [isMediaFullscreen, setIsMediaFullscreen] = useState(false);
   const mediaViewportRef = useRef<HTMLDivElement>(null);
+  const mediaArenaRef = useRef<HTMLDivElement>(null);
   const imageBaseSizeRef = useRef({ width: 0, height: 0 });
   const dragStartRef = useRef({ pointerX: 0, pointerY: 0, imageX: 0, imageY: 0 });
   useModalScrollLock(Boolean(highlight), onClose);
@@ -40,6 +42,30 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
     setImageOffset({ x: 0, y: 0 });
     setIsDraggingImage(false);
   }, [highlight?.id, activeMediaIndex]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsMediaFullscreen(document.fullscreenElement === mediaArenaRef.current);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleMediaFullscreen = async () => {
+    const arena = mediaArenaRef.current;
+    if (!arena) return;
+
+    try {
+      if (document.fullscreenElement === arena) {
+        await document.exitFullscreen();
+      } else if (!document.fullscreenElement && arena.requestFullscreen) {
+        await arena.requestFullscreen();
+      }
+    } catch {
+      // The embedded provider still exposes its native fullscreen control.
+      setIsMediaFullscreen(false);
+    }
+  };
 
   if (!highlight) return null;
 
@@ -145,7 +171,12 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         </div>
 
         {/* Media Viewer Arena */}
-        <div className="relative bg-slate-900 h-[50vh] min-h-[320px] max-h-[600px] flex items-center justify-center group">
+        <div
+          ref={mediaArenaRef}
+          className={'relative flex items-center justify-center bg-black group ' + (
+            isMediaFullscreen ? 'h-[100dvh] w-screen min-h-0 max-h-none' : 'h-[50vh] min-h-[320px] max-h-[600px]'
+          )}
+        >
           {/* Main Media Display */}
           <div
             ref={mediaViewportRef}
@@ -155,9 +186,9 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
               <iframe
                 src={activeVideoEmbedUrl}
                 title={`${highlight.title} - clip ${activeMediaIndex + 1}`}
-                className="h-full w-full border-0"
+                className="h-full w-full border-0 bg-black"
                 loading="lazy"
-                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                 allowFullScreen
               />
             ) : activeVideoProvider === 'direct' ? (
@@ -166,7 +197,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
                 controls
                 preload="metadata"
                 playsInline
-                className="max-w-full max-h-full object-contain"
+                className="h-full w-full bg-black object-contain"
               />
             ) : activeVideoProvider ? (
               <div className="mx-5 max-w-md rounded-2xl border border-slate-600 bg-slate-800 p-6 text-center shadow-xl">
@@ -241,6 +272,19 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
               />
             )}
           </div>
+
+          {isVideoUrl(activeMediaUrl) && typeof document !== 'undefined' && document.fullscreenEnabled && (
+            <button
+              type="button"
+              onClick={() => void toggleMediaFullscreen()}
+              className="absolute right-3 top-3 z-20 inline-flex items-center gap-2 rounded-xl border border-white/25 bg-slate-950/75 px-3 py-2 text-xs font-bold text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-slate-900 cursor-pointer"
+              aria-label={isMediaFullscreen ? 'Thoát toàn màn hình' : 'Xem video toàn màn hình'}
+              title={isMediaFullscreen ? 'Thoát toàn màn hình' : 'Xem video toàn màn hình'}
+            >
+              {isMediaFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              <span className="hidden sm:inline">{isMediaFullscreen ? 'Thu nhỏ' : 'Toàn màn hình'}</span>
+            </button>
+          )}
 
           {!isVideoUrl(mediaList[activeMediaIndex]) && (
             <div className="absolute top-3 right-3 flex items-center gap-1 rounded-xl border border-slate-600 bg-slate-800/90 p-1.5 shadow-lg">

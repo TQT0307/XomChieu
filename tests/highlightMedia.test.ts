@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   MAX_HIGHLIGHT_IMAGES,
   MAX_HIGHLIGHT_VIDEO_BYTES,
@@ -71,4 +72,13 @@ test('enforces twenty images and three clips', () => {
   assert.equal(validateHighlightMediaUrls(Array.from({ length: MAX_HIGHLIGHT_VIDEOS }, (_, i) => `https://youtu.be/clip${i}`)), null);
   assert.match(validateHighlightMediaUrls(Array.from({ length: MAX_HIGHLIGHT_VIDEOS + 1 }, (_, i) => `https://youtu.be/clip${i}`)) || '', /3 clip/);
   assert.match(validateHighlightMediaUrls(['data:video/mp4;base64,AAAA']) || '', /base64/);
+});
+
+test('highlight video viewer supports uncropped fullscreen playback', () => {
+  const source = readFileSync('src/components/HighlightDetailModal.tsx', 'utf8');
+  assert.match(source, /requestFullscreen/);
+  assert.match(source, /fullscreenchange/);
+  assert.match(source, /allowFullScreen/);
+  assert.match(source, /h-full w-full bg-black object-contain/);
+  assert.match(source, /h-\[100dvh\]/);
 });
