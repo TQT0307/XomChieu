@@ -1614,7 +1614,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               <div 
                 key={coach.id}
                 onClick={() => onSelectCoach(coach)}
-                className="vovinam-depth-card bg-white rounded-[2rem] p-8 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between cursor-pointer"
+                className="vovinam-depth-card bg-white rounded-[2rem] p-8 border-2 border-slate-900 shadow-md text-center group hover:border-slate-900 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-2 flex flex-col justify-between cursor-pointer"
               >
                 <div>
                   {/* Photo with beautiful dual ring indicator */}
@@ -1689,13 +1689,13 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
 
             <div
               ref={(el) => { rowScrollRefs.current['COACHES'] = el; }}
-              className="flex gap-6 overflow-x-auto scrollbar-none pb-6 scroll-smooth snap-x snap-mandatory px-2"
+              className="flex gap-6 overflow-x-auto scrollbar-none pt-3 pb-6 scroll-smooth snap-x snap-mandatory px-2"
             >
               {visibleCoaches.map((coach) => (
                 <div 
                   key={coach.id}
                   onClick={() => onSelectCoach(coach)}
-                  className="w-[280px] sm:w-[330px] shrink-0 snap-start bg-white rounded-[2rem] p-6 border border-slate-150 shadow-md text-center group hover:border-[#0054A6]/30 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-1 flex flex-col justify-between cursor-pointer"
+                  className="w-[280px] sm:w-[330px] shrink-0 snap-start bg-white rounded-[2rem] p-6 border-2 border-slate-900 shadow-md text-center group hover:border-slate-900 hover:shadow-2xl transition-all duration-350 transform hover:-translate-y-1 flex flex-col justify-between cursor-pointer"
                 >
                   <div>
                     {/* Photo with beautiful dual ring indicator */}

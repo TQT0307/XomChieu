@@ -1510,6 +1510,8 @@ select {
 #section-members :is(.vovinam-depth-card, .snap-start):hover {
   box-sizing: border-box;
   border: 2px solid #0f172a !important;
+  outline: 1px solid #0f172a;
+  outline-offset: -2px;
 }
 
 /* Static Vovinam identity: CSS-only, no continuous motion or data dependency. */
