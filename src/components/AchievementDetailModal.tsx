@@ -11,7 +11,7 @@ interface AchievementDetailModalProps {
 
 export default function AchievementDetailModal({ achievement, onClose }: AchievementDetailModalProps) {
   const [isImageViewerOpen, setIsImageViewerOpen] = useState(false);
-  useModalScrollLock(Boolean(achievement));
+  useModalScrollLock(Boolean(achievement), onClose);
 
   if (!achievement) return null;
 

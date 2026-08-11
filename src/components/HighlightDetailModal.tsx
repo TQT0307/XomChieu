@@ -5,6 +5,12 @@ import {
 } from 'lucide-react';
 import { Highlight } from '../types';
 import useModalScrollLock from '../hooks/useModalScrollLock';
+import {
+  getHighlightMediaCounts,
+  getHighlightMediaKind,
+  getYouTubeEmbedUrl,
+  getYouTubeThumbnailUrl
+} from '../../shared/highlightMedia';
 
 interface HighlightDetailModalProps {
   highlight: Highlight | null;
@@ -20,7 +26,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   const mediaViewportRef = useRef<HTMLDivElement>(null);
   const imageBaseSizeRef = useRef({ width: 0, height: 0 });
   const dragStartRef = useRef({ pointerX: 0, pointerY: 0, imageX: 0, imageY: 0 });
-  useModalScrollLock(Boolean(highlight));
+  useModalScrollLock(Boolean(highlight), onClose);
 
   useEffect(() => {
     setActiveMediaIndex(0);
@@ -91,9 +97,9 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
     setImageOffset({ x: 0, y: 0 });
   };
 
-  const isVideoUrl = (url: string) => {
-    return url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.ogg') || url.includes('mov_bbb') || url.includes('movie.mp4') || url.startsWith('data:video');
-  };
+  const isVideoUrl = (url: string) => getHighlightMediaKind(url) === 'video';
+  const mediaCounts = getHighlightMediaCounts(mediaList);
+  const activeYouTubeEmbedUrl = getYouTubeEmbedUrl(mediaList[activeMediaIndex]);
 
   return (
     <div
@@ -115,7 +121,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           <div>
             <span className="inline-flex items-center gap-1.5 bg-[#FFF200] text-slate-900 text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider">
               {highlight.mediaType === 'video' ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
-              {highlight.mediaType === 'video' ? 'Video Highlight' : 'Bộ Sưu Tập Ảnh'}
+              {highlight.contentType === 'tập luyện' ? 'Tập luyện hằng ngày' : 'Khoảnh khắc thi đấu'}
             </span>
             <h3 className="text-lg sm:text-xl font-bold mt-1 text-[#FFF200] leading-tight">
               {highlight.title}
@@ -140,11 +146,21 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             ref={mediaViewportRef}
             className="w-full h-full flex items-center justify-center overflow-hidden"
           >
-            {isVideoUrl(mediaList[activeMediaIndex]) ? (
-              <video 
-                src={mediaList[activeMediaIndex]} 
-                controls 
-                autoPlay 
+            {activeYouTubeEmbedUrl ? (
+              <iframe
+                src={activeYouTubeEmbedUrl}
+                title={`${highlight.title} - clip ${activeMediaIndex + 1}`}
+                className="h-full w-full border-0"
+                loading="lazy"
+                allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            ) : isVideoUrl(mediaList[activeMediaIndex]) ? (
+              <video
+                src={mediaList[activeMediaIndex]}
+                controls
+                preload="metadata"
+                playsInline
                 className="max-w-full max-h-full object-contain"
               />
             ) : (
@@ -275,12 +291,12 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         {/* The note always follows the currently selected image. */}
         <div className="px-5 py-3 bg-slate-950 border-t border-slate-800">
           <p className="text-[10px] font-black uppercase tracking-wider text-[#FFF200] mb-1">
-            Ghi chú ảnh {activeMediaIndex + 1}/{mediaList.length}
+            Ghi chú tư liệu {activeMediaIndex + 1}/{mediaList.length}
           </p>
           <p className={`text-xs sm:text-sm leading-relaxed whitespace-pre-line ${
             activeMediaNote ? 'text-slate-200' : 'text-slate-500 italic'
           }`}>
-            {activeMediaNote || 'Ảnh này chưa có ghi chú.'}
+            {activeMediaNote || 'Tư liệu này chưa có ghi chú.'}
           </p>
         </div>
 
@@ -301,8 +317,16 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
                     }`}
                   >
                     {isVid ? (
-                      <div className="w-full h-full bg-slate-800 flex items-center justify-center">
-                        <Play className="w-4 h-4 text-[#FFF200]" />
+                      <div className="relative w-full h-full bg-slate-800 flex items-center justify-center overflow-hidden">
+                        {getYouTubeThumbnailUrl(mediaUrl) && (
+                          <img
+                            src={getYouTubeThumbnailUrl(mediaUrl) || ''}
+                            alt="thumbnail clip"
+                            className="absolute inset-0 h-full w-full object-cover opacity-70"
+                            loading="lazy"
+                          />
+                        )}
+                        <Play className="relative z-10 w-4 h-4 text-[#FFF200] fill-current" />
                       </div>
                     ) : (
                       <img 
@@ -322,7 +346,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         {/* Extra info/footer */}
         <div className="p-6 bg-slate-900 border-t border-slate-800 text-sm text-slate-400">
           <p>
-            Mục Highlight của CLB Vovinam Xóm Chiếu ghi dấu ấn những đòn đánh điêu luyện, hội diễn nghệ thuật, và những khoảnh khắc võ thuật quý giá. Hãy rèn luyện siêng năng để ghi danh tên mình lên bảng vàng của võ đường!
+            Kho tư liệu Vovinam Xóm Chiếu lưu giữ cả khoảnh khắc thi đấu và sinh hoạt tập luyện hằng ngày. Bài này gồm {mediaCounts.images} ảnh và {mediaCounts.videos} clip.
           </p>
         </div>
 

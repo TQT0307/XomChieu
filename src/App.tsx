@@ -6,7 +6,8 @@ import PublicErrorBoundary from './components/PublicErrorBoundary';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
-const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
+const loadClubDetailModal = () => import('./components/ClubDetailModal');
+const ClubDetailModal = lazy(loadClubDetailModal);
 const TournamentDetailModal = lazy(() => import('./components/TournamentDetailModal'));
 const AchievementDetailModal = lazy(() => import('./components/AchievementDetailModal'));
 const CoachDetailModal = lazy(() => import('./components/CoachDetailModal'));
@@ -116,15 +117,15 @@ export default function App() {
 
     const backgroundTimer = window.setTimeout(() => {
       void warmImageCache([
-        ...articles.slice(0, 6).map(item => item.image),
-        ...tournaments.slice(0, 4).map(item => item.image),
-        ...highlights.slice(0, 6).flatMap(item => [item.thumbnail, ...(item.mediaUrls || []).slice(0, 1)]),
-        ...achievements.slice(0, 6).map(item => item.image),
-        ...clubs.slice(0, 4).map(item => item.image),
-        ...coaches.slice(0, 8).map(item => item.photo),
-        ...members.slice(0, 8).map(item => item.photo)
-      ], 3);
-    }, 350);
+        ...articles.slice(0, 3).map(item => item.image),
+        ...tournaments.slice(0, 2).map(item => item.image),
+        ...highlights.slice(0, 3).map(item => item.thumbnail),
+        ...achievements.slice(0, 3).map(item => item.image),
+        ...clubs.slice(0, 2).map(item => item.image),
+        ...coaches.slice(0, 4).map(item => item.photo),
+        ...members.slice(0, 4).map(item => item.photo)
+      ], 2);
+    }, 1600);
 
     return () => window.clearTimeout(backgroundTimer);
   }, [webConfig.logo, webConfig.banners, articles, tournaments, highlights, achievements, clubs, coaches, members]);
@@ -167,7 +168,7 @@ export default function App() {
   // Load the tiny analytics client after the public UI is already interactive.
   useEffect(() => {
     if (isAdmin) return;
-    let dispose;
+    let dispose: (() => void) | undefined;
     let cancelled = false;
     const timer = window.setTimeout(() => {
       void import('./utils/visitorAnalytics').then(module => {
@@ -369,7 +370,7 @@ export default function App() {
       pollTimer = setTimeout(async () => {
         await fetchServerData();
         if (isMounted) scheduleNextPoll();
-      }, document.hidden ? 120000 : 12000);
+      }, document.hidden ? 180000 : 30000);
     };
 
     const handleVisibilityChange = () => {
@@ -401,6 +402,13 @@ export default function App() {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const countedArticleRouteRef = useRef<string | null>(null);
+
+  // A coach profile links directly to clubs. Warm only the tiny modal module
+  // while that profile is open so the transition is immediate even on a slow
+  // laptop, without preloading club maps or images on the public home page.
+  useEffect(() => {
+    if (selectedCoach) void loadClubDetailModal();
+  }, [selectedCoach]);
 
   // Helper to save safely to localStorage to avoid QuotaExceededError crashes
   const safeSetItem = (key: string, value: any) => {

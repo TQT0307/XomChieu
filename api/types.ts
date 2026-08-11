@@ -89,6 +89,10 @@ export interface Highlight {
   mediaType: 'video' | 'ảnh';
   status: boolean;
   mediaUrls: string[];
+  mediaNotes?: string[];
+  tournamentId?: string;
+  tournamentName?: string;
+  contentType?: 'thi đấu' | 'tập luyện';
 }
 
 export interface BannerConfig {

@@ -46,4 +46,6 @@ test('dimensional UI remains CSS-only and motion-safe', () => {
   assert.match(indexCss, /prefers-reduced-motion: reduce/);
   assert.match(indexCss, /@media \(hover: hover\) and \(pointer: fine\)/);
   assert.match(indexCss, /No canvas, WebGL or data-layer dependency/);
+  assert.match(indexCss, /Static Vovinam identity/);
+  assert.match(indexCss, /repeating-conic-gradient/);
 });
