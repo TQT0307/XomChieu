@@ -3,11 +3,10 @@ import Header from './components/Header';
 import UserView from './components/UserView';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
 import PublicErrorBoundary from './components/PublicErrorBoundary';
+import ClubDetailModal from './components/ClubDetailModal';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
-const loadClubDetailModal = () => import('./components/ClubDetailModal');
-const ClubDetailModal = lazy(loadClubDetailModal);
 const TournamentDetailModal = lazy(() => import('./components/TournamentDetailModal'));
 const AchievementDetailModal = lazy(() => import('./components/AchievementDetailModal'));
 const CoachDetailModal = lazy(() => import('./components/CoachDetailModal'));
@@ -402,13 +401,6 @@ export default function App() {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
   const countedArticleRouteRef = useRef<string | null>(null);
-
-  // A coach profile links directly to clubs. Warm only the tiny modal module
-  // while that profile is open so the transition is immediate even on a slow
-  // laptop, without preloading club maps or images on the public home page.
-  useEffect(() => {
-    if (selectedCoach) void loadClubDetailModal();
-  }, [selectedCoach]);
 
   // Helper to save safely to localStorage to avoid QuotaExceededError crashes
   const safeSetItem = (key: string, value: any) => {

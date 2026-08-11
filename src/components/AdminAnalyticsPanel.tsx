@@ -118,7 +118,7 @@ export default function AdminAnalyticsPanel() {
               <Activity className="h-5 w-5" />
               <span className="text-xs font-black uppercase tracking-[.16em]">Thống kê truy cập website</span>
             </div>
-            <p className="mt-1 text-xs text-blue-100">Dữ liệu khách ẩn danh, không lưu IP đầy đủ, tên hay email.</p>
+            <p className="mt-1 text-xs text-blue-100">Dữ liệu khách ẩn danh, không lưu IP đầy đủ, Gmail, tên hay avatar.</p>
           </div>
           <button
             type="button"

@@ -265,7 +265,9 @@ export default function CoachDetailModal({
                       type="button"
                       onClick={() => onSelectClub?.(club)}
                       aria-label={`Xem chi tiết ${club.name}`}
-                      className={`flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-white/45 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200] ${
+                      aria-haspopup="dialog"
+                      title={`Mở hồ sơ ${club.name}`}
+                      className={`flex w-full min-w-0 cursor-pointer touch-manipulation select-none items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition duration-150 hover:-translate-y-0.5 hover:border-white/60 hover:brightness-110 hover:shadow-lg active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200] ${
                       role === 'Chính'
                         ? 'border-[#FFF200]/35 bg-gradient-to-r from-[#FFF200]/14 to-white/[0.035]'
                         : 'border-sky-400/20 bg-gradient-to-r from-sky-400/10 to-white/[0.025]'

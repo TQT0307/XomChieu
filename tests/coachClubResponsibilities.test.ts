@@ -21,8 +21,11 @@ test('coach detail omits the redundant martial belt summary card', () => {
   assert.doesNotMatch(modal, /Đai đẳng môn phái/);
   assert.doesNotMatch(modal, /getBeltStyle/);
 });
-test('club detail code is preloaded while a coach profile is open', () => {
-  assert.match(app, /const loadClubDetailModal = \(\) => import\('\.\/components\/ClubDetailModal'\)/);
-  assert.match(app, /if \(selectedCoach\) void loadClubDetailModal\(\)/);
+test('coach club rows open the statically available club dialog with clear pointer feedback', () => {
+  assert.match(app, /import ClubDetailModal from '\.\/components\/ClubDetailModal'/);
+  assert.doesNotMatch(app, /loadClubDetailModal/);
   assert.match(app, /setSelectedCoach\(null\);\s*openClubDetail\(club\)/);
+  assert.match(modal, /cursor-pointer/);
+  assert.match(modal, /touch-manipulation/);
+  assert.match(modal, /aria-haspopup="dialog"/);
 });

@@ -7,6 +7,7 @@ const root = process.cwd();
 const apiSource = fs.readFileSync(path.join(root, 'api', 'index.ts'), 'utf8');
 const appSource = fs.readFileSync(path.join(root, 'src', 'App.tsx'), 'utf8');
 const adminSource = fs.readFileSync(path.join(root, 'src', 'components', 'AdminPanel.tsx'), 'utf8');
+const analyticsPanelSource = fs.readFileSync(path.join(root, 'src', 'components', 'AdminAnalyticsPanel.tsx'), 'utf8');
 const trackerSource = fs.readFileSync(path.join(root, 'src', 'utils', 'visitorAnalytics.ts'), 'utf8');
 
 test('visitor tracking is isolated, rate limited and does not store raw IP addresses', () => {
@@ -30,4 +31,15 @@ test('public analytics loads after the application and uses a five minute heartb
 test('analytics UI is lazy and only available in the privileged Admin area', () => {
   assert.match(adminSource, /React\.lazy\(\(\) => import\('\.\/AdminAnalyticsPanel'\)\)/);
   assert.match(adminSource, /activeTab === 'analytics' && currentAdmin\?\.role === 'super'/);
+});
+test('authenticated Admin visits are excluded before analytics storage', () => {
+  assert.match(apiSource, /if \(readAdminSession\(req\)\) return res\.status\(202\)\.json\(\{ accepted: true, ignored: "admin" \}\)/);
+  assert.match(appSource, /if \(isAdmin\) return;/);
+  assert.match(trackerSource, /window\.location\.hash\.startsWith\('#admin'\)/);
+});
+
+test('anonymous analytics never claims visitor email, name or avatar identity', () => {
+  assert.doesNotMatch(apiSource, /type AnalyticsTrackPayload[\s\S]{0,1000}\b(email|avatar|displayName|fullName)\b/);
+  assert.match(analyticsPanelSource, /không lưu IP đầy đủ, Gmail, tên hay avatar/);
+  assert.match(analyticsPanelSource, /Mã khách là mã ẩn danh, không phải danh tính thật/);
 });

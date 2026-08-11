@@ -2661,6 +2661,9 @@ function buildMemoryAnalyticsResponse() {
 
 app.post("/api/analytics/track", requireSameOrigin, async (req, res) => {
   try {
+    // Never count an authenticated administrator as a public visitor. This
+    // server-side guard also covers stale tabs and delayed analytics requests.
+    if (readAdminSession(req)) return res.status(202).json({ accepted: true, ignored: "admin" });
     if (isAnalyticsBot(req)) return res.status(202).json({ accepted: true, ignored: "bot" });
     const visitorId = normalizeAnalyticsId(req.body?.visitorId);
     const sessionId = normalizeAnalyticsId(req.body?.sessionId);
