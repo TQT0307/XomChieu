@@ -891,10 +891,10 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
 
         <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-12 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            Báo chí & Tin tức võ phái
+            Hành trình Câu lạc bộ
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-            Tin tức & Chuyên mục võ đường
+            Tin tức & Chuyên mục Câu lạc bộ
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 max-w-lg mx-auto leading-relaxed">
@@ -1166,14 +1166,14 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
           
           <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-white px-4 py-1.5 rounded-full border border-slate-200 shadow-sm inline-block">
-              Lịch trình thi đấu & Võ nghiệp
+              Lịch trình thi đấu 
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
               giải đấu & sự kiện Vovinam
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Nơi ghi nhận các sự kiện thi tài võ thuật, đối kháng, diễn võ nâng đai cấp của võ đường Vovinam Xóm Chiếu.
+              Nơi ghi nhận các sự kiện thi đấu võ thuật, đối kháng, thi lên đai của CLB Vovinam Xóm Chiếu.
             </p>
           </div>
 
@@ -1223,7 +1223,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               <span className="text-4xl block mb-3">🏆</span>
               <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight mb-1 font-display">Không có giải đấu</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-sans">
-                Hiện tại không có giải đấu nào thuộc trạng thái này được lưu hành trong võ nghiệp.
+                Hiện tại không có giải đấu nào thuộc trạng thái này được lưu hành trong sự kiện.
               </p>
             </div>
           ) : (
@@ -1304,7 +1304,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
 
         <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            Video & ảnh võ đường
+            Video & ảnh CLB
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
             Khoảnh khắc Vovinam
@@ -1423,11 +1423,11 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               Vinh danh thành tích
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white uppercase italic mt-3 tracking-tight font-display">
-              Thành tích xuất sắc & Huy chương đạt được
+              Những sự nổ lực và cố gắng
             </h2>
             <div className="w-12 h-1 bg-[#FFF200] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-              Sắt son một lòng Võ Đạo Việt Nam, nỗ lực miệt mài gặt hái quả ngọt tại các giải đấu lớn toàn quốc và khu vực.
+              Sắt son một lòng Võ Đạo Việt Nam, nỗ lực miệt mài gặt hái quả ngọt tại các giải đấu lớn nhỏ trong nước và quốc tế.
             </p>
           </div>
 
@@ -1557,7 +1557,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             Đội ngũ võ sư tâm huyết
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-950 uppercase italic mt-3 tracking-tight font-display">
-            Ban huấn luyện chính nhiệm
+            Ban huấn luyện chính thức
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 leading-relaxed">
@@ -1766,7 +1766,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật Quận 4.
+              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật của phường Xóm Chiếu.
             </p>
           </div>
 
@@ -1951,7 +1951,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10">
             <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-              Địa điểm võ đường
+              Địa điểm các CLB
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
               Các điểm tập luyện Vovinam Xóm Chiếu
@@ -2045,10 +2045,10 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               Liên hệ võ đường
             </span>
             <h2 className="text-2xl sm:text-4xl font-black uppercase italic text-[#FFF200] font-display leading-tight drop-shadow-md">
-              {webConfig.seoTitle?.trim() || 'CLB Vovinam Xóm Chiếu - Việt Võ Đạo Quận 4'}
+              {webConfig.seoTitle?.trim() || 'CLB Vovinam Xóm Chiếu - Việt Võ Đạo'}
             </h2>
             <p className="text-sm sm:text-base text-blue-50 mt-4 leading-relaxed font-sans max-w-2xl mx-auto">
-              {webConfig.seoDescription?.trim() || 'Câu lạc bộ Vovinam Xóm Chiếu tại Quận 4, TP.HCM: lịch tập, huấn luyện viên, giải đấu, thành tích, tin tức và đăng ký tập luyện.'}
+              {webConfig.seoDescription?.trim() || 'Câu lạc bộ Vovinam Xóm Chiếu tại Xóm Chiếu, TP.HCM: lịch tập, huấn luyện viên, giải đấu, thành tích, tin tức và đăng ký tập luyện.'}
             </p>
           </div>
 
