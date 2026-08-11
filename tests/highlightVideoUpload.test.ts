@@ -14,6 +14,8 @@ test('local highlight clips use the protected Firebase Storage-only route', asyn
   assert.match(route, /MAX_HIGHLIGHT_VIDEO_SECONDS/);
   assert.match(route, /detectVideoContentType/);
   assert.match(route, /storeVideoInFirebaseStorage/);
+  assert.match(source, /configuredFirebaseStorageBucket \|\|/);
+  assert.match(source, /firebaseProjectIdForStorage.*firebasestorage\.app/s);
   assert.doesNotMatch(route, /MEDIA_COLLECTION|collection\(/, 'video must never fall back to Firestore/base64');
 });
 

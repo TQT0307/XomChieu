@@ -308,9 +308,17 @@ const hasFirebase = !!(
 );
 
 const hasPersistentStorage = hasFirebase || hasVercelKv || hasRedis || !!MONGODB_URI;
-const firebaseStorageBucketName = isValidEnvVar(process.env.FIREBASE_STORAGE_BUCKET)
-  ? process.env.FIREBASE_STORAGE_BUCKET!.trim()
+const configuredFirebaseStorageBucket = isValidEnvVar(process.env.FIREBASE_STORAGE_BUCKET)
+  ? process.env.FIREBASE_STORAGE_BUCKET!.trim().replace(/^["']|["']$/g, "")
   : "";
+const firebaseProjectIdForStorage = isValidEnvVar(process.env.FIREBASE_PROJECT_ID)
+  ? process.env.FIREBASE_PROJECT_ID!.trim().replace(/^["']|["']$/g, "")
+  : "";
+// Firebase projects created with the current Storage backend use this default
+// bucket name. An explicit FIREBASE_STORAGE_BUCKET always takes precedence for
+// legacy appspot.com or custom buckets.
+const firebaseStorageBucketName = configuredFirebaseStorageBucket ||
+  (firebaseProjectIdForStorage ? `${firebaseProjectIdForStorage}.firebasestorage.app` : "");
 
 function getAdminSessionSecret() {
   return (
@@ -3183,7 +3191,7 @@ app.post("/api/media/video", requireSameOrigin, requireAdminSession, async (req,
   try {
     if (!firebaseStorageBucketName) {
       return res.status(503).json({
-        error: "Chưa cấu hình FIREBASE_STORAGE_BUCKET. Clip không được lưu vào Firestore để tránh phình dữ liệu."
+        error: "Chưa cấu hình FIREBASE_STORAGE_BUCKET và không tìm thấy FIREBASE_PROJECT_ID để suy ra bucket. Clip không được lưu vào Firestore để tránh phình dữ liệu."
       });
     }
 
