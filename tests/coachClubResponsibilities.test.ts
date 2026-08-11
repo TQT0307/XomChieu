@@ -28,4 +28,8 @@ test('coach club rows open the statically available club dialog with clear point
   assert.match(modal, /cursor-pointer/);
   assert.match(modal, /touch-manipulation/);
   assert.match(modal, /aria-haspopup="dialog"/);
+  assert.match(modal, /event\.preventDefault\(\)/);
+  assert.match(modal, /event\.stopPropagation\(\)/);
+  assert.match(app, /case 'club':[\s\S]*clubs\.find\(item => matchesDetailIdentifier\(route\.id, item\.id, item\.name\)\) \|\| null/);
+  assert.doesNotMatch(app, /case 'club':[\s\S]{0,250}item\.status !== false/);
 });

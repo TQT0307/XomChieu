@@ -263,7 +263,11 @@ export default function CoachDetailModal({
                     <button
                       key={club.id}
                       type="button"
-                      onClick={() => onSelectClub?.(club)}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onSelectClub?.(club);
+                      }}
                       aria-label={`Xem chi tiết ${club.name}`}
                       aria-haspopup="dialog"
                       title={`Mở hồ sơ ${club.name}`}

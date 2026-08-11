@@ -837,7 +837,9 @@ export default function App() {
           break;
         case 'club':
           setSelectedClub(
-            clubs.find(item => matchesDetailIdentifier(route.id, item.id, item.name) && item.status !== false) || null
+            // CLB đã được phân công và đang hiển thị trong hồ sơ HLV phải luôn mở được,
+            // kể cả khi CLB đó đang ẩn khỏi danh sách CLB công khai.
+            clubs.find(item => matchesDetailIdentifier(route.id, item.id, item.name)) || null
           );
           break;
         case 'coach':
