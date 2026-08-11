@@ -993,6 +993,10 @@ export default function App() {
         clubs={clubs}
         achievements={achievements}
         onClose={() => closeSelectedDetail('coach', setSelectedCoach)}
+        onSelectClub={(club) => {
+          setSelectedCoach(null);
+          openClubDetail(club);
+        }}
         onSelectAchievement={(achievement) => {
           setSelectedCoach(null);
           openAchievementDetail(achievement);

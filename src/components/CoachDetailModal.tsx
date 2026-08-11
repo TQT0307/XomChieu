@@ -10,6 +10,7 @@ interface CoachDetailModalProps {
   clubs: Club[];
   achievements: Achievement[];
   onClose: () => void;
+  onSelectClub?: (club: Club) => void;
   onSelectAchievement?: (achievement: Achievement) => void;
 }
 
@@ -18,6 +19,7 @@ export default function CoachDetailModal({
   clubs,
   achievements,
   onClose,
+  onSelectClub,
   onSelectAchievement
 }: CoachDetailModalProps) {
   const [isPhotoViewerOpen, setIsPhotoViewerOpen] = useState(false);
@@ -258,7 +260,12 @@ export default function CoachDetailModal({
               {responsibleClubs.length > 0 ? (
                 <div className="mt-3 space-y-2">
                   {responsibleClubs.map(({ club, role }) => (
-                    <div key={club.id} className={`flex min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 ${
+                    <button
+                      key={club.id}
+                      type="button"
+                      onClick={() => onSelectClub?.(club)}
+                      aria-label={`Xem chi tiết ${club.name}`}
+                      className={`flex w-full min-w-0 items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition duration-200 hover:-translate-y-0.5 hover:border-white/45 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200] ${
                       role === 'Chính'
                         ? 'border-[#FFF200]/35 bg-gradient-to-r from-[#FFF200]/14 to-white/[0.035]'
                         : 'border-sky-400/20 bg-gradient-to-r from-sky-400/10 to-white/[0.025]'
@@ -272,7 +279,7 @@ export default function CoachDetailModal({
                       }`}>
                         {role}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (

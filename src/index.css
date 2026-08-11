@@ -1501,3 +1501,116 @@ select {
     margin-inline: auto;
   }
 }
+
+
+/* Keep the complete black person-card frame visible before and during hover. */
+#section-coaches :is(.vovinam-depth-card, .snap-start),
+#section-members :is(.vovinam-depth-card, .snap-start),
+#section-coaches :is(.vovinam-depth-card, .snap-start):hover,
+#section-members :is(.vovinam-depth-card, .snap-start):hover {
+  box-sizing: border-box;
+  border: 2px solid #0f172a !important;
+}
+
+/* Static Vovinam identity: CSS-only, no continuous motion or data dependency. */
+@media (min-width: 900px) {
+  /* Chapter numbers become a stylized Vovinam sun medal. */
+  #section-news::after,
+  #section-tournaments::after,
+  #section-highlights::after,
+  #section-achievements::after,
+  #section-coaches::after,
+  #section-members::after,
+  #section-clubs::after {
+    width: clamp(4.8rem, 6.5vw, 6rem);
+    height: auto;
+    aspect-ratio: 1;
+    border: 4px solid rgba(255,255,255,.96);
+    border-radius: 50%;
+    color: #fff200;
+    background:
+      radial-gradient(circle, #07335f 0 33%, transparent 34%),
+      repeating-conic-gradient(from -5deg, #fff200 0 7deg, #0054a6 7deg 14deg);
+    box-shadow:
+      0 18px 34px rgba(0,49,95,.24),
+      0 0 0 5px rgba(0,84,166,.12),
+      inset 0 0 0 3px rgba(255,255,255,.28);
+    font-size: clamp(1.08rem, 1.6vw, 1.45rem);
+    text-shadow: 0 2px 0 #001b35, 0 0 8px rgba(0,0,0,.72);
+  }
+
+  /* Editorial heading is shaped like an opened martial manuscript. */
+  #section-news .vovinam-chapter-heading,
+  #section-highlights .vovinam-chapter-heading,
+  #section-coaches .vovinam-chapter-heading,
+  #section-clubs .vovinam-chapter-heading {
+    padding-right: 3.25rem;
+    clip-path: polygon(0 0, calc(100% - 1.4rem) 0, 100% 50%, calc(100% - 1.4rem) 100%, 0 100%, .65rem 50%);
+  }
+
+  #section-tournaments .vovinam-chapter-heading,
+  #section-achievements .vovinam-chapter-heading,
+  #section-members .vovinam-chapter-heading {
+    padding-left: 3.25rem;
+    clip-path: polygon(1.4rem 0, 100% 0, calc(100% - .65rem) 50%, 100% 100%, 1.4rem 100%, 0 50%);
+  }
+
+  .vovinam-chapter-heading::before {
+    content: "VOVINAM - VIỆT VÕ ĐẠO";
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    right: .72rem;
+    writing-mode: vertical-rl;
+    transform: translateY(-50%) rotate(180deg);
+    color: color-mix(in srgb, var(--section-accent) 76%, #0f172a);
+    font-size: .56rem;
+    font-weight: 950;
+    letter-spacing: .16em;
+    line-height: 1;
+    opacity: .72;
+    pointer-events: none;
+  }
+
+  #section-tournaments .vovinam-chapter-heading::before,
+  #section-achievements .vovinam-chapter-heading::before,
+  #section-members .vovinam-chapter-heading::before {
+    right: auto;
+    left: .72rem;
+    transform: translateY(-50%);
+  }
+
+  #section-achievements .vovinam-chapter-heading::before {
+    color: #fff200;
+  }
+}
+
+/* A quiet martial seal distinguishes people cards without covering content. */
+#section-coaches .vovinam-depth-card,
+#section-members .vovinam-depth-card {
+  overflow: hidden;
+}
+
+#section-coaches .vovinam-depth-card::before,
+#section-members .vovinam-depth-card::before {
+  content: "V";
+  position: absolute;
+  z-index: 0;
+  right: .45rem;
+  bottom: -.45rem;
+  color: var(--section-accent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 5rem;
+  font-weight: 900;
+  font-style: italic;
+  line-height: 1;
+  opacity: .045;
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+
+#section-coaches .vovinam-depth-card > *,
+#section-members .vovinam-depth-card > * {
+  position: relative;
+  z-index: 1;
+}

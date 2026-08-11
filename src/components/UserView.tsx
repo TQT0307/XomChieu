@@ -24,6 +24,7 @@ import {
 } from '../utils/latestNews';
 import { matchesSmartSearch } from '../utils/smartSearch';
 import { buildTournamentSearchOptions } from '../utils/tournamentSearchOptions';
+import { getHighlightMediaCounts } from '../../shared/highlightMedia';
 
 const MemberDetailModal = lazy(() => import('./MemberDetailModal'));
 const TrainingRegistrationModal = lazy(() => import('./TrainingRegistrationModal'));
@@ -587,6 +588,7 @@ export default function UserView({
       h.title,
       h.athleteName,
       h.mediaType,
+      h.contentType,
       h.tournamentId,
       h.tournamentName,
       tournament?.name,
@@ -1302,14 +1304,14 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
 
         <div className="vovinam-chapter-heading text-center max-w-2xl mx-auto mb-10 relative z-10">
           <span className="text-[#0054A6] text-[10px] font-black uppercase tracking-widest bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100 shadow-sm inline-block">
-            Khoảnh khắc thi đấu
+            Video & ảnh võ đường
           </span>
           <h2 className="text-3xl sm:text-4xl font-black text-slate-800 uppercase italic mt-3 tracking-tight font-display">
-            Highlights trận đấu
+            Khoảnh khắc Vovinam
           </h2>
           <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
           <p className="text-xs text-slate-500 mt-3 max-w-lg mx-auto leading-relaxed">
-            Tuyển tập những khoảnh khắc biểu diễn quyền thuật kịch tính, những đòn chân tấn công và bài quyền binh khí thượng thừa.
+            Từ những trận đấu kịch tính đến ảnh và clip tập luyện hằng ngày của Vovinam Xóm Chiếu.
           </p>
         </div>
 
@@ -1342,7 +1344,9 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </button>
           </>)}
           <div ref={(el) => { rowScrollRefs.current['HIGHLIGHTS'] = el; }} className="flex gap-5 lg:gap-6 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory px-1 pb-5">
-          {visibleHighlights.map((hl) => (
+          {visibleHighlights.map((hl) => {
+            const mediaCounts = getHighlightMediaCounts([hl.thumbnail, ...(hl.mediaUrls || []).filter(url => url !== hl.thumbnail)]);
+            return (
             <div 
               key={hl.id}
               onClick={() => onSelectHighlight(hl)}
@@ -1350,6 +1354,13 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             >
               {/* Thumbnail Container */}
               <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-800 shadow-inner">
+                <span className={`absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide shadow-lg ${
+                  hl.contentType === 'tập luyện'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-[#FFF200] text-slate-950'
+                }`}>
+                  {hl.contentType === 'tập luyện' ? 'Tập luyện hằng ngày' : 'Highlight thi đấu'}
+                </span>
                 <img 
                   src={hl.thumbnail} 
                   alt={hl.title} 
@@ -1388,10 +1399,12 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                 
                 <div className="text-right text-[10px] text-[#FFF200] font-black uppercase tracking-wider pt-3 border-t border-slate-900 mt-2 flex items-center justify-between">
                   <span>Xem Chi Tiết &gt;</span>
+                  <span className="text-slate-400">{mediaCounts.images} ảnh · {mediaCounts.videos} clip</span>
                 </div>
               </div>
             </div>
-          ))}
+          );
+          })}
           </div>
         </div>
       </section>

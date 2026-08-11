@@ -11,6 +11,8 @@ test('coach details show every responsible club with primary and assistant roles
   assert.match(modal, /role: isPrimary \? 'Chính'/);
   assert.match(modal, /Câu lạc bộ đang phụ trách/);
   assert.match(modal, /className="mt-3 space-y-2"/);
+  assert.match(modal, /onSelectClub\?\.\(club\)/);
+  assert.match(modal, /aria-label={`Xem chi tiết \${club\.name}`}/);
   assert.doesNotMatch(modal, /sm:grid-cols-2 lg:grid-cols-3/);
 });
 
