@@ -1,4 +1,12 @@
 export type HighlightMediaKind = 'image' | 'video';
+export type HighlightVideoProvider =
+  | 'youtube'
+  | 'tiktok'
+  | 'vimeo'
+  | 'dailymotion'
+  | 'facebook'
+  | 'instagram'
+  | 'direct';
 
 export const MAX_HIGHLIGHT_IMAGES = 20;
 export const MAX_HIGHLIGHT_VIDEOS = 3;
@@ -8,6 +16,21 @@ export const MAX_HIGHLIGHT_VIDEO_MB = 3;
 export const RECOMMENDED_DIRECT_VIDEO_MB = 25;
 
 const normalizeMediaUrl = (value: unknown) => String(value || '').trim();
+
+const getParsedMediaUrl = (value: unknown): URL | null => {
+  const rawUrl = normalizeMediaUrl(value);
+  if (!rawUrl) return null;
+  try {
+    return new URL(rawUrl);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeHostname = (url: URL) => url.hostname.toLowerCase().replace(/^www\./, '');
+
+const isHostname = (hostname: string, domain: string) =>
+  hostname === domain || hostname.endsWith('.' + domain);
 
 export const getYouTubeVideoId = (value: unknown): string | null => {
   const rawUrl = normalizeMediaUrl(value);
@@ -38,6 +61,77 @@ export const getYouTubeThumbnailUrl = (value: unknown): string | null => {
   return videoId ? `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg` : null;
 };
 
+export const getTikTokVideoId = (value: unknown): string | null => {
+  const rawUrl = normalizeMediaUrl(value);
+  if (!rawUrl) return null;
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    if (!['tiktok.com', 'm.tiktok.com', 'vm.tiktok.com'].includes(hostname)) return null;
+    const parts = url.pathname.split('/').filter(Boolean);
+    const videoIndex = parts.indexOf('video');
+    const candidate = videoIndex >= 0 ? parts[videoIndex + 1] :
+      (parts[0] === 'player' && parts[1] === 'v1' ? parts[2] : null);
+    return candidate && /^\d+$/.test(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+};
+
+export const isTikTokUrl = (value: unknown) => Boolean(getTikTokVideoId(value));
+
+export const getTikTokEmbedUrl = (value: unknown): string | null => {
+  const videoId = getTikTokVideoId(value);
+  return videoId
+    ? `https://www.tiktok.com/player/v1/${encodeURIComponent(videoId)}?controls=1&autoplay=0&rel=0`
+    : null;
+};
+export const getVimeoVideoId = (value: unknown): string | null => {
+  const url = getParsedMediaUrl(value);
+  if (!url) return null;
+  const hostname = normalizeHostname(url);
+  if (!isHostname(hostname, 'vimeo.com')) return null;
+  const candidate = url.pathname.split('/').filter(Boolean).find(part => /^\d+$/.test(part));
+  return candidate || null;
+};
+
+export const isVimeoUrl = (value: unknown) => Boolean(getVimeoVideoId(value));
+
+export const getVimeoEmbedUrl = (value: unknown): string | null => {
+  const videoId = getVimeoVideoId(value);
+  return videoId
+    ? 'https://player.vimeo.com/video/' + encodeURIComponent(videoId) + '?dnt=1&autoplay=0'
+    : null;
+};
+
+export const getDailymotionVideoId = (value: unknown): string | null => {
+  const url = getParsedMediaUrl(value);
+  if (!url) return null;
+  const hostname = normalizeHostname(url);
+  const parts = url.pathname.split('/').filter(Boolean);
+  const candidate = hostname === 'dai.ly'
+    ? parts[0]
+    : (isHostname(hostname, 'dailymotion.com') && parts[0] === 'video' ? parts[1] : null);
+  return candidate && /^[a-zA-Z0-9]+$/.test(candidate) ? candidate : null;
+};
+
+export const isDailymotionUrl = (value: unknown) => Boolean(getDailymotionVideoId(value));
+
+export const isFacebookVideoUrl = (value: unknown): boolean => {
+  const url = getParsedMediaUrl(value);
+  if (!url) return false;
+  const hostname = normalizeHostname(url);
+  if (hostname === 'fb.watch') return true;
+  if (!isHostname(hostname, 'facebook.com')) return false;
+  return /\/(?:watch|reel|reels|videos)(?:\/|$)/i.test(url.pathname) || url.pathname === '/watch';
+};
+
+export const isInstagramVideoUrl = (value: unknown): boolean => {
+  const url = getParsedMediaUrl(value);
+  if (!url || !isHostname(normalizeHostname(url), 'instagram.com')) return false;
+  return /^\/(?:reel|reels|tv)\//i.test(url.pathname);
+};
+
 export const isDirectVideoUrl = (value: unknown): boolean => {
   const rawUrl = normalizeMediaUrl(value);
   if (!rawUrl) return false;
@@ -49,8 +143,33 @@ export const isDirectVideoUrl = (value: unknown): boolean => {
   }
 };
 
+export const getHighlightVideoProvider = (value: unknown): HighlightVideoProvider | null => {
+  if (isYouTubeUrl(value)) return 'youtube';
+  if (isTikTokUrl(value)) return 'tiktok';
+  if (isVimeoUrl(value)) return 'vimeo';
+  if (isDailymotionUrl(value)) return 'dailymotion';
+  if (isFacebookVideoUrl(value)) return 'facebook';
+  if (isInstagramVideoUrl(value)) return 'instagram';
+  if (isDirectVideoUrl(value)) return 'direct';
+  return null;
+};
+
+export const getHighlightVideoEmbedUrl = (value: unknown): string | null =>
+  getYouTubeEmbedUrl(value) || getTikTokEmbedUrl(value) || getVimeoEmbedUrl(value);
+
+export const getHighlightVideoProviderLabel = (value: unknown): string => {
+  const provider = getHighlightVideoProvider(value);
+  return provider === 'youtube' ? 'YouTube' :
+    provider === 'tiktok' ? 'TikTok' :
+    provider === 'vimeo' ? 'Vimeo' :
+    provider === 'dailymotion' ? 'Dailymotion' :
+    provider === 'facebook' ? 'Facebook' :
+    provider === 'instagram' ? 'Instagram' :
+    'video';
+};
+
 export const getHighlightMediaKind = (value: unknown): HighlightMediaKind =>
-  isYouTubeUrl(value) || isDirectVideoUrl(value) ? 'video' : 'image';
+  getHighlightVideoProvider(value) ? 'video' : 'image';
 
 export const getHighlightMediaCounts = (mediaUrls: unknown) => {
   const urls = Array.isArray(mediaUrls) ? mediaUrls.map(normalizeMediaUrl).filter(Boolean) : [];

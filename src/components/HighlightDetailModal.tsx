@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X, Play, Image as ImageIcon, Film, User, ChevronLeft, ChevronRight,
-  ZoomIn, ZoomOut, RotateCcw, Move
+  ZoomIn, ZoomOut, RotateCcw, Move, ExternalLink
 } from 'lucide-react';
 import { Highlight } from '../types';
 import useModalScrollLock from '../hooks/useModalScrollLock';
 import {
   getHighlightMediaCounts,
   getHighlightMediaKind,
-  getYouTubeEmbedUrl,
+  getHighlightVideoEmbedUrl,
+  getHighlightVideoProvider,
+  getHighlightVideoProviderLabel,
   getYouTubeThumbnailUrl
 } from '../../shared/highlightMedia';
 
@@ -98,8 +100,11 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   };
 
   const isVideoUrl = (url: string) => getHighlightMediaKind(url) === 'video';
-  const mediaCounts = getHighlightMediaCounts(mediaList);
-  const activeYouTubeEmbedUrl = getYouTubeEmbedUrl(mediaList[activeMediaIndex]);
+  const mediaCounts = getHighlightMediaCounts(highlight.mediaUrls || []);
+  const activeMediaUrl = mediaList[activeMediaIndex];
+  const activeVideoEmbedUrl = getHighlightVideoEmbedUrl(activeMediaUrl);
+  const activeVideoProvider = getHighlightVideoProvider(activeMediaUrl);
+  const activeVideoProviderLabel = getHighlightVideoProviderLabel(activeMediaUrl);
 
   return (
     <div
@@ -120,7 +125,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         <div className="p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between">
           <div>
             <span className="inline-flex items-center gap-1.5 bg-[#FFF200] text-slate-900 text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider">
-              {highlight.mediaType === 'video' ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
+              {mediaCounts.videos > 0 ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
               {highlight.contentType === 'tập luyện' ? 'Tập luyện hằng ngày' : 'Khoảnh khắc thi đấu'}
             </span>
             <h3 className="text-lg sm:text-xl font-bold mt-1 text-[#FFF200] leading-tight">
@@ -146,23 +151,38 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
             ref={mediaViewportRef}
             className="w-full h-full flex items-center justify-center overflow-hidden"
           >
-            {activeYouTubeEmbedUrl ? (
+            {activeVideoEmbedUrl ? (
               <iframe
-                src={activeYouTubeEmbedUrl}
+                src={activeVideoEmbedUrl}
                 title={`${highlight.title} - clip ${activeMediaIndex + 1}`}
                 className="h-full w-full border-0"
                 loading="lazy"
                 allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
-            ) : isVideoUrl(mediaList[activeMediaIndex]) ? (
+            ) : activeVideoProvider === 'direct' ? (
               <video
-                src={mediaList[activeMediaIndex]}
+                src={activeMediaUrl}
                 controls
                 preload="metadata"
                 playsInline
                 className="max-w-full max-h-full object-contain"
               />
+            ) : activeVideoProvider ? (
+              <div className="mx-5 max-w-md rounded-2xl border border-slate-600 bg-slate-800 p-6 text-center shadow-xl">
+                <Film className="mx-auto h-10 w-10 text-[#FFF200]" />
+                <p className="mt-3 text-base font-bold text-white">{'Video t\u1eeb ' + activeVideoProviderLabel}</p>
+                <p className="mt-1 text-sm text-slate-300">{'N\u1ec1n t\u1ea3ng n\u00e0y gi\u1edbi h\u1ea1n ph\u00e1t nh\u00fang. M\u1edf b\u00e0i g\u1ed1c \u0111\u1ec3 xem \u0111\u1ea7y \u0111\u1ee7.'}</p>
+                <a
+                  href={activeMediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#FFF200] px-4 py-2.5 text-sm font-black text-slate-900 transition-transform hover:scale-105"
+                >
+                  {'M\u1edf tr\u00ean ' + activeVideoProviderLabel}
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </div>
             ) : (
               <img 
                 src={mediaList[activeMediaIndex]} 

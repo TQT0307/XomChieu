@@ -53,7 +53,9 @@ import {
   RECOMMENDED_DIRECT_VIDEO_MB,
   getHighlightMediaCounts,
   getHighlightMediaKind,
-  getYouTubeEmbedUrl,
+  getHighlightVideoEmbedUrl,
+  getHighlightVideoProviderLabel,
+  isDirectVideoUrl,
   validateHighlightMediaUrls
 } from '../../shared/highlightMedia';
 
@@ -5708,7 +5710,7 @@ export default function AdminPanel({
                       </div>
                       <p className="mb-3 text-[10px] leading-relaxed text-slate-600">
                         Thumbnail lưu riêng. Ảnh từ máy được tự nén dưới 650 KB/ảnh. Clip có thể chọn từ máy (MP4/WebM, tối đa {MAX_HIGHLIGHT_VIDEO_SECONDS} giây và {MAX_HIGHLIGHT_VIDEO_MB} MB)
-                        hoặc dán liên kết YouTube/MP4/WebM. Link video trực tiếp nên dưới {RECOMMENDED_DIRECT_VIDEO_MB} MB. Video chỉ tải metadata khi người xem mở chi tiết, không tự phát.
+                        hoặc dán liên kết TikTok/YouTube/MP4/WebM. Link video trực tiếp nên dưới {RECOMMENDED_DIRECT_VIDEO_MB} MB. Video chỉ tải metadata khi người xem mở chi tiết, không tự phát.
                       </p>
 
                       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -5776,7 +5778,9 @@ export default function AdminPanel({
                         {highlightForm.mediaUrls?.map((url, idx) => {
                           const isBase64 = url.startsWith('data:');
                           const isVideo = getHighlightMediaKind(url) === 'video';
-                          const youtubeEmbedUrl = getYouTubeEmbedUrl(url);
+                          const videoEmbedUrl = getHighlightVideoEmbedUrl(url);
+                          const isDirectVideo = isDirectVideoUrl(url);
+                          const videoProviderLabel = getHighlightVideoProviderLabel(url);
                           return (
                             <div key={idx} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
                               <div className="flex items-center justify-between">
@@ -5799,7 +5803,7 @@ export default function AdminPanel({
                                 <input 
                                   type="text"
                                   value={isBase64 ? '📁 [Tập tin đã chọn từ máy]' : url}
-                                  placeholder="Dán URL ảnh, YouTube hoặc MP4/WebM tại đây..."
+                                  placeholder={'D\u00e1n URL \u1ea3nh; YouTube, TikTok, Vimeo, Dailymotion, Facebook/Instagram Reel ho\u1eb7c MP4/WebM...'}
                                   disabled={isBase64}
                                   onChange={e => {
                                     const copy = [...(highlightForm.mediaUrls || [])];
@@ -5875,16 +5879,25 @@ export default function AdminPanel({
                                   {isVideo ? (
                                     <div className="text-[10px] text-purple-600 font-bold flex items-center gap-1.5">
                                       <span>🎥 Xem trước video:</span>
-                                      {youtubeEmbedUrl ? (
+                                      {videoEmbedUrl ? (
                                         <iframe
-                                          src={youtubeEmbedUrl}
+                                          src={videoEmbedUrl}
                                           title={`Xem trước clip ${idx + 1}`}
                                           className="h-16 w-28 rounded border bg-black"
                                           loading="lazy"
                                           allow="encrypted-media; picture-in-picture"
                                         />
-                                      ) : (
+                                      ) : isDirectVideo ? (
                                         <video src={url} className="w-20 h-12 object-cover rounded border bg-black" controls preload="metadata" />
+                                      ) : (
+                                        <a
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex min-h-12 w-28 items-center justify-center rounded border border-violet-200 bg-violet-50 px-2 text-center text-[10px] font-black text-violet-700 hover:bg-violet-100"
+                                        >
+                                          {'M\u1edf tr\u00ean ' + videoProviderLabel}
+                                        </a>
                                       )}
                                     </div>
                                   ) : (
