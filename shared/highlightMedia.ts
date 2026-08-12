@@ -177,6 +177,28 @@ export const getHighlightVideoProvider = (value: unknown): HighlightVideoProvide
 export const getHighlightVideoEmbedUrl = (value: unknown): string | null =>
   getYouTubeEmbedUrl(value) || getTikTokEmbedUrl(value) || getVimeoEmbedUrl(value);
 
+/**
+ * Local clips uploaded by Admin are stored in the private app-owned Firebase
+ * Storage folder. Their signed delivery URLs are implementation details and
+ * must not be presented as an original social/source link to visitors.
+ */
+export const isManagedHighlightVideoUrl = (value: unknown): boolean => {
+  const url = getParsedMediaUrl(value);
+  if (!url || normalizeHostname(url) !== 'firebasestorage.googleapis.com') return false;
+  let objectPath = url.pathname;
+  try {
+    objectPath = decodeURIComponent(objectPath);
+  } catch {
+    // Keep the raw path when a third-party URL contains malformed escaping.
+  }
+  return objectPath.includes('/o/vovinam-media/videos/');
+};
+
+export const getPastedHighlightVideoUrl = (value: unknown): string | null => {
+  const rawUrl = normalizeMediaUrl(value);
+  if (!getHighlightVideoProvider(rawUrl) || !/^https?:\/\//i.test(rawUrl)) return null;
+  return isManagedHighlightVideoUrl(rawUrl) ? null : rawUrl;
+};
 export const getHighlightVideoProviderLabel = (value: unknown): string => {
   const provider = getHighlightVideoProvider(value);
   return provider === 'youtube' ? 'YouTube' :

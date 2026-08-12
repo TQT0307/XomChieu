@@ -10,6 +10,8 @@ import {
   getDailymotionVideoId,
   getHighlightMediaCounts,
   getHighlightVideoEmbedUrl,
+  getPastedHighlightVideoUrl,
+  isManagedHighlightVideoUrl,
   getHighlightVideoProvider,
   getTikTokEmbedUrl,
   getTikTokVideoId,
@@ -69,6 +71,14 @@ test('accepts supported social post links without treating them as images', () =
     { images: 0, videos: 6, total: 6 }
   );
 });
+test('shows pasted clip URLs but hides app-managed Firebase Storage delivery URLs', () => {
+  const pastedTikTokUrl = 'https://www.tiktok.com/@vovinam/video/7672625123857288468?is_from_webapp=1';
+  const managedStorageUrl = 'https://firebasestorage.googleapis.com/v0/b/vvnxomchieu.firebasestorage.app/o/vovinam-media%2Fvideos%2Fclip.mp4?alt=media&token=abc';
+  assert.equal(getPastedHighlightVideoUrl(pastedTikTokUrl), pastedTikTokUrl);
+  assert.equal(isManagedHighlightVideoUrl(managedStorageUrl), true);
+  assert.equal(getPastedHighlightVideoUrl(managedStorageUrl), null);
+  assert.equal(getPastedHighlightVideoUrl('/api/media/image/not-a-video'), null);
+});
 test('counts images and clips separately', () => {
   assert.deepEqual(getHighlightMediaCounts([
     '/api/media/image/abc',
@@ -100,8 +110,11 @@ test('highlight video viewer supports uncropped fullscreen playback', () => {
   assert.match(source, /h-full w-full bg-black object-contain/);
   assert.match(source, /h-\[100dvh\]/);
 });
-test('highlight notes expose and copy every http link without changing stored content', () => {
+test('highlight details expose pasted clip sources and copy links without changing stored content', () => {
   const source = readFileSync('src/components/HighlightDetailModal.tsx', 'utf8');
+  assert.match(source, /activePastedVideoUrl/);
+  assert.match(source, /getPastedHighlightVideoUrl\(activeMediaUrl\)/);
+  assert.match(source, /Link clip gốc/);
   assert.match(source, /activeMediaNoteUrls/);
   assert.match(source, /navigator\.clipboard\.writeText\(url\)/);
   assert.match(source, /document\.execCommand\('copy'\)/);

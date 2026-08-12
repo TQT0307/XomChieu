@@ -9,6 +9,7 @@ import useModalScrollLock from '../hooks/useModalScrollLock';
 import {
   getHighlightMediaCounts,
   getHighlightMediaKind,
+  getPastedHighlightVideoUrl,
   getHighlightVideoEmbedUrl,
   getHighlightVideoProvider,
   getHighlightVideoProviderLabel,
@@ -27,7 +28,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isMediaFullscreen, setIsMediaFullscreen] = useState(false);
-  const [copiedNoteUrl, setCopiedNoteUrl] = useState('');
+  const [copiedUrl, setCopiedUrl] = useState('');
   const mediaViewportRef = useRef<HTMLDivElement>(null);
   const mediaArenaRef = useRef<HTMLDivElement>(null);
   const imageBaseSizeRef = useRef({ width: 0, height: 0 });
@@ -43,7 +44,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
     setMaxZoom(1);
     setImageOffset({ x: 0, y: 0 });
     setIsDraggingImage(false);
-    setCopiedNoteUrl('');
+    setCopiedUrl('');
   }, [highlight?.id, activeMediaIndex]);
 
   useEffect(() => {
@@ -89,7 +90,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
       .filter(Boolean)
   ));
 
-  const copyNoteUrl = async (url: string) => {
+  const copyUrl = async (url: string) => {
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -103,9 +104,9 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
       document.execCommand('copy');
       temporaryInput.remove();
     }
-    setCopiedNoteUrl(url);
+    setCopiedUrl(url);
     window.setTimeout(() => {
-      setCopiedNoteUrl(previous => previous === url ? '' : previous);
+      setCopiedUrl(previous => previous === url ? '' : previous);
     }, 1800);
   };
   const handleNext = () => {
@@ -143,6 +144,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   const isVideoUrl = (url: string) => getHighlightMediaKind(url) === 'video';
   const mediaCounts = getHighlightMediaCounts(highlight.mediaUrls || []);
   const activeMediaUrl = mediaList[activeMediaIndex] || '';
+  const activePastedVideoUrl = getPastedHighlightVideoUrl(activeMediaUrl);
   const activeVideoEmbedUrl = getHighlightVideoEmbedUrl(activeMediaUrl);
   const activeVideoProvider = getHighlightVideoProvider(activeMediaUrl);
   const activeVideoProviderLabel = getHighlightVideoProviderLabel(activeMediaUrl);
@@ -386,7 +388,34 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           }`}>
             {activeMediaNote || 'Tư liệu này chưa có ghi chú.'}
           </p>
-          {activeMediaNoteUrls.length > 0 && (
+          {activePastedVideoUrl && (
+            <div className="mt-3 rounded-xl border border-sky-400/25 bg-sky-400/[0.07] p-2.5">
+              <p className="mb-1.5 text-[10px] font-black uppercase tracking-wider text-sky-300">
+                Link clip gốc
+              </p>
+              <div className="flex items-center gap-2">
+                <a
+                  href={activePastedVideoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-w-0 flex-1 truncate text-xs font-semibold text-sky-300 underline decoration-sky-500/50 underline-offset-2 hover:text-sky-200"
+                  title={activePastedVideoUrl}
+                >
+                  {activePastedVideoUrl}
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copyUrl(activePastedVideoUrl)}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#FFF200]/35 bg-[#FFF200]/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#FFF200] transition-colors hover:bg-[#FFF200]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200]"
+                  aria-label="Sao chép link clip gốc"
+                  title={copiedUrl === activePastedVideoUrl ? 'Đã sao chép link clip' : 'Sao chép link clip'}
+                >
+                  {copiedUrl === activePastedVideoUrl ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                  <span>{copiedUrl === activePastedVideoUrl ? 'Đã chép' : 'Sao chép'}</span>
+                </button>
+              </div>
+            </div>
+          )}          {activeMediaNoteUrls.length > 0 && (
             <div className="mt-2 space-y-2" aria-label="Liên kết trong ghi chú">
               {activeMediaNoteUrls.map(url => (
                 <div
@@ -404,13 +433,13 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
                   </a>
                   <button
                     type="button"
-                    onClick={() => void copyNoteUrl(url)}
+                    onClick={() => void copyUrl(url)}
                     className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#FFF200]/35 bg-[#FFF200]/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#FFF200] transition-colors hover:bg-[#FFF200]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200]"
                     aria-label={`Sao chép liên kết ${url}`}
-                    title={copiedNoteUrl === url ? 'Đã sao chép liên kết' : 'Sao chép liên kết'}
+                    title={copiedUrl === url ? 'Đã sao chép liên kết' : 'Sao chép liên kết'}
                   >
-                    {copiedNoteUrl === url ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    <span>{copiedNoteUrl === url ? 'Đã chép' : 'Sao chép'}</span>
+                    {copiedUrl === url ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedUrl === url ? 'Đã chép' : 'Sao chép'}</span>
                   </button>
                 </div>
               ))}
