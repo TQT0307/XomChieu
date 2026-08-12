@@ -327,7 +327,7 @@ export default function UserView({
     if (banners.length < 2) return;
 
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let timer: ReturnType<typeof window.setInterval> | undefined;
+    let timer: number | undefined;
 
     const stopCarousel = () => {
       if (timer !== undefined) window.clearInterval(timer);
