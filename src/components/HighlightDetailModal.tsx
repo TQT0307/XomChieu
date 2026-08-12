@@ -168,12 +168,22 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
         <div className="p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between">
           <div>
             <span className="inline-flex items-center gap-1.5 bg-[#FFF200] text-slate-900 text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider">
-              {mediaCounts.videos > 0 ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
-              {highlight.contentType === 'tập luyện'
-                ? 'Tập luyện hằng ngày'
-                : highlight.contentType === 'thăng cấp đai'
-                  ? 'Thi thăng cấp đai'
-                  : 'Khoảnh khắc thi đấu'}
+              {highlight.contentType === 'tập luyện' ? (
+                <>
+                  <span>🥊</span>
+                  Tập luyện hằng ngày
+                </>
+              ) : highlight.contentType === 'thăng cấp đai' ? (
+                <>
+                  <ImageIcon className="w-3 h-3" />
+                  Thi thăng cấp đai
+                </>
+              ) : (
+                <>
+                  {mediaCounts.videos > 0 ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
+                  Khoảnh khắc thi đấu
+                </>
+              )}
             </span>
             <h3 className="text-lg sm:text-xl font-bold mt-1 text-[#FFF200] leading-tight">
               {highlight.title}
@@ -419,7 +429,8 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
                 </button>
               </div>
             </div>
-          )}          {activeMediaNoteUrls.length > 0 && (
+          )}
+          {activeMediaNoteUrls.length > 0 && (
             <div className="mt-2 space-y-2" aria-label="Liên kết trong ghi chú">
               {activeMediaNoteUrls.map(url => (
                 <div
