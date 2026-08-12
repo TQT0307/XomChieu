@@ -100,3 +100,11 @@ test('highlight video viewer supports uncropped fullscreen playback', () => {
   assert.match(source, /h-full w-full bg-black object-contain/);
   assert.match(source, /h-\[100dvh\]/);
 });
+test('highlight notes expose and copy every http link without changing stored content', () => {
+  const source = readFileSync('src/components/HighlightDetailModal.tsx', 'utf8');
+  assert.match(source, /activeMediaNoteUrls/);
+  assert.match(source, /navigator\.clipboard\.writeText\(url\)/);
+  assert.match(source, /document\.execCommand\('copy'\)/);
+  assert.match(source, /Sao chép/);
+  assert.match(source, /rel="noopener noreferrer"/);
+});

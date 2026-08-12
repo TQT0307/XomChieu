@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   X, Play, Image as ImageIcon, Film, User, ChevronLeft, ChevronRight,
-  ZoomIn, ZoomOut, RotateCcw, Move, ExternalLink, Maximize2, Minimize2
+  ZoomIn, ZoomOut, RotateCcw, Move, ExternalLink, Maximize2, Minimize2,
+  Copy, Check
 } from 'lucide-react';
 import { Highlight } from '../types';
 import useModalScrollLock from '../hooks/useModalScrollLock';
@@ -26,6 +27,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [isMediaFullscreen, setIsMediaFullscreen] = useState(false);
+  const [copiedNoteUrl, setCopiedNoteUrl] = useState('');
   const mediaViewportRef = useRef<HTMLDivElement>(null);
   const mediaArenaRef = useRef<HTMLDivElement>(null);
   const imageBaseSizeRef = useRef({ width: 0, height: 0 });
@@ -41,6 +43,7 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
     setMaxZoom(1);
     setImageOffset({ x: 0, y: 0 });
     setIsDraggingImage(false);
+    setCopiedNoteUrl('');
   }, [highlight?.id, activeMediaIndex]);
 
   useEffect(() => {
@@ -80,7 +83,31 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
   // shows media explicitly added to the detail gallery.
   const mediaList = mediaItems.map(item => item.url);
   const activeMediaNote = mediaItems[activeMediaIndex]?.note || '';
+  const activeMediaNoteUrls = Array.from(new Set(
+    (activeMediaNote.match(/https?:\/\/[^\s<>"']+/gi) || [])
+      .map(url => url.replace(/[),.;!?]+$/g, ''))
+      .filter(Boolean)
+  ));
 
+  const copyNoteUrl = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const temporaryInput = document.createElement('textarea');
+      temporaryInput.value = url;
+      temporaryInput.setAttribute('readonly', '');
+      temporaryInput.style.position = 'fixed';
+      temporaryInput.style.opacity = '0';
+      document.body.appendChild(temporaryInput);
+      temporaryInput.select();
+      document.execCommand('copy');
+      temporaryInput.remove();
+    }
+    setCopiedNoteUrl(url);
+    window.setTimeout(() => {
+      setCopiedNoteUrl(previous => previous === url ? '' : previous);
+    }, 1800);
+  };
   const handleNext = () => {
     setActiveMediaIndex((prev) => (prev + 1) % mediaList.length);
   };
@@ -359,6 +386,36 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           }`}>
             {activeMediaNote || 'Tư liệu này chưa có ghi chú.'}
           </p>
+          {activeMediaNoteUrls.length > 0 && (
+            <div className="mt-2 space-y-2" aria-label="Liên kết trong ghi chú">
+              {activeMediaNoteUrls.map(url => (
+                <div
+                  key={url}
+                  className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/85 p-2"
+                >
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-w-0 flex-1 truncate text-xs font-semibold text-sky-300 underline decoration-sky-500/50 underline-offset-2 hover:text-sky-200"
+                    title={url}
+                  >
+                    {url}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void copyNoteUrl(url)}
+                    className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-[#FFF200]/35 bg-[#FFF200]/10 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-[#FFF200] transition-colors hover:bg-[#FFF200]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200]"
+                    aria-label={`Sao chép liên kết ${url}`}
+                    title={copiedNoteUrl === url ? 'Đã sao chép liên kết' : 'Sao chép liên kết'}
+                  >
+                    {copiedNoteUrl === url ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedNoteUrl === url ? 'Đã chép' : 'Sao chép'}</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
         )}
 

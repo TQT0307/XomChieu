@@ -247,7 +247,7 @@ export default function CoachDetailModal({
         <div className="modal-scroll-region detail-scrollbar min-h-0 p-5 sm:p-8 space-y-6 overflow-y-auto">
           
           {/* Club responsibilities */}
-          <div>            <div className="vovinam-depth-card rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/70 to-slate-900/45 p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
+          <div>            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-slate-950/70 to-slate-900/45 p-4 shadow-[0_16px_36px_rgba(0,0,0,0.18)]">
               <div className="flex items-center gap-3 border-b border-white/10 pb-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#FFF200]/25 bg-[#FFF200]/10 text-[#FFF200] shadow-[0_8px_20px_rgba(255,242,0,0.08)]">
                   <MapPin className="h-5 w-5" />
@@ -271,7 +271,7 @@ export default function CoachDetailModal({
                       aria-label={`Xem chi tiết ${club.name}`}
                       aria-haspopup="dialog"
                       title={`Mở hồ sơ ${club.name}`}
-                      className={`flex w-full min-w-0 cursor-pointer touch-manipulation select-none items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition duration-150 hover:-translate-y-0.5 hover:border-white/60 hover:brightness-110 hover:shadow-lg active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200] ${
+                      className={`relative z-10 flex w-full min-w-0 cursor-pointer touch-manipulation select-none items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-[border-color,background-color,box-shadow,filter] duration-150 hover:border-white/60 hover:brightness-110 hover:shadow-lg active:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFF200] ${
                       role === 'Chính'
                         ? 'border-[#FFF200]/35 bg-gradient-to-r from-[#FFF200]/14 to-white/[0.035]'
                         : 'border-sky-400/20 bg-gradient-to-r from-sky-400/10 to-white/[0.025]'

@@ -33,3 +33,11 @@ test('coach club rows open the statically available club dialog with clear point
   assert.match(app, /case 'club':[\s\S]*clubs\.find\(item => matchesDetailIdentifier\(route\.id, item\.id, item\.name\)\) \|\| null/);
   assert.doesNotMatch(app, /case 'club':[\s\S]{0,250}item\.status !== false/);
 });
+
+test('desktop club rows keep a stable hit area while still showing hover feedback', () => {
+  assert.match(modal, /transition-\[border-color,background-color,box-shadow,filter\]/);
+  assert.match(modal, /hover:border-white\/60/);
+  assert.match(modal, /hover:shadow-lg/);
+  assert.doesNotMatch(modal, /hover:-translate-y-0\.5/);
+  assert.doesNotMatch(modal, /className="vovinam-depth-card rounded-2xl/);
+});
