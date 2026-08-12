@@ -5643,8 +5643,8 @@ export default function AdminPanel({
                             className="w-full text-sm border p-2 rounded-lg" required
                           >
                             <option value="thi đấu">🏆 Highlight trận đấu</option>
-                            <option value="tập luyện">🥋 Ảnh / clip tập luyện hằng ngày</option>
-                            <option value="thăng cấp đai">🥋 Thi thăng cấp đai</option>
+                            <option value="tập luyện">🥋 Tập luyện hằng ngày</option>
+                            <option value="thăng cấp đai"> 🥊 Thi thăng cấp đai</option>
                           </select>
                         </div>
 
