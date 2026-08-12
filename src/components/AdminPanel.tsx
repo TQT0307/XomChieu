@@ -5635,19 +5635,20 @@ export default function AdminPanel({
                         <div>
                           <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Loại bài đăng</label>
                           <select
-                            value={highlightForm.contentType || 'thi đấu'}
-                            onChange={e => setHighlightForm({
-                              ...highlightForm,
-                              contentType: e.target.value as Highlight['contentType']
-                            })}
-                            className="w-full text-sm border p-2 rounded-lg" required
-                          >
-                            <option value="thi đấu">🏆 Highlight trận đấu</option>
-                            <option value="tập luyện">🥊 Tập luyện</option>
-                            <option value="thăng cấp đai">🥋 Thi thăng cấp đai</option>
-                            <option value="sự kiện">📢 Sự kiện Vovinam</option>
-                            <option value="giải trí">🎭 Giải trí</option>
-                          </select>
+  value={highlightForm.contentType || 'thi đấu'}
+  onChange={e => setHighlightForm({
+    ...highlightForm,
+    contentType: e.target.value as Highlight['contentType']
+  })}
+  className="w-full text-sm border p-2 rounded-lg"
+  required
+>
+  <option value="thi đấu">🏆 Highlight trận đấu</option>
+  <option value="tập luyện">🥊 Tập luyện hằng ngày</option>
+  <option value="thăng cấp đai">🥋 Thi thăng cấp đai</option>
+  <option value="sự kiện">📢 Sự kiện Vovinam</option>
+  <option value="giải trí">🎭 Giải trí</option>
+</select>
                         </div>
 
                       </div>
