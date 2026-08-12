@@ -1378,28 +1378,36 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               className="w-[88%] sm:w-[calc((100%_-_1.5rem)/2)] lg:w-[calc((100%_-_3rem)/3)] shrink-0 snap-start bg-slate-900 text-white rounded-[2rem] p-4 border border-slate-700 cursor-pointer group hover:border-[#FFF200] transition-all duration-300 flex flex-col justify-between h-[310px] hover:shadow-xl hover:shadow-yellow-500/10 hover:-translate-y-1"
             >
               {/* Thumbnail Container */}
-              <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-800 shadow-inner">
-                <span className={`absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide shadow-lg ${
-                  hl.contentType === 'tập luyện'
-                    ? 'bg-emerald-500 text-white'
-                    : hl.contentType === 'thăng cấp đai'
-                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950'
-                      : 'bg-[#FFF200] text-slate-950'
-                }`}>
-                  {hl.contentType === 'tập luyện'
-                    ? 'Tập luyện hằng ngày'
-                    : hl.contentType === 'thăng cấp đai'
-                      ? 'Thi thăng cấp đai'
-                      : 'Highlight thi đấu'}
-                </span>
-                <img
-                  src={hl.thumbnail}
-                  alt={hl.title}
-                  className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 brightness-105 saturate-110 group-hover:brightness-110"
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy="no-referrer"
-                />
+             <div className="relative h-48 rounded-2xl overflow-hidden bg-slate-800 shadow-inner">
+  <span className={`absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide shadow-lg ${
+    hl.contentType === 'tập luyện'
+      ? 'bg-emerald-500 text-white'
+      : hl.contentType === 'thăng cấp đai'
+        ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950'
+        : hl.contentType === 'sự kiện'
+          ? 'bg-blue-600 text-white'
+          : hl.contentType === 'giải trí'
+            ? 'bg-purple-600 text-white'
+            : 'bg-[#FFF200] text-slate-950'
+  }`}>
+    {hl.contentType === 'tập luyện'
+      ? 'Tập luyện hằng ngày'
+      : hl.contentType === 'thăng cấp đai'
+        ? 'Thi thăng cấp đai'
+        : hl.contentType === 'sự kiện'
+          ? 'Sự kiện Vovinam'
+          : hl.contentType === 'giải trí'
+            ? 'Giải trí'
+            : 'Highlight thi đấu'}
+  </span>
+  <img
+    src={hl.thumbnail}
+    alt={hl.title}
+    className="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 brightness-105 saturate-110 group-hover:brightness-110"
+    loading="lazy"
+    decoding="async"
+    referrerPolicy="no-referrer"
+  />
 
                 {/* Video overlay is kept light so the thumbnail remains clear. */}
                 <div className={`absolute inset-0 flex items-center justify-center transition-colors ${
