@@ -5644,6 +5644,7 @@ export default function AdminPanel({
                           >
                             <option value="thi đấu">🏆 Highlight trận đấu</option>
                             <option value="tập luyện">🥋 Ảnh / clip tập luyện hằng ngày</option>
+                            <option value="thăng cấp đai">🥋 Thi thăng cấp đai</option>
                           </select>
                         </div>
 

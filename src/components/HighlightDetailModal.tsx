@@ -169,7 +169,11 @@ export default function HighlightDetailModal({ highlight, onClose }: HighlightDe
           <div>
             <span className="inline-flex items-center gap-1.5 bg-[#FFF200] text-slate-900 text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-wider">
               {mediaCounts.videos > 0 ? <Film className="w-3 h-3" /> : <ImageIcon className="w-3 h-3" />}
-              {highlight.contentType === 'tập luyện' ? 'Tập luyện hằng ngày' : 'Khoảnh khắc thi đấu'}
+              {highlight.contentType === 'tập luyện'
+                ? 'Tập luyện hằng ngày'
+                : highlight.contentType === 'thăng cấp đai'
+                  ? 'Thi thăng cấp đai'
+                  : 'Khoảnh khắc thi đấu'}
             </span>
             <h3 className="text-lg sm:text-xl font-bold mt-1 text-[#FFF200] leading-tight">
               {highlight.title}

@@ -1382,9 +1382,15 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
                 <span className={`absolute left-3 top-3 z-10 rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wide shadow-lg ${
                   hl.contentType === 'tập luyện'
                     ? 'bg-emerald-500 text-white'
-                    : 'bg-[#FFF200] text-slate-950'
+                    : hl.contentType === 'thăng cấp đai'
+                      ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950'
+                      : 'bg-[#FFF200] text-slate-950'
                 }`}>
-                  {hl.contentType === 'tập luyện' ? 'Tập luyện hằng ngày' : 'Highlight thi đấu'}
+                  {hl.contentType === 'tập luyện'
+                    ? 'Tập luyện hằng ngày'
+                    : hl.contentType === 'thăng cấp đai'
+                      ? 'Thi thăng cấp đai'
+                      : 'Highlight thi đấu'}
                 </span>
                 <img
                   src={hl.thumbnail}

@@ -92,7 +92,7 @@ export interface Highlight {
   mediaNotes?: string[];
   tournamentId?: string;
   tournamentName?: string;
-  contentType?: 'thi đấu' | 'tập luyện';
+  contentType?: 'thi đấu' | 'tập luyện' | 'thăng cấp đai';
 }
 
 export interface BannerConfig {
