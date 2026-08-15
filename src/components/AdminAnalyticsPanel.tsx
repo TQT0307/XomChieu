@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, Clock3, Eye, Laptop, Monitor, RefreshCw,
+  Activity, ChevronLeft, ChevronRight, Clock3, Eye, Laptop, Monitor, RefreshCw,
   Smartphone, Tablet, TrendingUp, Users
 } from 'lucide-react';
 
@@ -18,6 +18,7 @@ type AnalyticsVisitor = {
   totalPageviews: number;
   totalSessions: number;
   currentPath: string;
+  viewedPaths: string[];
   device: 'desktop' | 'mobile' | 'tablet';
   browser: string;
   os: string;
@@ -38,6 +39,9 @@ type AnalyticsPayload = {
   recentVisitors: AnalyticsVisitor[];
   storage: 'firebase' | 'memory';
 };
+
+const VISITOR_PAGE_SIZE = 15;
+const ACTIVE_VISITOR_WINDOW_MS = 15 * 60 * 1000;
 
 const sectionLabels: Record<string, string> = {
   '#section-about': 'Giới thiệu',
@@ -67,6 +71,7 @@ export default function AdminAnalyticsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastLoadedAt, setLastLoadedAt] = useState<Date | null>(null);
+  const [visitorPage, setVisitorPage] = useState(1);
 
   const loadAnalytics = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -99,6 +104,24 @@ export default function AdminAnalyticsPanel() {
     () => Math.max(1, ...(data?.days || []).map(day => day.pageviews)),
     [data?.days]
   );
+  const recentVisitors = data?.recentVisitors || [];
+  const visitorPageCount = Math.max(1, Math.ceil(recentVisitors.length / VISITOR_PAGE_SIZE));
+  const pagedVisitors = useMemo(
+    () => recentVisitors.slice(
+      (visitorPage - 1) * VISITOR_PAGE_SIZE,
+      visitorPage * VISITOR_PAGE_SIZE
+    ),
+    [recentVisitors, visitorPage]
+  );
+
+  useEffect(() => {
+    if (visitorPage > visitorPageCount) setVisitorPage(visitorPageCount);
+  }, [visitorPage, visitorPageCount]);
+
+  const isVisitorActive = (lastSeenAt: string) => {
+    const lastSeen = Date.parse(lastSeenAt);
+    return Number.isFinite(lastSeen) && Date.now() - lastSeen <= ACTIVE_VISITOR_WINDOW_MS;
+  };
 
   if (loading && !data) {
     return (
@@ -142,7 +165,7 @@ export default function AdminAnalyticsPanel() {
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1fr_1.5fr]">
+      <section className="grid items-start gap-6 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.7fr)]">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-center gap-2 border-b pb-3">
             <TrendingUp className="h-5 w-5 text-[#0054A6]" />
@@ -151,7 +174,7 @@ export default function AdminAnalyticsPanel() {
               <p className="text-[10px] text-slate-400">Chiều cao cột biểu thị lượt xem trang.</p>
             </div>
           </div>
-          <div className="flex h-56 items-end gap-2 overflow-x-auto pb-2">
+          <div className="flex h-48 items-end gap-2 overflow-x-auto pb-2">
             {(data?.days || []).map(day => (
               <div key={day.date} className="group flex min-w-[30px] flex-1 flex-col items-center justify-end gap-2">
                 <span className="text-[9px] font-black text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
@@ -182,12 +205,13 @@ export default function AdminAnalyticsPanel() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px] text-left text-xs">
+            <table className="w-full min-w-[1080px] text-left text-xs">
               <thead>
                 <tr className="border-b bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-400">
                   <th className="px-3 py-2.5">Khách</th>
                   <th className="px-3 py-2.5">Thiết bị</th>
                   <th className="px-3 py-2.5">Đang xem</th>
+                  <th className="px-3 py-2.5">Đã xem</th>
                   <th className="px-3 py-2.5">Nguồn</th>
                   <th className="px-3 py-2.5">Lần truy cập</th>
                   <th className="px-3 py-2.5">Lượt xem</th>
@@ -195,26 +219,63 @@ export default function AdminAnalyticsPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(data?.recentVisitors || []).map(visitor => (
-                  <tr key={visitor.visitorCode} className="hover:bg-blue-50/40">
-                    <td className="px-3 py-3 font-mono font-black text-[#0054A6]">#{visitor.visitorCode}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2 font-bold text-slate-700">
-                        <DeviceIcon device={visitor.device} />
-                        <span>{visitor.browser}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400">{visitor.os} · {visitor.language.toUpperCase()}</span>
-                    </td>
-                    <td className="px-3 py-3 font-bold text-slate-700">{sectionLabels[visitor.currentPath] || 'Giới thiệu'}</td>
-                    <td className="px-3 py-3 text-slate-500">{visitor.referrerHost || 'trực tiếp'}</td>
-                    <td className="px-3 py-3 font-black text-[#0054A6]">{formatNumber(visitor.totalSessions)} lần</td>
-                    <td className="px-3 py-3 font-bold text-slate-600">{formatNumber(visitor.totalPageviews)}</td>
-                    <td className="px-3 py-3 text-slate-500">{formatDateTime(visitor.lastSeenAt)}</td>
-                  </tr>
-                ))}
-                {!data?.recentVisitors?.length && (
+                {pagedVisitors.map(visitor => {
+                  const active = isVisitorActive(visitor.lastSeenAt);
+                  const viewedPaths = Array.from(new Set(
+                    (visitor.viewedPaths?.length ? visitor.viewedPaths : [visitor.currentPath]).filter(Boolean)
+                  ));
+                  return (
+                    <tr key={visitor.visitorCode} className="hover:bg-blue-50/40">
+                      <td className="px-3 py-3 font-mono font-black text-[#0054A6]">#{visitor.visitorCode}</td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2 font-bold text-slate-700">
+                          <DeviceIcon device={visitor.device} />
+                          <span>{visitor.browser}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">{visitor.os} · {visitor.language.toUpperCase()}</span>
+                      </td>
+                      <td className="px-3 py-3">
+                        {active ? (
+                          <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 font-black text-emerald-700">
+                            <span className="relative flex h-2 w-2">
+                              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                            </span>
+                            {sectionLabels[visitor.currentPath] || 'Giới thiệu'}
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-black text-slate-400">Đã rời website</div>
+                            <div className="mt-0.5 text-[10px] text-slate-400">
+                              Cuối: {sectionLabels[visitor.currentPath] || 'Giới thiệu'}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex max-w-[230px] flex-wrap gap-1">
+                          {viewedPaths.slice(-4).map(path => (
+                            <span key={path} className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-bold text-[#0054A6]">
+                              {sectionLabels[path] || 'Giới thiệu'}
+                            </span>
+                          ))}
+                          {viewedPaths.length > 4 && (
+                            <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                              +{viewedPaths.length - 4} mục
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3 text-slate-500">{visitor.referrerHost || 'trực tiếp'}</td>
+                      <td className="px-3 py-3 font-black text-[#0054A6]">{formatNumber(visitor.totalSessions)} lần</td>
+                      <td className="px-3 py-3 font-bold text-slate-600">{formatNumber(visitor.totalPageviews)}</td>
+                      <td className="px-3 py-3 text-slate-500">{formatDateTime(visitor.lastSeenAt)}</td>
+                    </tr>
+                  );
+                })}
+                {!recentVisitors.length && (
                   <tr>
-                    <td colSpan={7} className="px-3 py-10 text-center text-sm font-semibold text-slate-400">
+                    <td colSpan={8} className="px-3 py-10 text-center text-sm font-semibold text-slate-400">
                       Chưa có lượt truy cập mới được ghi nhận.
                     </td>
                   </tr>
@@ -222,6 +283,32 @@ export default function AdminAnalyticsPanel() {
               </tbody>
             </table>
           </div>
+          {visitorPageCount > 1 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
+              <span className="text-slate-500">
+                Trang <strong className="text-[#0054A6]">{visitorPage}</strong> / {visitorPageCount}
+                {' '}• {recentVisitors.length} khách • tối đa {VISITOR_PAGE_SIZE} dòng mỗi trang
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVisitorPage(page => Math.max(1, page - 1))}
+                  disabled={visitorPage === 1}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 font-bold text-slate-600 hover:border-[#0054A6] hover:text-[#0054A6] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Trước
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setVisitorPage(page => Math.min(visitorPageCount, page + 1))}
+                  disabled={visitorPage === visitorPageCount}
+                  className="inline-flex h-9 items-center gap-1 rounded-lg border border-slate-200 px-3 font-bold text-slate-600 hover:border-[#0054A6] hover:text-[#0054A6] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Sau <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

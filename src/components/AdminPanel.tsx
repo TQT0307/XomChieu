@@ -2751,6 +2751,38 @@ export default function AdminPanel({
     label: account.name,
     meta: `${account.username} • ${account.role === 'super' ? 'Admin chính' : 'Admin phụ'}`
   })), [adminAccounts]);
+  const filteredAdminAccounts = useMemo(() => adminAccounts.filter(account => matchesSmartSearch(
+    searchQuery,
+    account.id,
+    account.name,
+    account.username,
+    account.role,
+    account.permissions
+  )), [adminAccounts, searchQuery]);
+  const [adminAccountPage, setAdminAccountPage] = useState(1);
+  const ADMIN_ACCOUNT_PAGE_SIZE = 15;
+  const adminAccountPageCount = Math.max(
+    1,
+    Math.ceil(filteredAdminAccounts.length / ADMIN_ACCOUNT_PAGE_SIZE)
+  );
+  const pagedAdminAccounts = useMemo(
+    () => filteredAdminAccounts.slice(
+      (adminAccountPage - 1) * ADMIN_ACCOUNT_PAGE_SIZE,
+      adminAccountPage * ADMIN_ACCOUNT_PAGE_SIZE
+    ),
+    [adminAccountPage, filteredAdminAccounts]
+  );
+
+  useEffect(() => {
+    setAdminAccountPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (adminAccountPage > adminAccountPageCount) {
+      setAdminAccountPage(adminAccountPageCount);
+    }
+  }, [adminAccountPage, adminAccountPageCount]);
+
   const historySearchOptions = useMemo(() => editHistories.map(log => ({
     key: `history-${log.id}`,
     value: String(log.id),
@@ -2767,7 +2799,7 @@ export default function AdminPanel({
     log.details
   )), [editHistories, searchQuery]);
   const [historyPage, setHistoryPage] = useState(1);
-  const HISTORY_PAGE_SIZE = 20;
+  const HISTORY_PAGE_SIZE = 15;
   const historyPageCount = Math.max(1, Math.ceil(filteredHistoryLogs.length / HISTORY_PAGE_SIZE));
   const pagedHistoryLogs = useMemo(
     () => filteredHistoryLogs.slice(
@@ -2786,7 +2818,7 @@ export default function AdminPanel({
   }, [historyPage, historyPageCount]);
 
   const [crudPage, setCrudPage] = useState(1);
-  const CRUD_PAGE_SIZE = 25;
+  const CRUD_PAGE_SIZE = 15;
   const crudPageCount = Math.max(1, Math.ceil(renderedData.length / CRUD_PAGE_SIZE));
   const pagedRenderedData = useMemo(
     () => renderedData.slice((crudPage - 1) * CRUD_PAGE_SIZE, crudPage * CRUD_PAGE_SIZE),
@@ -3286,14 +3318,7 @@ export default function AdminPanel({
                     options={adminAccountSearchOptions}
                     placeholder="Tìm tài khoản theo ID, tên, tên đăng nhập hoặc quyền..."
                     ariaLabel="Tìm kiếm tài khoản quản trị"
-                    resultCount={adminAccounts.filter(account => matchesSmartSearch(
-                      searchQuery,
-                      account.id,
-                      account.name,
-                      account.username,
-                      account.role,
-                      account.permissions
-                    )).length}
+                    resultCount={filteredAdminAccounts.length}
                     helperText="Bấm mũi tên để xem toàn bộ tài khoản."
                     theme="admin"
                     className="mb-5"
@@ -3312,16 +3337,7 @@ export default function AdminPanel({
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-600">
-                        {adminAccounts
-                          .filter(acc => matchesSmartSearch(
-                            searchQuery,
-                            acc.id,
-                            acc.name,
-                            acc.username,
-                            acc.role === 'super' ? 'admin chính' : 'admin phụ',
-                            acc.permissions
-                          ))
-                          .map(acc => (
+                        {pagedAdminAccounts.map(acc => (
                             <tr key={acc.id} className="hover:bg-slate-50 transition-colors">
                               <td className="p-3 font-bold text-slate-800">{acc.name}</td>
                               <td className="p-3 font-mono text-slate-500">{acc.username}</td>
@@ -3386,6 +3402,35 @@ export default function AdminPanel({
                       </tbody>
                     </table>
                   </div>
+
+                  {adminAccountPageCount > 1 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
+                      <span className="text-slate-500">
+                        Trang <strong className="text-[#0054A6]">{adminAccountPage}</strong> / {adminAccountPageCount}
+                        {' '}• {filteredAdminAccounts.length} tài khoản • tối đa {ADMIN_ACCOUNT_PAGE_SIZE} dòng mỗi trang
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAdminAccountPage(page => Math.max(1, page - 1))}
+                          disabled={adminAccountPage === 1}
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          Trước
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAdminAccountPage(page => Math.min(adminAccountPageCount, page + 1))}
+                          disabled={adminAccountPage === adminAccountPageCount}
+                          className="inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Sau
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

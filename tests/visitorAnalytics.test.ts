@@ -48,3 +48,13 @@ test('admin analytics shows each visitor visit count explicitly', () => {
   assert.match(analyticsPanelSource, /visitor\.totalSessions/);
   assert.match(analyticsPanelSource, /visitor\.totalPageviews/);
 });
+
+test('analytics keeps recent viewed sections and paginates visitors by fifteen rows', () => {
+  assert.match(apiSource, /viewedPaths: mergeAnalyticsViewedPaths/);
+  assert.match(apiSource, /slice\(-12\)/);
+  assert.match(analyticsPanelSource, /const VISITOR_PAGE_SIZE = 15/);
+  assert.match(analyticsPanelSource, /const ACTIVE_VISITOR_WINDOW_MS = 15 \* 60 \* 1000/);
+  assert.match(analyticsPanelSource, /pagedVisitors\.map/);
+  assert.match(analyticsPanelSource, /visitor\.viewedPaths/);
+  assert.match(analyticsPanelSource, /items-start/);
+});

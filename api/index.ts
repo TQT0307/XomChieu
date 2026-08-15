@@ -104,6 +104,7 @@ type AnalyticsVisitorRecord = {
   totalPageviews: number;
   totalSessions: number;
   currentPath: string;
+  viewedPaths: string[];
   device: "desktop" | "mobile" | "tablet";
   browser: string;
   os: string;
@@ -2557,6 +2558,18 @@ type AnalyticsTrackPayload = {
   day: string;
 };
 
+function mergeAnalyticsViewedPaths(
+  existingPaths: unknown,
+  currentPath: string,
+  event: AnalyticsEvent
+) {
+  const paths = Array.isArray(existingPaths)
+    ? existingPaths.map(normalizeAnalyticsPath).filter(Boolean)
+    : [];
+  if (event !== "pageview") return (paths.length ? paths : [currentPath]).slice(-12);
+  return [...paths.filter(path => path !== currentPath), currentPath].slice(-12);
+}
+
 function trackAnalyticsInMemory(payload: AnalyticsTrackPayload) {
   const existing = analyticsMemoryVisitors.get(payload.visitorHash);
   const isNewVisitor = !existing;
@@ -2572,6 +2585,7 @@ function trackAnalyticsInMemory(payload: AnalyticsTrackPayload) {
     totalPageviews: (existing?.totalPageviews || 0) + pageviewIncrement,
     totalSessions: (existing?.totalSessions || 0) + (isNewSession ? 1 : 0),
     currentPath: payload.path,
+    viewedPaths: mergeAnalyticsViewedPaths(existing?.viewedPaths, payload.path, payload.event),
     device: payload.device,
     browser: payload.browser,
     os: payload.os,
@@ -2620,6 +2634,7 @@ async function trackAnalyticsInFirestore(dbInstance: any, payload: AnalyticsTrac
         totalPageviews: Number(existing.totalPageviews || 0) + pageviewIncrement,
         totalSessions: Number(existing.totalSessions || 0) + (isNewSession ? 1 : 0),
         currentPath: payload.path,
+        viewedPaths: mergeAnalyticsViewedPaths(existing.viewedPaths, payload.path, payload.event),
         device: payload.device,
         browser: payload.browser,
         os: payload.os,
@@ -2741,6 +2756,11 @@ app.get("/api/analytics/summary", requireAdminSession, requireSuperAdmin, async 
         totalPageviews: Number(value.totalPageviews || 0),
         totalSessions: Number(value.totalSessions || 0),
         currentPath: normalizeAnalyticsPath(value.currentPath),
+        viewedPaths: mergeAnalyticsViewedPaths(
+          value.viewedPaths,
+          normalizeAnalyticsPath(value.currentPath),
+          "heartbeat"
+        ),
         device: ["desktop", "mobile", "tablet"].includes(value.device) ? value.device : "desktop",
         browser: String(value.browser || "Khác").slice(0, 30),
         os: String(value.os || "Khác").slice(0, 30),
