@@ -11,14 +11,23 @@ type AnalyticsDay = {
   visitors: number;
 };
 
+type AnalyticsActivity = {
+  path: string;
+  at: string;
+  event: 'pageview' | 'heartbeat' | 'identify';
+};
+
 type AnalyticsVisitor = {
   visitorCode: string;
+  visitorName: string;
   firstSeenAt: string;
   lastSeenAt: string;
+  currentSessionStartedAt: string;
   totalPageviews: number;
   totalSessions: number;
   currentPath: string;
   viewedPaths: string[];
+  recentActivities: AnalyticsActivity[];
   device: 'desktop' | 'mobile' | 'tablet';
   browser: string;
   os: string;
@@ -59,6 +68,21 @@ const formatNumber = (value: number) => new Intl.NumberFormat('vi-VN').format(va
 const formatDateTime = (value: string) => value
   ? new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
   : '—';
+
+const formatActivityTime = (value: string) => value
+  ? new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  : '—';
+
+const formatSessionDuration = (startedAt: string, lastSeenAt: string) => {
+  const started = Date.parse(startedAt);
+  const ended = Date.parse(lastSeenAt);
+  if (!Number.isFinite(started) || !Number.isFinite(ended) || ended < started) return '—';
+  const totalMinutes = Math.max(1, Math.round((ended - started) / 60_000));
+  if (totalMinutes < 60) return `${totalMinutes} phút`;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return minutes ? `${hours} giờ ${minutes} phút` : `${hours} giờ`;
+};
 
 const DeviceIcon = ({ device }: { device: AnalyticsVisitor['device'] }) => {
   if (device === 'mobile') return <Smartphone className="h-4 w-4" />;
@@ -141,7 +165,7 @@ export default function AdminAnalyticsPanel() {
               <Activity className="h-5 w-5" />
               <span className="text-xs font-black uppercase tracking-[.16em]">Thống kê truy cập website</span>
             </div>
-            <p className="mt-1 text-xs text-blue-100">Dữ liệu khách ẩn danh, không lưu IP đầy đủ, Gmail, tên hay avatar.</p>
+            <p className="mt-1 text-xs text-blue-100">Tên chỉ hiện khi khách tự nguyện nhập; không lưu IP đầy đủ, Gmail hay avatar.</p>
           </div>
           <button
             type="button"
@@ -197,7 +221,7 @@ export default function AdminAnalyticsPanel() {
               <Laptop className="h-5 w-5 text-[#0054A6]" />
               <div>
                 <h3 className="text-sm font-black uppercase text-slate-800">Khách truy cập gần đây</h3>
-                <p className="text-xs text-slate-500">Mã khách là mã ẩn danh, không phải danh tính thật.</p>
+                <p className="text-xs text-slate-500">Tên do khách tự khai; người bỏ qua vẫn dùng mã ẩn danh.</p>
               </div>
             </div>
             <span className="text-[10px] font-semibold text-slate-400">
@@ -205,7 +229,7 @@ export default function AdminAnalyticsPanel() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] table-auto text-left text-sm">
+            <table className="w-full min-w-[1160px] table-auto text-left text-sm">
               <thead>
                 <tr className="border-b bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
                   <th className="px-3 py-2.5">Khách</th>
@@ -224,9 +248,18 @@ export default function AdminAnalyticsPanel() {
                   const viewedPaths = Array.from(new Set(
                     (visitor.viewedPaths?.length ? visitor.viewedPaths : [visitor.currentPath]).filter(Boolean)
                   ));
+                  const recentActivities = (visitor.recentActivities || [])
+                    .filter(activity => activity?.at)
+                    .slice(-4)
+                    .reverse();
                   return (
                     <tr key={visitor.visitorCode} className="hover:bg-blue-50/40">
-                      <td className="px-3 py-3 font-mono font-black text-[#0054A6]">#{visitor.visitorCode}</td>
+                      <td className="px-3 py-3">
+                        <div className="max-w-[180px] truncate font-black text-slate-800" title={visitor.visitorName || 'Khách ẩn danh'}>
+                          {visitor.visitorName || 'Khách ẩn danh'}
+                        </div>
+                        <div className="mt-0.5 font-mono text-xs font-black text-[#0054A6]">#{visitor.visitorCode}</div>
+                      </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2 font-bold text-slate-700">
                           <DeviceIcon device={visitor.device} />
@@ -253,13 +286,22 @@ export default function AdminAnalyticsPanel() {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex max-w-[230px] flex-wrap gap-1">
-                          {viewedPaths.slice(-4).map(path => (
-                            <span key={path} className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-bold text-[#0054A6]">
+                        <div className="min-w-[230px] space-y-1">
+                          {recentActivities.length ? recentActivities.map((activity, index) => (
+                            <div key={`${activity.at}-${activity.path}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs">
+                              <span className="font-bold text-[#0054A6]">
+                                {activity.event === 'identify' ? 'Đã nhập tên' : (sectionLabels[activity.path] || 'Giới thiệu')}
+                              </span>
+                              <time className="shrink-0 font-semibold text-slate-500" dateTime={activity.at}>
+                                {formatActivityTime(activity.at)}
+                              </time>
+                            </div>
+                          )) : viewedPaths.slice(-4).map(path => (
+                            <span key={path} className="mr-1 inline-flex rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-bold text-[#0054A6]">
                               {sectionLabels[path] || 'Giới thiệu'}
                             </span>
                           ))}
-                          {viewedPaths.length > 4 && (
+                          {!recentActivities.length && viewedPaths.length > 4 && (
                             <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
                               +{viewedPaths.length - 4} mục
                             </span>
@@ -269,7 +311,10 @@ export default function AdminAnalyticsPanel() {
                       <td className="px-3 py-3 text-slate-500">{visitor.referrerHost || 'trực tiếp'}</td>
                       <td className="px-3 py-3 font-black text-[#0054A6]">{formatNumber(visitor.totalSessions)} lần</td>
                       <td className="px-3 py-3 font-bold text-slate-600">{formatNumber(visitor.totalPageviews)}</td>
-                      <td className="px-3 py-3 text-slate-500">{formatDateTime(visitor.lastSeenAt)}</td>
+                      <td className="px-3 py-3 text-slate-500">
+                        <div className="font-semibold">{formatDateTime(visitor.lastSeenAt)}</div>
+                        <div className="mt-1 text-xs">Phiên hiện tại: {formatSessionDuration(visitor.currentSessionStartedAt, visitor.lastSeenAt)}</div>
+                      </td>
                     </tr>
                   );
                 })}

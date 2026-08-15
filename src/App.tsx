@@ -4,6 +4,7 @@ import UserView from './components/UserView';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
 import PublicErrorBoundary from './components/PublicErrorBoundary';
 import ClubDetailModal from './components/ClubDetailModal';
+import VisitorNamePrompt from './components/VisitorNamePrompt';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
@@ -981,6 +982,7 @@ export default function App() {
             activeNavSection={activeNavSection}
             setActiveNavSection={setActiveNavSection}
           />
+          <VisitorNamePrompt />
           </PublicErrorBoundary>
         )}
       </main>

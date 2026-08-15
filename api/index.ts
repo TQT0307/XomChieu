@@ -94,17 +94,25 @@ const ANALYTICS_ACTIVE_WINDOW_MS = 15 * 60 * 1000;
 const ANALYTICS_RATE_LIMIT_MS = 10 * 1000;
 const ANALYTICS_RECENT_VISITOR_LIMIT = 100;
 
-type AnalyticsEvent = "pageview" | "heartbeat";
+type AnalyticsEvent = "pageview" | "heartbeat" | "identify";
+type AnalyticsActivity = {
+  path: string;
+  at: string;
+  event: AnalyticsEvent;
+};
 type AnalyticsVisitorRecord = {
   visitorCode: string;
+  visitorName: string;
   firstSeenAt: string;
   lastSeenAt: string;
   lastSeenDay: string;
   currentSessionId: string;
+  currentSessionStartedAt: string;
   totalPageviews: number;
   totalSessions: number;
   currentPath: string;
   viewedPaths: string[];
+  recentActivities: AnalyticsActivity[];
   device: "desktop" | "mobile" | "tablet";
   browser: string;
   os: string;
@@ -2496,6 +2504,14 @@ function normalizeAnalyticsId(value: unknown) {
   return /^[A-Za-z0-9_-]{16,80}$/.test(normalized) ? normalized : "";
 }
 
+function normalizeAnalyticsVisitorName(value: unknown) {
+  return String(value || "")
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+}
+
 function normalizeAnalyticsPath(value: unknown) {
   const raw = String(value || "").trim().slice(0, 160);
   const section = raw.match(/^#(section-[a-z-]+)/i)?.[1];
@@ -2548,6 +2564,7 @@ type AnalyticsTrackPayload = {
   visitorHash: string;
   sessionHash: string;
   event: AnalyticsEvent;
+  visitorName: string;
   path: string;
   language: string;
   referrerHost: string;
@@ -2570,6 +2587,28 @@ function mergeAnalyticsViewedPaths(
   return [...paths.filter(path => path !== currentPath), currentPath].slice(-12);
 }
 
+function mergeAnalyticsActivities(existingActivities: unknown, payload: AnalyticsTrackPayload) {
+  const activities: AnalyticsActivity[] = Array.isArray(existingActivities)
+    ? existingActivities.flatMap((activity: any) => {
+        const at = String(activity?.at || "");
+        if (!at || !Number.isFinite(Date.parse(at))) return [];
+        const event: AnalyticsEvent = activity?.event === "heartbeat"
+          ? "heartbeat"
+          : activity?.event === "identify" ? "identify" : "pageview";
+        return [{ path: normalizeAnalyticsPath(activity?.path), at, event }];
+      })
+    : [];
+  const latest = activities[activities.length - 1];
+  if (
+    latest && latest.path === payload.path && latest.event === payload.event &&
+    Date.parse(payload.nowIso) - Date.parse(latest.at) < 30_000
+  ) {
+    activities[activities.length - 1] = { path: payload.path, at: payload.nowIso, event: payload.event };
+    return activities.slice(-30);
+  }
+  return [...activities, { path: payload.path, at: payload.nowIso, event: payload.event }].slice(-30);
+}
+
 function trackAnalyticsInMemory(payload: AnalyticsTrackPayload) {
   const existing = analyticsMemoryVisitors.get(payload.visitorHash);
   const isNewVisitor = !existing;
@@ -2578,14 +2617,17 @@ function trackAnalyticsInMemory(payload: AnalyticsTrackPayload) {
   const pageviewIncrement = payload.event === "pageview" ? 1 : 0;
   analyticsMemoryVisitors.set(payload.visitorHash, {
     visitorCode: payload.visitorHash.slice(0, 8).toUpperCase(),
+    visitorName: payload.visitorName || existing?.visitorName || "",
     firstSeenAt: existing?.firstSeenAt || payload.nowIso,
     lastSeenAt: payload.nowIso,
     lastSeenDay: payload.day,
     currentSessionId: payload.sessionHash,
+    currentSessionStartedAt: isNewSession ? payload.nowIso : existing?.currentSessionStartedAt || payload.nowIso,
     totalPageviews: (existing?.totalPageviews || 0) + pageviewIncrement,
     totalSessions: (existing?.totalSessions || 0) + (isNewSession ? 1 : 0),
     currentPath: payload.path,
     viewedPaths: mergeAnalyticsViewedPaths(existing?.viewedPaths, payload.path, payload.event),
+    recentActivities: mergeAnalyticsActivities(existing?.recentActivities, payload),
     device: payload.device,
     browser: payload.browser,
     os: payload.os,
@@ -2627,14 +2669,17 @@ async function trackAnalyticsInFirestore(dbInstance: any, payload: AnalyticsTrac
       }
       transaction.set(visitorRef, {
         visitorCode: payload.visitorHash.slice(0, 8).toUpperCase(),
+        visitorName: payload.visitorName || String(existing.visitorName || ""),
         firstSeenAt: existing.firstSeenAt || payload.nowIso,
         lastSeenAt: payload.nowIso,
         lastSeenDay: payload.day,
         currentSessionId: payload.sessionHash,
+        currentSessionStartedAt: isNewSession ? payload.nowIso : existing.currentSessionStartedAt || payload.nowIso,
         totalPageviews: Number(existing.totalPageviews || 0) + pageviewIncrement,
         totalSessions: Number(existing.totalSessions || 0) + (isNewSession ? 1 : 0),
         currentPath: payload.path,
         viewedPaths: mergeAnalyticsViewedPaths(existing.viewedPaths, payload.path, payload.event),
+        recentActivities: mergeAnalyticsActivities(existing.recentActivities, payload),
         device: payload.device,
         browser: payload.browser,
         os: payload.os,
@@ -2693,21 +2738,26 @@ app.post("/api/analytics/track", requireSameOrigin, async (req, res) => {
     if (!visitorId || !sessionId) return res.status(400).json({ error: "Phiên thống kê không hợp lệ." });
     const visitorHash = analyticsVisitorHash(visitorId);
     const now = Date.now();
-    const lastAcceptedAt = analyticsRateLimits.get(visitorHash) || 0;
-    if (now - lastAcceptedAt < ANALYTICS_RATE_LIMIT_MS) {
+    const event: AnalyticsEvent = req.body?.event === "heartbeat"
+      ? "heartbeat"
+      : req.body?.event === "identify" ? "identify" : "pageview";
+    const rateLimitKey = `${visitorHash}:${event}`;
+    const minimumInterval = event === "pageview" ? 750 : event === "identify" ? 2_000 : ANALYTICS_RATE_LIMIT_MS;
+    const lastAcceptedAt = analyticsRateLimits.get(rateLimitKey) || 0;
+    if (now - lastAcceptedAt < minimumInterval) {
       return res.status(202).json({ accepted: true, throttled: true });
     }
-    analyticsRateLimits.set(visitorHash, now);
+    analyticsRateLimits.set(rateLimitKey, now);
     if (analyticsRateLimits.size > 5000) {
       for (const [key, acceptedAt] of analyticsRateLimits) {
         if (now - acceptedAt > 60 * 60 * 1000) analyticsRateLimits.delete(key);
       }
     }
-    const event: AnalyticsEvent = req.body?.event === "heartbeat" ? "heartbeat" : "pageview";
     const payload: AnalyticsTrackPayload = {
       visitorHash,
       sessionHash: createHash("sha256").update(sessionId).digest("hex").slice(0, 32),
       event,
+      visitorName: normalizeAnalyticsVisitorName(req.body?.visitorName),
       path: normalizeAnalyticsPath(req.body?.path),
       language: normalizeAnalyticsLanguage(req.body?.language),
       referrerHost: normalizeReferrerHost(req.body?.referrer),
@@ -2749,10 +2799,12 @@ app.get("/api/analytics/summary", requireAdminSession, requireSuperAdmin, async 
       const value = snapshot.data() || {};
       recentVisitors.push({
         visitorCode: String(value.visitorCode || snapshot.id.slice(8, 16)).toUpperCase(),
+        visitorName: normalizeAnalyticsVisitorName(value.visitorName),
         firstSeenAt: String(value.firstSeenAt || ""),
         lastSeenAt: String(value.lastSeenAt || ""),
         lastSeenDay: String(value.lastSeenDay || ""),
         currentSessionId: "",
+        currentSessionStartedAt: String(value.currentSessionStartedAt || value.lastSeenAt || ""),
         totalPageviews: Number(value.totalPageviews || 0),
         totalSessions: Number(value.totalSessions || 0),
         currentPath: normalizeAnalyticsPath(value.currentPath),
@@ -2761,6 +2813,12 @@ app.get("/api/analytics/summary", requireAdminSession, requireSuperAdmin, async 
           normalizeAnalyticsPath(value.currentPath),
           "heartbeat"
         ),
+        recentActivities: mergeAnalyticsActivities(value.recentActivities, {
+          visitorHash: "", sessionHash: "", event: "heartbeat",
+          visitorName: "", path: normalizeAnalyticsPath(value.currentPath),
+          language: "vi", referrerHost: "", device: "desktop", browser: "", os: "",
+          nowIso: String(value.lastSeenAt || new Date(0).toISOString()), day: ""
+        }),
         device: ["desktop", "mobile", "tablet"].includes(value.device) ? value.device : "desktop",
         browser: String(value.browser || "Khác").slice(0, 30),
         os: String(value.os || "Khác").slice(0, 30),

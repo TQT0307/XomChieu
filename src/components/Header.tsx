@@ -175,6 +175,7 @@ export default function Header({
     if (window.location.hash !== nextHash) {
       window.history.pushState({ vovinamSection: sectionId }, '', nextHash);
     }
+    window.dispatchEvent(new CustomEvent('vovinam:section-view', { detail: { path: nextHash } }));
     scrollToSection(sectionId);
     if (sectionId === 'section-contact') {
       window.dispatchEvent(new CustomEvent('vovinam-open-training-registration'));

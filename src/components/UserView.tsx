@@ -311,6 +311,7 @@ export default function UserView({
             '',
             nextHash
           );
+          window.dispatchEvent(new CustomEvent('vovinam:section-view', { detail: { path: nextHash } }));
         }
       });
     };

@@ -9,6 +9,7 @@ const appSource = fs.readFileSync(path.join(root, 'src', 'App.tsx'), 'utf8');
 const adminSource = fs.readFileSync(path.join(root, 'src', 'components', 'AdminPanel.tsx'), 'utf8');
 const analyticsPanelSource = fs.readFileSync(path.join(root, 'src', 'components', 'AdminAnalyticsPanel.tsx'), 'utf8');
 const trackerSource = fs.readFileSync(path.join(root, 'src', 'utils', 'visitorAnalytics.ts'), 'utf8');
+const visitorPromptSource = fs.readFileSync(path.join(root, 'src', 'components', 'VisitorNamePrompt.tsx'), 'utf8');
 
 test('visitor tracking is isolated, rate limited and does not store raw IP addresses', () => {
   assert.match(apiSource, /ANALYTICS_COLLECTION = "vovinam_analytics"/);
@@ -38,10 +39,19 @@ test('authenticated Admin visits are excluded before analytics storage', () => {
   assert.match(trackerSource, /window\.location\.hash\.startsWith\('#admin'\)/);
 });
 
-test('anonymous analytics never claims visitor email, name or avatar identity', () => {
+test('optional visitor name never collects email, avatar or full IP identity', () => {
   assert.doesNotMatch(apiSource, /type AnalyticsTrackPayload[\s\S]{0,1000}\b(email|avatar|displayName|fullName)\b/);
-  assert.match(analyticsPanelSource, /không lưu IP đầy đủ, Gmail, tên hay avatar/);
-  assert.match(analyticsPanelSource, /Mã khách là mã ẩn danh, không phải danh tính thật/);
+  assert.match(apiSource, /normalizeAnalyticsVisitorName/);
+  assert.match(analyticsPanelSource, /Tên chỉ hiện khi khách tự nguyện nhập/);
+  assert.match(visitorPromptSource, /Bạn hoàn toàn có thể bỏ qua/);
+  assert.match(visitorPromptSource, /identifyVisitor\(''\)/);
+});
+
+test('visitor name prompt opens after scrolling and remembers the decision', () => {
+  assert.match(visitorPromptSource, /PROMPT_SCROLL_THRESHOLD = 72/);
+  assert.match(visitorPromptSource, /VISITOR_NAME_DECISION_KEY/);
+  assert.match(visitorPromptSource, /window\.addEventListener\('scroll'/);
+  assert.match(visitorPromptSource, /identifyVisitor\(normalizedName\)/);
 });
 test('admin analytics shows each visitor visit count explicitly', () => {
   assert.match(analyticsPanelSource, /Lần truy cập/);

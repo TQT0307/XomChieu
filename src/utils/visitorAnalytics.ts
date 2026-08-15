@@ -1,6 +1,16 @@
 const VISITOR_STORAGE_KEY = 'vovinam_anonymous_visitor';
 const SESSION_STORAGE_KEY = 'vovinam_anonymous_session';
+export const VISITOR_NAME_STORAGE_KEY = 'vovinam_visitor_name';
+export const VISITOR_NAME_DECISION_KEY = 'vovinam_visitor_name_prompted';
 const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
+
+const readVisitorName = () => {
+  try {
+    return (window.localStorage.getItem(VISITOR_NAME_STORAGE_KEY) || '').trim().slice(0, 80);
+  } catch {
+    return '';
+  }
+};
 
 const createAnonymousId = () => {
   if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID();
@@ -28,7 +38,7 @@ const currentSection = () => {
 const sendAnalyticsEvent = (
   visitorId: string,
   sessionId: string,
-  event: 'pageview' | 'heartbeat'
+  event: 'pageview' | 'heartbeat' | 'identify'
 ) => {
   void fetch('/api/analytics/track', {
     method: 'POST',
@@ -40,6 +50,7 @@ const sendAnalyticsEvent = (
       sessionId,
       event,
       path: currentSection(),
+      visitorName: readVisitorName(),
       language: navigator.language || 'vi',
       referrer: document.referrer || ''
     })
@@ -47,6 +58,21 @@ const sendAnalyticsEvent = (
     // Analytics is intentionally best-effort and cannot interrupt the website.
   });
 };
+
+export function identifyVisitor(visitorName: string) {
+  if (typeof window === 'undefined') return;
+  const normalizedName = visitorName.trim().replace(/\s+/g, ' ').slice(0, 80);
+  try {
+    if (normalizedName) window.localStorage.setItem(VISITOR_NAME_STORAGE_KEY, normalizedName);
+    window.localStorage.setItem(VISITOR_NAME_DECISION_KEY, normalizedName ? 'named' : 'skipped');
+  } catch {
+    // Private browsing can deny storage. Identification remains best-effort.
+  }
+  if (!normalizedName || window.location.hash.startsWith('#admin')) return;
+  const visitorId = getOrCreateId(window.localStorage, VISITOR_STORAGE_KEY);
+  const sessionId = getOrCreateId(window.sessionStorage, SESSION_STORAGE_KEY);
+  sendAnalyticsEvent(visitorId, sessionId, 'identify');
+}
 
 export function startVisitorAnalytics() {
   if (typeof window === 'undefined' || window.location.hash.startsWith('#admin')) {
@@ -78,10 +104,14 @@ export function startVisitorAnalytics() {
   trackPageview();
   const interval = window.setInterval(heartbeat, HEARTBEAT_INTERVAL_MS);
   window.addEventListener('hashchange', trackPageview, { passive: true });
+  window.addEventListener('vovinam:section-view', trackPageview);
+  window.addEventListener('pagehide', heartbeat, { passive: true });
   document.addEventListener('visibilitychange', onVisibilityChange, { passive: true });
   return () => {
     window.clearInterval(interval);
     window.removeEventListener('hashchange', trackPageview);
+    window.removeEventListener('vovinam:section-view', trackPageview);
+    window.removeEventListener('pagehide', heartbeat);
     document.removeEventListener('visibilitychange', onVisibilityChange);
   };
 }
