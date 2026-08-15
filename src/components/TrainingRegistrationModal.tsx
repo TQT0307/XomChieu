@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CalendarDays, CheckCircle2, Clock, LoaderCircle, Mail, MapPin, Send, UserRound, X } from 'lucide-react';
 import type { Club } from '../types';
 import useModalScrollLock from '../hooks/useModalScrollLock';
+import { getStoredVisitorName } from '../utils/visitorAnalytics';
 
-const GMAIL_PATTERN = /^[a-z0-9](?:[a-z0-9.]{4,28}[a-z0-9])?@gmail\.com$/i;
+const GMAIL_PATTERN = /^(?!.*\.\.)[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@gmail\.com$/i;
 const isValidGmailAddress = (value: string) => GMAIL_PATTERN.test(value.trim());
 
 type RegistrationLanguage = 'vi' | 'en';
@@ -32,7 +33,8 @@ const REGISTRATION_COPY = {
     messagePlaceholder: 'Điều bạn muốn trao đổi thêm…', sending: 'Đang gửi đăng ký…',
     send: 'Gửi đăng ký tập luyện', invalidGmail: 'Vui lòng nhập đúng địa chỉ Gmail, ví dụ: tennguoidung@gmail.com.',
     submitFailed: 'Không thể gửi đăng ký lúc này.', genericFailed: 'Không thể gửi đăng ký.',
-    success: 'Đăng ký thành công! Form sẽ tự đóng.'
+    success: 'Đăng ký thành công! Form sẽ tự đóng.',
+    successEmailPending: 'Đăng ký đã được lưu thành công. Hệ thống đang chờ gửi thông báo cho Ban quản trị.'
   },
   en: {
     close: 'Close registration form', badge: 'Training registration', title: 'Begin your Vovinam journey',
@@ -45,7 +47,8 @@ const REGISTRATION_COPY = {
     messagePlaceholder: 'Anything else you would like to ask us…', sending: 'Sending registration…',
     send: 'Submit training registration', invalidGmail: 'Please enter a complete Gmail address, for example: username@gmail.com.',
     submitFailed: 'Unable to submit your registration right now.', genericFailed: 'Unable to submit your registration.',
-    success: 'Registration successful! This form will close automatically.'
+    success: 'Registration successful! This form will close automatically.',
+    successEmailPending: 'Your registration was saved successfully. The administrator notification is pending delivery.'
   }
 } as const;
 
@@ -60,7 +63,7 @@ export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { 
   const panelRef = useRef<HTMLDivElement>(null);
   const club = activeClubs.find(c => c.id === clubId);
   useModalScrollLock(isOpen, onClose);
-  useEffect(() => { if (!isOpen) return; const fn=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()}; window.addEventListener('keydown',fn); setTimeout(()=>panelRef.current?.querySelector<HTMLInputElement>('input')?.focus(),0); return()=>window.removeEventListener('keydown',fn); }, [isOpen]);
+  useEffect(() => { if (!isOpen) return; setFullName(current => current.trim() ? current : getStoredVisitorName()); const fn=(e:KeyboardEvent)=>{if(e.key==='Escape')onClose()}; window.addEventListener('keydown',fn); setTimeout(()=>panelRef.current?.querySelector<HTMLInputElement>('input')?.focus(),0); return()=>window.removeEventListener('keydown',fn); }, [isOpen]);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (submitting) return;
@@ -78,7 +81,7 @@ export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { 
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(language === 'en' ? copy.submitFailed : (payload.error || copy.submitFailed));
-      setResult({ type: 'success', text: copy.success });
+      setResult({ type: 'success', text: payload.emailDelivered === false ? copy.successEmailPending : copy.success });
       window.setTimeout(() => {
         setFullName(''); setEmail(''); setClubId(''); setMessage(''); setResult(null); onClose();
       }, 3000);
@@ -95,7 +98,7 @@ export default function TrainingRegistrationModal({ clubs, isOpen, onClose }: { 
       <div className="relative overflow-hidden bg-gradient-to-br from-[#0054A6] to-[#00366e] px-5 py-5 text-white sm:px-7"><div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-[#FFF200]/15"/><button type="button" onClick={onClose} aria-label={copy.close} className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 hover:bg-white/20"><X className="h-5 w-5"/></button><span className="mb-2 inline-flex rounded-full bg-[#FFF200] px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[#0054A6]">{copy.badge}</span><h2 id="training-registration-title" className="pr-10 text-xl font-black uppercase sm:text-2xl">{copy.title}</h2><p className="mt-1.5 text-xs text-blue-100">{copy.subtitle}</p><div role="note" className="mt-4 flex items-start gap-2.5 rounded-xl border border-[#FFF200]/55 bg-[#FFF200]/12 px-3 py-2.5 text-xs font-bold leading-relaxed text-[#FFF200] shadow-[0_8px_22px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-sm"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#FFF200] text-[#003d7a] shadow-[0_4px_12px_rgba(255,242,0,0.28)]"><AlertTriangle className="h-4 w-4 animate-pulse" strokeWidth={2.7}/></span><span className="pt-1"><span className="underline decoration-[#FFF200] decoration-2 underline-offset-2">{copy.notice}</span> {copy.spamBefore} <strong className="rounded-md bg-[#FFF200] px-1.5 py-0.5 uppercase text-[#003d7a] shadow-sm">Spam</strong> {copy.spamAfter}</span></div></div>
       <form onSubmit={submit} className="space-y-4 p-5 sm:p-7"><div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <label className="min-w-0 space-y-1.5 text-xs font-black uppercase text-slate-600">{copy.fullName} <span className="text-rose-500">*</span><span className="relative block"><UserRound className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input required maxLength={100} value={fullName} onChange={e=>setFullName(e.target.value)} placeholder={copy.fullNamePlaceholder} className={input}/></span></label>
-        <label className="min-w-0 space-y-1.5 text-xs font-black uppercase text-slate-600">Gmail / Email <span className="text-rose-500">*</span><span className="relative block"><Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input required type="email" inputMode="email" autoComplete="email" spellCheck={false} maxLength={40} pattern="[A-Za-z0-9](?:[A-Za-z0-9.]{4,28}[A-Za-z0-9])?@gmail\.com" title={copy.gmailHelp} value={email} onChange={e=>{e.currentTarget.setCustomValidity('');setEmail(e.target.value)}} onInvalid={e=>e.currentTarget.setCustomValidity(copy.invalidGmail)} placeholder="tennguoidung@gmail.com" className={input}/></span></label></div>
+        <label className="min-w-0 space-y-1.5 text-xs font-black uppercase text-slate-600">Gmail / Email <span className="text-rose-500">*</span><span className="relative block"><Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"/><input required type="email" inputMode="email" autoComplete="email" spellCheck={false} maxLength={74} pattern="(?!.*\.\.)[A-Za-z0-9](?:[A-Za-z0-9._%+-]{0,62}[A-Za-z0-9])?@gmail\.com" title={copy.gmailHelp} value={email} onChange={e=>{e.currentTarget.setCustomValidity('');setEmail(e.target.value)}} onInvalid={e=>e.currentTarget.setCustomValidity(copy.invalidGmail)} placeholder="tennguoidung@gmail.com" className={input}/></span></label></div>
         <label className="block space-y-1.5 text-xs font-black uppercase text-slate-600">{copy.club} <span className="text-rose-500">*</span><select required value={clubId} onChange={e=>setClubId(e.target.value)} className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold normal-case text-slate-700 outline-none focus:border-[#0054A6] focus:ring-4 focus:ring-blue-100"><option value="">{copy.chooseClub}</option>{activeClubs.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         {club&&<div className="grid gap-2 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-xs text-slate-700 sm:grid-cols-2"><div className="flex gap-2"><CalendarDays className="h-4 w-4 text-emerald-600"/><span><strong className="block text-emerald-800">{copy.days}</strong>{club.trainingDays||copy.updating}</span></div><div className="flex gap-2"><Clock className="h-4 w-4 text-emerald-600"/><span><strong className="block text-emerald-800">{copy.hours}</strong>{club.trainingHours||copy.updating}</span></div><div className="flex gap-2 sm:col-span-2"><MapPin className="h-4 w-4 shrink-0 text-emerald-600"/><span><strong className="block text-emerald-800">{copy.address}</strong>{club.address||copy.updating}</span></div></div>}
         <label className="block space-y-1.5 text-xs font-black uppercase text-slate-600">{copy.message} <span className="font-semibold normal-case text-slate-400">{copy.optional}</span><textarea maxLength={1000} rows={3} value={message} onChange={e=>setMessage(e.target.value)} placeholder={copy.messagePlaceholder} className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm font-medium normal-case outline-none focus:border-[#0054A6] focus:ring-4 focus:ring-blue-100"/></label>

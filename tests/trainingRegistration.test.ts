@@ -1,4 +1,4 @@
-﻿import test from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
@@ -22,6 +22,7 @@ test('scroll spy activates Contact in the reading area and at page bottom', () =
 });
 test('training form contains required identity and club fields plus optional message', () => {
   assert.match(modal, /fullName/); assert.match(modal, /type="email"/);
+  assert.match(modal, /getStoredVisitorName/);
   assert.match(modal, /clubId/); assert.match(modal, /không bắt buộc/);
   assert.match(modal, /trainingDays/); assert.match(modal, /trainingHours/); assert.match(modal, /club\.address/);
   assert.match(modal, /e\.target===e\.currentTarget/); assert.match(modal, /aria-label=\{copy\.close\}/);
@@ -115,6 +116,7 @@ test('successful registration remains visible before the form closes', () => {
   assert.match(modal, /success:\s*'Registration successful!/);
   assert.match(modal, /3000/);
   assert.match(modal, /setResult\(null\);\s*onClose\(\)/);
+  assert.match(api, /emailDelivered \? 201 : 202/);
 });
 test('Gmail dark mode keeps confirmation text readable', () => {
   assert.match(api, /gmail-blend-screen/);
@@ -128,7 +130,7 @@ test('Gmail dark mode keeps confirmation text readable', () => {
 });
 test('registration accepts only a complete Gmail address on client and server', () => {
   assert.match(modal, /isValidGmailAddress/);
-  assert.match(modal, /pattern="\[A-Za-z0-9\]/);
+  assert.match(modal, /maxLength=\{74\}/);
   assert.match(modal, /@gmail\\\.com/);
   assert.match(api, /isValidRegistrationGmail\(email\)/);
   assert.match(api, /tennguoidung@gmail\.com/);

@@ -23,7 +23,8 @@ test('analytics summary is protected by the Super Admin session', () => {
 });
 
 test('public analytics loads after the application and uses a five minute heartbeat', () => {
-  assert.match(appSource, /import\('\.\/utils\/visitorAnalytics'\)/);
+  assert.match(appSource, /import \{ startVisitorAnalytics \} from '\.\/utils\/visitorAnalytics'/);
+  assert.match(appSource, /setTimeout\(\(\) => \{[\s\S]*startVisitorAnalytics\(\)[\s\S]*\}, 1200\)/);
   assert.match(trackerSource, /HEARTBEAT_INTERVAL_MS = 5 \* 60 \* 1000/);
   assert.match(trackerSource, /keepalive: true/);
   assert.match(trackerSource, /Analytics is intentionally best-effort/);
@@ -39,20 +40,22 @@ test('authenticated Admin visits are excluded before analytics storage', () => {
   assert.match(trackerSource, /window\.location\.hash\.startsWith\('#admin'\)/);
 });
 
-test('optional visitor name never collects email, avatar or full IP identity', () => {
+test('mandatory visitor name never collects email, avatar or full IP identity', () => {
   assert.doesNotMatch(apiSource, /type AnalyticsTrackPayload[\s\S]{0,1000}\b(email|avatar|displayName|fullName)\b/);
   assert.match(apiSource, /normalizeAnalyticsVisitorName/);
-  assert.match(analyticsPanelSource, /Tên chỉ hiện khi khách tự nguyện nhập/);
-  assert.match(visitorPromptSource, /Bạn hoàn toàn có thể bỏ qua/);
-  assert.match(visitorPromptSource, /identifyVisitor\(''\)/);
+  assert.match(visitorPromptSource, /Vui lòng nhập tên để tiếp tục xem website/);
+  assert.match(visitorPromptSource, /required/);
+  assert.doesNotMatch(visitorPromptSource, /Bỏ qua|skipPrompt|onMouseDown/);
 });
 
 test('visitor name prompt opens after scrolling and remembers the decision', () => {
   assert.match(visitorPromptSource, /PROMPT_SCROLL_THRESHOLD = 24/);
-  assert.match(visitorPromptSource, /VISITOR_NAME_DECISION_KEY/);
+  assert.match(visitorPromptSource, /getStoredVisitorName/);
   assert.match(visitorPromptSource, /window\.addEventListener\('scroll'/);
-  assert.match(visitorPromptSource, /window\.sessionStorage\.getItem\(VISITOR_NAME_DECISION_KEY\)/);
+  assert.match(visitorPromptSource, /document\.body\.style\.overflow = 'hidden'/);
   assert.match(visitorPromptSource, /identifyVisitor\(normalizedName\)/);
+  assert.match(appSource, /adminSessionStatus/);
+  assert.match(appSource, /fetch\('\/api\/admin-session'/);
 });
 test('analytics dates use day month year while chart labels use day month', () => {
   assert.match(analyticsPanelSource, /formatChartDate/);

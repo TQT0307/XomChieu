@@ -301,23 +301,23 @@ export default function AdminAnalyticsPanel() {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="min-w-[230px] space-y-1">
+                        <div className="flex min-w-[320px] max-w-[430px] items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                           {recentActivities.length ? recentActivities.map((activity, index) => (
-                            <div key={`${activity.at}-${activity.path}-${index}`} className="flex items-center justify-between gap-3 rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs">
+                            <span key={`${activity.at}-${activity.path}-${index}`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] leading-4">
                               <span className="font-bold text-[#0054A6]">
                                 {activity.event === 'identify' ? 'Đã nhập tên' : (sectionLabels[activity.path] || 'Giới thiệu')}
                               </span>
-                              <time className="shrink-0 font-semibold text-slate-500" dateTime={activity.at}>
+                              <time className="border-l border-blue-200 pl-1.5 text-[10px] font-semibold text-slate-500" dateTime={activity.at}>
                                 {formatActivityTime(activity.at)}
                               </time>
-                            </div>
+                            </span>
                           )) : viewedPaths.slice(-4).map(path => (
-                            <span key={path} className="mr-1 inline-flex rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-bold text-[#0054A6]">
+                            <span key={path} className="inline-flex shrink-0 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-bold leading-4 text-[#0054A6]">
                               {sectionLabels[path] || 'Giới thiệu'}
                             </span>
                           ))}
                           {!recentActivities.length && viewedPaths.length > 4 && (
-                            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
+                            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold leading-4 text-slate-600">
                               +{viewedPaths.length - 4} mục
                             </span>
                           )}

@@ -3539,7 +3539,7 @@ async function consumeRegistrationRateLimit(address: string) {
 }
 
 function isValidRegistrationGmail(value: string) {
-  return /^[a-z0-9](?:[a-z0-9.]{4,28}[a-z0-9])?@gmail\.com$/i.test(value.trim());
+  return /^(?!.*\.\.)[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@gmail\.com$/i.test(value.trim());
 }
 function escapeEmailHtml(value: unknown) {
   return String(value || "").replace(/[&<>"']/g, character => ({
@@ -3756,13 +3756,21 @@ app.post("/api/training-registrations", requireSameOrigin, async (req, res) => {
     const registration = { id, fullName, email, clubId, clubName: String(club.name || ""), trainingDays: String(club.trainingDays || ""), trainingHours: String(club.trainingHours || ""), address: String(club.address || ""), message, status: "pending", createdAt: new Date().toISOString() };
     await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).set(registration);
     const confirmUrl = `${getPublicBaseUrl(req)}/api/training-registrations/${encodeURIComponent(id)}/confirm?token=${encodeURIComponent(signRegistrationConfirmation(id))}`;
+    let emailDelivered = true;
     try {
       await sendTransactionalEmail(TRAINING_REGISTRATION_RECIPIENT, `Đăng ký tập luyện mới - ${fullName}`, `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#1e293b"><div style="background:#0054A6;color:white;padding:22px;border-radius:18px 18px 0 0"><h2 style="margin:0;color:#FFF200">ĐĂNG KÝ TẬP LUYỆN MỚI</h2></div><div style="padding:24px;border:1px solid #dbeafe;border-top:0;border-radius:0 0 18px 18px"><p><b>Họ tên:</b> ${escapeEmailHtml(fullName)}</p><p><b>Email:</b> ${escapeEmailHtml(email)}</p><p><b>CLB:</b> ${escapeEmailHtml(club.name)}</p><p><b>Lịch tập:</b> ${escapeEmailHtml(club.trainingDays)} - ${escapeEmailHtml(club.trainingHours)}</p><p><b>Địa chỉ:</b> ${escapeEmailHtml(club.address)}</p>${message ? `<p><b>Nội dung:</b><br>${escapeEmailHtml(message).replace(/\n/g,"<br>")}</p>` : ""}<p style="margin-top:28px"><a href="${confirmUrl}" style="display:inline-block;background:#059669;color:white;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:bold">✓ Xác nhận đăng ký</a></p><p style="font-size:12px;color:#64748b">Nút xác nhận chỉ có hiệu lực cho đăng ký này và không thể xác nhận lặp lại.</p></div></div>`);
     } catch (emailError: any) {
-      await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).set({ notificationError: String(emailError?.message || emailError) }, { merge: true });
-      return res.status(503).json({ error: "Đăng ký đã được lưu nhưng máy chủ chưa gửi được email. Ban quản trị cần cấu hình dịch vụ email.", registrationId: id });
+      emailDelivered = false;
+      const notificationError = String(emailError?.message || emailError);
+      console.error("[Training registration email]", notificationError);
+      await firestoreDb.collection(TRAINING_REGISTRATIONS_COLLECTION).doc(id).set({ notificationError }, { merge: true });
     }
-    res.status(201).json({ ok: true, id });
+    res.status(emailDelivered ? 201 : 202).json({
+      ok: true,
+      id,
+      emailDelivered,
+      warning: emailDelivered ? undefined : "Đăng ký đã được lưu; email thông báo Ban quản trị đang chờ gửi lại."
+    });
   } catch (error) {
     console.error("[Training registration]", error);
     res.status(500).json({ error: "Không thể tiếp nhận đăng ký lúc này." });

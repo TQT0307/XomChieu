@@ -5,6 +5,7 @@ import AdminErrorBoundary from './components/AdminErrorBoundary';
 import PublicErrorBoundary from './components/PublicErrorBoundary';
 import ClubDetailModal from './components/ClubDetailModal';
 import VisitorNamePrompt from './components/VisitorNamePrompt';
+import { startVisitorAnalytics } from './utils/visitorAnalytics';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
@@ -133,6 +134,37 @@ export default function App() {
   // Mode & navigation
   const [isAdmin, setIsAdmin] = useState(() => isAdminHash(window.location.hash));
   const [isDownloading, setIsDownloading] = useState(false);
+  const [adminSessionStatus, setAdminSessionStatus] = useState<'checking' | 'admin' | 'guest'>('checking');
+  const adminDeviceStorageKey = 'vovinam_verified_admin_device';
+
+  // Verify the HttpOnly Admin cookie before enabling public prompts or tracking.
+  // Admins returning to the website remain excluded on the same device/session.
+  useEffect(() => {
+    if (isAdmin) {
+      setAdminSessionStatus('admin');
+      return;
+    }
+    let cancelled = false;
+    setAdminSessionStatus('checking');
+    const isRememberedAdminDevice = () => {
+      try { return window.localStorage.getItem(adminDeviceStorageKey) === 'verified'; }
+      catch { return false; }
+    };
+    void fetch('/api/admin-session', { credentials: 'same-origin', cache: 'no-store' })
+      .then(response => {
+        if (cancelled) return;
+        if (response.ok) {
+          try { window.localStorage.setItem(adminDeviceStorageKey, 'verified'); } catch { /* Storage can be unavailable. */ }
+          setAdminSessionStatus('admin');
+          return;
+        }
+        setAdminSessionStatus(isRememberedAdminDevice() ? 'admin' : 'guest');
+      })
+      .catch(() => {
+        if (!cancelled) setAdminSessionStatus(isRememberedAdminDevice() ? 'admin' : 'guest');
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
 
   // Keep the browser tab icon and title synchronized with Admin web settings.
   useEffect(() => {
@@ -167,23 +199,18 @@ export default function App() {
 
   // Load the tiny analytics client after the public UI is already interactive.
   useEffect(() => {
-    if (isAdmin) return;
+    if (isAdmin || adminSessionStatus !== 'guest') return;
     let dispose: (() => void) | undefined;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void import('./utils/visitorAnalytics').then(module => {
-        if (cancelled) return;
-        dispose = module.startVisitorAnalytics();
-      }).catch(() => {
-        // Statistics are best-effort and must never interrupt the public UI.
-      });
+      if (!cancelled) dispose = startVisitorAnalytics();
     }, 1200);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
       dispose?.();
     };
-  }, [isAdmin]);
+  }, [isAdmin, adminSessionStatus]);
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
   const hasLoadedServerDataRef = useRef(false);
 
@@ -982,7 +1009,7 @@ export default function App() {
             activeNavSection={activeNavSection}
             setActiveNavSection={setActiveNavSection}
           />
-          <VisitorNamePrompt />
+          <VisitorNamePrompt disabled={adminSessionStatus !== 'guest'} />
           </PublicErrorBoundary>
         )}
       </main>

@@ -4,7 +4,7 @@ export const VISITOR_NAME_STORAGE_KEY = 'vovinam_visitor_name';
 export const VISITOR_NAME_DECISION_KEY = 'vovinam_visitor_name_prompted';
 const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000;
 
-const readVisitorName = () => {
+export const getStoredVisitorName = () => {
   try {
     return (window.localStorage.getItem(VISITOR_NAME_STORAGE_KEY) || '').trim().slice(0, 80);
   } catch {
@@ -50,7 +50,7 @@ const sendAnalyticsEvent = (
       sessionId,
       event,
       path: currentSection(),
-      visitorName: readVisitorName(),
+      visitorName: getStoredVisitorName(),
       language: navigator.language || 'vi',
       referrer: document.referrer || ''
     })
@@ -66,13 +66,6 @@ export function identifyVisitor(visitorName: string) {
     if (normalizedName) {
       window.localStorage.setItem(VISITOR_NAME_STORAGE_KEY, normalizedName);
       window.localStorage.setItem(VISITOR_NAME_DECISION_KEY, 'named');
-    } else {
-      // Skipping suppresses the prompt only for this browser session. It must
-      // not permanently prevent the optional prompt on later visits.
-      if (window.localStorage.getItem(VISITOR_NAME_DECISION_KEY) === 'skipped') {
-        window.localStorage.removeItem(VISITOR_NAME_DECISION_KEY);
-      }
-      window.sessionStorage.setItem(VISITOR_NAME_DECISION_KEY, 'skipped');
     }
   } catch {
     // Private browsing can deny storage. Identification remains best-effort.
