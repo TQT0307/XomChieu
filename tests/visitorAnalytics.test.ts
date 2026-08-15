@@ -48,10 +48,16 @@ test('optional visitor name never collects email, avatar or full IP identity', (
 });
 
 test('visitor name prompt opens after scrolling and remembers the decision', () => {
-  assert.match(visitorPromptSource, /PROMPT_SCROLL_THRESHOLD = 72/);
+  assert.match(visitorPromptSource, /PROMPT_SCROLL_THRESHOLD = 24/);
   assert.match(visitorPromptSource, /VISITOR_NAME_DECISION_KEY/);
   assert.match(visitorPromptSource, /window\.addEventListener\('scroll'/);
+  assert.match(visitorPromptSource, /window\.sessionStorage\.getItem\(VISITOR_NAME_DECISION_KEY\)/);
   assert.match(visitorPromptSource, /identifyVisitor\(normalizedName\)/);
+});
+test('analytics dates use day month year while chart labels use day month', () => {
+  assert.match(analyticsPanelSource, /formatChartDate/);
+  assert.match(analyticsPanelSource, /parts\.day/);
+  assert.match(analyticsPanelSource, /parts\.year/);
 });
 test('admin analytics shows each visitor visit count explicitly', () => {
   assert.match(analyticsPanelSource, /Lần truy cập/);

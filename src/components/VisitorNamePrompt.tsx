@@ -1,15 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ShieldCheck, UserRound, X } from 'lucide-react';
 
-const PROMPT_SCROLL_THRESHOLD = 72;
+const PROMPT_SCROLL_THRESHOLD = 24;
 const VISITOR_NAME_STORAGE_KEY = 'vovinam_visitor_name';
 const VISITOR_NAME_DECISION_KEY = 'vovinam_visitor_name_prompted';
 
 const hasCompletedPrompt = () => {
   try {
+    const storedName = window.localStorage.getItem(VISITOR_NAME_STORAGE_KEY);
+    const persistentDecision = window.localStorage.getItem(VISITOR_NAME_DECISION_KEY);
+
+    // Older releases stored "skipped" permanently. Remove that legacy value so
+    // an anonymous visitor can be asked again on a future browser session.
+    if (persistentDecision === 'skipped') {
+      window.localStorage.removeItem(VISITOR_NAME_DECISION_KEY);
+    }
+
     return Boolean(
-      window.localStorage.getItem(VISITOR_NAME_DECISION_KEY) ||
-      window.localStorage.getItem(VISITOR_NAME_STORAGE_KEY)
+      storedName ||
+      persistentDecision === 'named' ||
+      window.sessionStorage.getItem(VISITOR_NAME_DECISION_KEY)
     );
   } catch {
     return false;

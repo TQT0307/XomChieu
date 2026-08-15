@@ -63,8 +63,17 @@ export function identifyVisitor(visitorName: string) {
   if (typeof window === 'undefined') return;
   const normalizedName = visitorName.trim().replace(/\s+/g, ' ').slice(0, 80);
   try {
-    if (normalizedName) window.localStorage.setItem(VISITOR_NAME_STORAGE_KEY, normalizedName);
-    window.localStorage.setItem(VISITOR_NAME_DECISION_KEY, normalizedName ? 'named' : 'skipped');
+    if (normalizedName) {
+      window.localStorage.setItem(VISITOR_NAME_STORAGE_KEY, normalizedName);
+      window.localStorage.setItem(VISITOR_NAME_DECISION_KEY, 'named');
+    } else {
+      // Skipping suppresses the prompt only for this browser session. It must
+      // not permanently prevent the optional prompt on later visits.
+      if (window.localStorage.getItem(VISITOR_NAME_DECISION_KEY) === 'skipped') {
+        window.localStorage.removeItem(VISITOR_NAME_DECISION_KEY);
+      }
+      window.sessionStorage.setItem(VISITOR_NAME_DECISION_KEY, 'skipped');
+    }
   } catch {
     // Private browsing can deny storage. Identification remains best-effort.
   }

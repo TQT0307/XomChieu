@@ -65,9 +65,24 @@ const sectionLabels: Record<string, string> = {
 };
 
 const formatNumber = (value: number) => new Intl.NumberFormat('vi-VN').format(value || 0);
-const formatDateTime = (value: string) => value
-  ? new Date(value).toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' })
-  : '—';
+const formatDateParts = (value: string) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? { year: match[1], month: match[2], day: match[3] } : null;
+};
+const formatChartDate = (value: string) => {
+  const parts = formatDateParts(value);
+  return parts ? `${parts.day}/${parts.month}` : '—';
+};
+const formatFullDate = (value: string) => {
+  const parts = formatDateParts(value);
+  return parts ? `${parts.day}/${parts.month}/${parts.year}` : '—';
+};
+const formatDateTime = (value: string) => {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return '—';
+  const time = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return `${time} · ${formatFullDate(value)}`;
+};
 
 const formatActivityTime = (value: string) => value
   ? new Date(value).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
@@ -207,9 +222,9 @@ export default function AdminAnalyticsPanel() {
                 <div
                   className="w-full min-w-[18px] rounded-t-lg bg-gradient-to-t from-[#0054A6] to-cyan-400 shadow-sm transition-all group-hover:from-[#003b78] group-hover:to-[#FFF200]"
                   style={{ height: `${Math.max(5, (day.pageviews / maxDailyViews) * 155)}px` }}
-                  title={`${day.date}: ${day.pageviews} lượt xem, ${day.visitors} khách`}
+                  title={`${formatFullDate(day.date)}: ${day.pageviews} lượt xem, ${day.visitors} khách`}
                 />
-                <span className="text-[9px] font-bold text-slate-400">{day.date.slice(5).replace('-', '/')}</span>
+                <span className="text-[9px] font-bold text-slate-400">{formatChartDate(day.date)}</span>
               </div>
             ))}
           </div>
