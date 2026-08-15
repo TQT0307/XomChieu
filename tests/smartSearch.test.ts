@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   matchesSmartSearch,
+  matchesSmartSearchExactly,
   normalizeSmartSearchText
 } from '../src/utils/smartSearch';
 
@@ -29,4 +30,11 @@ test('smart search accepts numbers, booleans and nested lists', () => {
   assert.equal(matchesSmartSearch('2013 hoat dong', 2013, ['hoạt động', true]), true);
   assert.equal(matchesSmartSearch('', 'anything'), true);
 });
+test('exact smart search distinguishes similarly named tournaments', () => {
+  const cityTournament = 'GIẢI VÔ ĐỊCH VOVINAM TPHCM NĂM 2024';
+  const studentTournament = 'GIẢI VÔ ĐỊCH VOVINAM SINH VIÊN TPHCM NĂM 2024';
 
+  assert.equal(matchesSmartSearchExactly(cityTournament, cityTournament), true);
+  assert.equal(matchesSmartSearchExactly(cityTournament, studentTournament), false);
+  assert.equal(matchesSmartSearch('vô địch 2024', studentTournament), true);
+});

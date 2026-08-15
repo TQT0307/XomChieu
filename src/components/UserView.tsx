@@ -22,7 +22,7 @@ import {
   getLatestNewsExpiryMs,
   isArticleInLatestNews
 } from '../utils/latestNews';
-import { matchesSmartSearch } from '../utils/smartSearch';
+import { matchesSmartSearch, matchesSmartSearchExactly } from '../utils/smartSearch';
 import { buildTournamentSearchOptions } from '../utils/tournamentSearchOptions';
 import { getHighlightMediaCounts } from '../../shared/highlightMedia';
 
@@ -566,9 +566,32 @@ export default function UserView({
     return ach.image || 'https://images.unsplash.com/photo-1578269174936-2709b5a8c0e6?auto=format&fit=crop&w=1200&q=80';
   };
 
+  const achievementTournamentNames = useMemo(() => achievements.flatMap(achievement => {
+    const tournament = achievement.tournamentId
+      ? tournamentById.get(achievement.tournamentId)
+      : undefined;
+    return [achievement.tournamentName, tournament?.name]
+      .filter((name): name is string => Boolean(name?.trim()));
+  }), [achievements, tournamentById]);
+
+  const exactAchievementTournamentQuery = useMemo(
+    () => achievementTournamentNames.some(name =>
+      matchesSmartSearchExactly(searchAchievementQuery, name)
+    ) ? searchAchievementQuery : '',
+    [achievementTournamentNames, searchAchievementQuery]
+  );
+
   const visibleAchievements = useMemo(() => achievements.filter(a => {
     if (a.status === false) return false;
     const tournament = a.tournamentId ? tournamentById.get(a.tournamentId) : undefined;
+    const linkedTournamentNames = [a.tournamentName, tournament?.name]
+      .filter((name): name is string => Boolean(name?.trim()));
+    if (
+      exactAchievementTournamentQuery &&
+      !matchesSmartSearchExactly(exactAchievementTournamentQuery, linkedTournamentNames)
+    ) {
+      return false;
+    }
     const linkedPeople = (a.memberIds || []).flatMap(id => {
       const member = memberById.get(id);
       const coach = coachById.get(id);
@@ -599,6 +622,7 @@ export default function UserView({
   }), [
     achievements,
     coachById,
+    exactAchievementTournamentQuery,
     memberById,
     searchAchievementQuery,
     tournamentById

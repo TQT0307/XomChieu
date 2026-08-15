@@ -252,6 +252,7 @@ export const initialHighlights: Highlight[] = [
     title: 'Đòn chân tấn công số 11 điêu luyện tại lễ hội võ thuật',
     athleteName: 'Võ sinh Trần Minh Quân',
     mediaType: 'video',
+    contentType: 'thi đấu',
     status: true,
     mediaUrls: [
       'https://www.w3schools.com/html/mov_bbb.mp4',
@@ -265,6 +266,7 @@ export const initialHighlights: Highlight[] = [
     title: 'Tuyển tập hình ảnh thi đấu đối kháng đẹp mắt tại giải trẻ',
     athleteName: 'Đội tuyển Vovinam Xóm Chiếu',
     mediaType: 'ảnh',
+    contentType: 'thi đấu',
     status: true,
     mediaUrls: [
       'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=800&q=80',
@@ -278,6 +280,7 @@ export const initialHighlights: Highlight[] = [
     title: 'Biểu diễn Tinh Hoa Lưỡng Nghi Kiếm Pháp',
     athleteName: 'Môn sinh Nguyễn Thảo Vy',
     mediaType: 'video',
+    contentType: 'sự kiện',
     status: true,
     mediaUrls: [
       'https://www.w3schools.com/html/movie.mp4',

@@ -43,3 +43,15 @@ export const matchesSmartSearch = (
   return keywords.every(keyword => searchableText.includes(keyword));
 };
 
+export const matchesSmartSearchExactly = (
+  query: string,
+  ...values: SmartSearchValue[]
+): boolean => {
+  const normalizedQuery = normalizeSmartSearchText(query);
+  if (!normalizedQuery) return false;
+
+  return values
+    .flatMap(collectSearchValues)
+    .some(value => normalizeSmartSearchText(value) === normalizedQuery);
+};
+

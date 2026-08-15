@@ -182,14 +182,15 @@ export default function AdminAnalyticsPanel() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-xs">
+            <table className="w-full min-w-[800px] text-left text-xs">
               <thead>
                 <tr className="border-b bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-400">
                   <th className="px-3 py-2.5">Khách</th>
                   <th className="px-3 py-2.5">Thiết bị</th>
                   <th className="px-3 py-2.5">Đang xem</th>
                   <th className="px-3 py-2.5">Nguồn</th>
-                  <th className="px-3 py-2.5">Lượt/Phiên</th>
+                  <th className="px-3 py-2.5">Lần truy cập</th>
+                  <th className="px-3 py-2.5">Lượt xem</th>
                   <th className="px-3 py-2.5">Gần nhất</th>
                 </tr>
               </thead>
@@ -206,13 +207,14 @@ export default function AdminAnalyticsPanel() {
                     </td>
                     <td className="px-3 py-3 font-bold text-slate-700">{sectionLabels[visitor.currentPath] || 'Giới thiệu'}</td>
                     <td className="px-3 py-3 text-slate-500">{visitor.referrerHost || 'trực tiếp'}</td>
-                    <td className="px-3 py-3 font-bold text-slate-600">{formatNumber(visitor.totalPageviews)} / {formatNumber(visitor.totalSessions)}</td>
+                    <td className="px-3 py-3 font-black text-[#0054A6]">{formatNumber(visitor.totalSessions)} lần</td>
+                    <td className="px-3 py-3 font-bold text-slate-600">{formatNumber(visitor.totalPageviews)}</td>
                     <td className="px-3 py-3 text-slate-500">{formatDateTime(visitor.lastSeenAt)}</td>
                   </tr>
                 ))}
                 {!data?.recentVisitors?.length && (
                   <tr>
-                    <td colSpan={6} className="px-3 py-10 text-center text-sm font-semibold text-slate-400">
+                    <td colSpan={7} className="px-3 py-10 text-center text-sm font-semibold text-slate-400">
                       Chưa có lượt truy cập mới được ghi nhận.
                     </td>
                   </tr>

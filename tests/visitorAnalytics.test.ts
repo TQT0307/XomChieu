@@ -43,3 +43,8 @@ test('anonymous analytics never claims visitor email, name or avatar identity', 
   assert.match(analyticsPanelSource, /không lưu IP đầy đủ, Gmail, tên hay avatar/);
   assert.match(analyticsPanelSource, /Mã khách là mã ẩn danh, không phải danh tính thật/);
 });
+test('admin analytics shows each visitor visit count explicitly', () => {
+  assert.match(analyticsPanelSource, /Lần truy cập/);
+  assert.match(analyticsPanelSource, /visitor\.totalSessions/);
+  assert.match(analyticsPanelSource, /visitor\.totalPageviews/);
+});

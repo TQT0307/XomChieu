@@ -2757,6 +2757,34 @@ export default function AdminPanel({
     label: `${log.username} • ${log.action}`,
     meta: log.details
   })), [editHistories]);
+  const filteredHistoryLogs = useMemo(() => editHistories.filter(log => matchesSmartSearch(
+    searchQuery,
+    log.id,
+    log.timestamp,
+    log.username,
+    log.action,
+    log.tab,
+    log.details
+  )), [editHistories, searchQuery]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 20;
+  const historyPageCount = Math.max(1, Math.ceil(filteredHistoryLogs.length / HISTORY_PAGE_SIZE));
+  const pagedHistoryLogs = useMemo(
+    () => filteredHistoryLogs.slice(
+      (historyPage - 1) * HISTORY_PAGE_SIZE,
+      historyPage * HISTORY_PAGE_SIZE
+    ),
+    [filteredHistoryLogs, historyPage]
+  );
+
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (historyPage > historyPageCount) setHistoryPage(historyPageCount);
+  }, [historyPage, historyPageCount]);
+
   const [crudPage, setCrudPage] = useState(1);
   const CRUD_PAGE_SIZE = 25;
   const crudPageCount = Math.max(1, Math.ceil(renderedData.length / CRUD_PAGE_SIZE));
@@ -3402,15 +3430,7 @@ export default function AdminPanel({
                 options={historySearchOptions}
                 placeholder="Tìm lịch sử theo tài khoản, hành động, phân hệ hoặc nội dung..."
                 ariaLabel="Tìm kiếm lịch sử quản trị"
-                resultCount={editHistories.filter(log => matchesSmartSearch(
-                  searchQuery,
-                  log.id,
-                  log.timestamp,
-                  log.username,
-                  log.action,
-                  log.tab,
-                  log.details
-                )).length}
+                resultCount={filteredHistoryLogs.length}
                 helperText="Bấm mũi tên để xem toàn bộ lịch sử thao tác."
                 theme="admin"
                 className="mb-5"
@@ -3429,17 +3449,7 @@ export default function AdminPanel({
                   </thead>
                   <tbody className="divide-y text-slate-600 font-medium">
                     {(() => {
-                      const filteredLogs = editHistories.filter(log => {
-                        return matchesSmartSearch(
-                          searchQuery,
-                          log.id,
-                          log.timestamp,
-                          log.username,
-                          log.action,
-                          log.tab,
-                          log.details
-                        );
-                      });
+                      const filteredLogs = pagedHistoryLogs;
 
                       if (filteredLogs.length === 0) {
                         return (
@@ -3489,6 +3499,35 @@ export default function AdminPanel({
                   </tbody>
                 </table>
               </div>
+
+              {historyPageCount > 1 && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4 text-xs">
+                  <span className="text-slate-500">
+                    Trang <strong className="text-[#0054A6]">{historyPage}</strong> / {historyPageCount}
+                    {' '}• {filteredHistoryLogs.length} bản ghi • tối đa {HISTORY_PAGE_SIZE} bản ghi mỗi trang
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage(page => Math.max(1, page - 1))}
+                      disabled={historyPage === 1}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Trước
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setHistoryPage(page => Math.min(historyPageCount, page + 1))}
+                      disabled={historyPage === historyPageCount}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-lg border px-3 py-2 font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sau
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
