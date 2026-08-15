@@ -1519,6 +1519,15 @@ select {
 }
 
 
+/* Stable pointer hitboxes: outer cards keep their position at the exact edge.
+   Color, border, shadow and inner-image hover feedback remain active. */
+@media (hover: hover) and (pointer: fine) {
+  #vovinam-user-root [class*="hover:-translate-y"]:hover,
+  #vovinam-user-root [class*="hover:-translate-x"]:hover,
+  #vovinam-user-root [class*="hover:scale-"]:hover {
+    transform: none !important;
+  }
+}
 /* Keep the complete black person-card frame visible before and during hover. */
 #section-coaches :is(.vovinam-depth-card, .snap-start),
 #section-members :is(.vovinam-depth-card, .snap-start),
