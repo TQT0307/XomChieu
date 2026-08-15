@@ -246,7 +246,7 @@ export default function AdminAnalyticsPanel() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1160px] table-auto text-left text-sm">
               <thead>
-                <tr className="border-b bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
+                <tr className="border-b bg-slate-50 text-center text-xs font-black uppercase tracking-wide text-slate-600">
                   <th className="px-3 py-2.5">Khách</th>
                   <th className="px-3 py-2.5">Thiết bị</th>
                   <th className="px-3 py-2.5">Đang xem</th>
