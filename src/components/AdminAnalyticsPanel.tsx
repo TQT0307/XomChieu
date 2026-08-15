@@ -165,18 +165,18 @@ export default function AdminAnalyticsPanel() {
         </div>
       </section>
 
-      <section className="grid items-start gap-6 xl:grid-cols-[minmax(300px,0.8fr)_minmax(0,1.7fr)]">
+      <section className="space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5 flex items-center gap-2 border-b pb-3">
             <TrendingUp className="h-5 w-5 text-[#0054A6]" />
             <div>
               <h3 className="text-sm font-black uppercase text-slate-800">14 ngày gần nhất</h3>
-              <p className="text-[10px] text-slate-400">Chiều cao cột biểu thị lượt xem trang.</p>
+              <p className="text-xs text-slate-500">Chiều cao cột biểu thị lượt xem trang.</p>
             </div>
           </div>
-          <div className="flex h-48 items-end gap-2 overflow-x-auto pb-2">
+          <div className="grid h-52 grid-cols-[repeat(14,minmax(34px,1fr))] items-end gap-2 overflow-x-auto pb-2">
             {(data?.days || []).map(day => (
-              <div key={day.date} className="group flex min-w-[30px] flex-1 flex-col items-center justify-end gap-2">
+              <div key={day.date} className="group flex min-w-0 flex-col items-center justify-end gap-2">
                 <span className="text-[9px] font-black text-slate-500 opacity-0 transition-opacity group-hover:opacity-100">
                   {day.pageviews}
                 </span>
@@ -197,7 +197,7 @@ export default function AdminAnalyticsPanel() {
               <Laptop className="h-5 w-5 text-[#0054A6]" />
               <div>
                 <h3 className="text-sm font-black uppercase text-slate-800">Khách truy cập gần đây</h3>
-                <p className="text-[10px] text-slate-400">Mã khách là mã ẩn danh, không phải danh tính thật.</p>
+                <p className="text-xs text-slate-500">Mã khách là mã ẩn danh, không phải danh tính thật.</p>
               </div>
             </div>
             <span className="text-[10px] font-semibold text-slate-400">
@@ -205,9 +205,9 @@ export default function AdminAnalyticsPanel() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-left text-xs">
+            <table className="w-full min-w-[980px] table-auto text-left text-sm">
               <thead>
-                <tr className="border-b bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-400">
+                <tr className="border-b bg-slate-50 text-xs font-black uppercase tracking-wide text-slate-600">
                   <th className="px-3 py-2.5">Khách</th>
                   <th className="px-3 py-2.5">Thiết bị</th>
                   <th className="px-3 py-2.5">Đang xem</th>
@@ -232,7 +232,7 @@ export default function AdminAnalyticsPanel() {
                           <DeviceIcon device={visitor.device} />
                           <span>{visitor.browser}</span>
                         </div>
-                        <span className="text-[10px] text-slate-400">{visitor.os} · {visitor.language.toUpperCase()}</span>
+                        <span className="text-xs text-slate-500">{visitor.os} · {visitor.language.toUpperCase()}</span>
                       </td>
                       <td className="px-3 py-3">
                         {active ? (
@@ -246,7 +246,7 @@ export default function AdminAnalyticsPanel() {
                         ) : (
                           <div>
                             <div className="font-black text-slate-400">Đã rời website</div>
-                            <div className="mt-0.5 text-[10px] text-slate-400">
+                            <div className="mt-0.5 text-xs text-slate-500">
                               Cuối: {sectionLabels[visitor.currentPath] || 'Giới thiệu'}
                             </div>
                           </div>
@@ -255,12 +255,12 @@ export default function AdminAnalyticsPanel() {
                       <td className="px-3 py-3">
                         <div className="flex max-w-[230px] flex-wrap gap-1">
                           {viewedPaths.slice(-4).map(path => (
-                            <span key={path} className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-[10px] font-bold text-[#0054A6]">
+                            <span key={path} className="rounded-md border border-blue-100 bg-blue-50 px-2 py-1 text-xs font-bold text-[#0054A6]">
                               {sectionLabels[path] || 'Giới thiệu'}
                             </span>
                           ))}
                           {viewedPaths.length > 4 && (
-                            <span className="rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500">
+                            <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-bold text-slate-600">
                               +{viewedPaths.length - 4} mục
                             </span>
                           )}

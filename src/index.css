@@ -1293,6 +1293,22 @@ select {
 }
 
 
+/* Keep every Vietnamese accent and section description fully visible. */
+.vovinam-chapter-heading h2 {
+  padding-block: .16em .1em;
+  line-height: 1.22;
+  overflow: visible;
+  text-wrap: balance;
+}
+
+.vovinam-chapter-heading p {
+  max-width: 46rem;
+  font-size: clamp(.9rem, 1.15vw, 1rem);
+  font-weight: 500;
+  line-height: 1.65;
+  color: #526581;
+  text-wrap: pretty;
+}
 /* Static martial seal: recognizable Vovinam identity with zero animation cost. */
 #section-news > .text-center > span:first-child,
 #section-highlights > .text-center > span:first-child,

@@ -56,5 +56,6 @@ test('analytics keeps recent viewed sections and paginates visitors by fifteen r
   assert.match(analyticsPanelSource, /const ACTIVE_VISITOR_WINDOW_MS = 15 \* 60 \* 1000/);
   assert.match(analyticsPanelSource, /pagedVisitors\.map/);
   assert.match(analyticsPanelSource, /visitor\.viewedPaths/);
-  assert.match(analyticsPanelSource, /items-start/);
+  assert.match(analyticsPanelSource, /className="space-y-6"/);
+  assert.match(analyticsPanelSource, /repeat\(14,minmax\(34px,1fr\)\)/);
 });
