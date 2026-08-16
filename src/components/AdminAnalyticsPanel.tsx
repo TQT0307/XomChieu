@@ -244,7 +244,7 @@ export default function AdminAnalyticsPanel() {
             </span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1160px] table-auto text-left text-sm">
+            <table className="w-full min-w-[1160px] table-auto text-center text-sm">
               <thead>
                 <tr className="border-b bg-slate-50 text-center text-xs font-black uppercase tracking-wide text-slate-600">
                   <th className="px-3 py-2.5">Khách</th>
@@ -270,13 +270,13 @@ export default function AdminAnalyticsPanel() {
                   return (
                     <tr key={visitor.visitorCode} className="hover:bg-blue-50/40">
                       <td className="px-3 py-3">
-                        <div className="max-w-[180px] truncate font-black text-slate-800" title={visitor.visitorName || 'Khách ẩn danh'}>
+                        <div className="mx-auto max-w-[180px] truncate font-black text-slate-800" title={visitor.visitorName || 'Khách ẩn danh'}>
                           {visitor.visitorName || 'Khách ẩn danh'}
                         </div>
                         <div className="mt-0.5 font-mono text-xs font-black text-[#0054A6]">#{visitor.visitorCode}</div>
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex items-center gap-2 font-bold text-slate-700">
+                        <div className="flex items-center justify-center gap-2 font-bold text-slate-700">
                           <DeviceIcon device={visitor.device} />
                           <span>{visitor.browser}</span>
                         </div>
@@ -301,7 +301,7 @@ export default function AdminAnalyticsPanel() {
                         )}
                       </td>
                       <td className="px-3 py-3">
-                        <div className="flex min-w-[320px] max-w-[430px] items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
+                        <div className="mx-auto flex min-w-[320px] max-w-[430px] items-center justify-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
                           {recentActivities.length ? recentActivities.map((activity, index) => (
                             <span key={`${activity.at}-${activity.path}-${index}`} className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] leading-4">
                               <span className="font-bold text-[#0054A6]">
