@@ -159,7 +159,7 @@ export interface Highlight {
   mediaNotes?: string[]; // Ghi chú tương ứng theo thứ tự của từng ảnh/video
   tournamentId?: string; // Giải đấu liên kết
   tournamentName?: string; // Lưu tên giải để lọc và vẫn hiển thị nếu giải đổi ID
- contentType: 'thi đấu' | 'tập luyện' | 'thăng cấp đai' | 'sự kiện' | 'giải trí';
+  contentType: 'thi đấu' | 'tập luyện' | 'thăng cấp đai' | 'sự kiện' | 'giải trí';
 }
 
 export interface BannerConfig {
