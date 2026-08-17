@@ -37,7 +37,7 @@ import {
   matchesDetailIdentifier,
 } from './utils/detailRoutes';
 import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
-import { formatBrowserTitle } from './utils/browserTitle';
+import { formatSectionBrowserTitle } from './utils/browserTitle';
 import { isAdminHash } from './utils/adminRoute';
 import { warmImageCache } from './utils/imageWarmup';
 
@@ -184,9 +184,13 @@ export default function App() {
       document.head.appendChild(appleIcon);
     }
     appleIcon.href = logo;
-    document.title = formatBrowserTitle(webConfig.seoTitle, webConfig.clbName);
-  }, [webConfig.logo, webConfig.seoTitle, webConfig.clbName]);
+  }, [webConfig.logo]);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
+
+  // Keep the browser tab synchronized with the public section currently in view.
+  useEffect(() => {
+    document.title = formatSectionBrowserTitle(activeNavSection, isAdmin);
+  }, [activeNavSection, isAdmin]);
 
   useEffect(() => {
     const openAdminFromDirectUrl = () => {
