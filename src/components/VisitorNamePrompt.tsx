@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, UserRound } from 'lucide-react';
+import { CheckCircle2, UserRound, X } from 'lucide-react';
 import { getStoredVisitorName, identifyVisitor } from '../utils/visitorAnalytics';
 
 const PROMPT_SCROLL_THRESHOLD = 24;
@@ -13,7 +13,11 @@ export default function VisitorNamePrompt({ disabled = false }: { disabled?: boo
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (disabled || getStoredVisitorName() || window.location.hash.startsWith('#admin')) return;
+    if (
+      disabled
+      || getStoredVisitorName()
+      || window.location.hash.startsWith('#admin')
+    ) return;
 
     const maybeOpen = () => {
       if (window.scrollY < PROMPT_SCROLL_THRESHOLD) return;
@@ -65,11 +69,22 @@ export default function VisitorNamePrompt({ disabled = false }: { disabled?: boo
     }, WELCOME_DURATION_MS);
   };
 
+  const dismissWithoutSaving = () => {
+    setVisible(false);
+    setVisitorName('');
+    setValidationMessage('');
+  };
+
   if (!visible || disabled) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-[3px] sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="visitor-name-title">
+    <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/55 p-3 backdrop-blur-[3px] sm:items-center sm:p-5" role="dialog" aria-modal="true" aria-labelledby="visitor-name-title" onMouseDown={event => { if (event.target === event.currentTarget) dismissWithoutSaving(); }}>
       <div className="relative w-full max-w-md overflow-hidden rounded-[1.65rem] border border-white/75 bg-white shadow-[0_24px_70px_rgba(0,35,76,.32)]">
+        {!welcomeName && (
+          <button type="button" onClick={dismissWithoutSaving} aria-label="Đóng form nhập tên" className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-white/10 text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#FFF200]">
+            <X className="h-5 w-5" />
+          </button>
+        )}
         {welcomeName ? (
           <div className="px-6 py-10 text-center sm:px-8 sm:py-12" role="status" aria-live="polite">
             <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 shadow-[0_10px_28px_rgba(5,150,105,.2)]"><CheckCircle2 className="h-9 w-9" strokeWidth={2.6} /></span>
@@ -82,7 +97,7 @@ export default function VisitorNamePrompt({ disabled = false }: { disabled?: boo
               <div className="pointer-events-none absolute -right-10 -top-12 h-36 w-36 rounded-full bg-[#FFF200]/15" />
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF200] text-[#004488] shadow-[0_8px_20px_rgba(255,242,0,.24)]"><UserRound className="h-6 w-6" /></div>
               <h2 id="visitor-name-title" className="mt-4 text-xl font-black leading-tight sm:text-2xl">Bạn tên là gì?</h2>
-              <p className="mt-1.5 text-sm leading-relaxed text-blue-100">Vui lòng nhập tên để tiếp tục xem website. Thiết bị này chỉ cần nhập một lần.</p>
+              <p className="mt-1.5 text-sm leading-relaxed text-blue-100">Bạn có thể nhập tên để website nhận diện ở những lần ghé thăm sau, hoặc đóng form để tiếp tục xem.</p>
             </div>
             <form onSubmit={submitName} className="space-y-4 p-5 sm:p-6">
               <label className="block text-xs font-black uppercase tracking-wide text-slate-600">

@@ -40,12 +40,14 @@ test('authenticated Admin visits are excluded before analytics storage', () => {
   assert.match(trackerSource, /window\.location\.hash\.startsWith\('#admin'\)/);
 });
 
-test('mandatory visitor name never collects email, avatar or full IP identity', () => {
+test('optional visitor name never collects email, avatar or full IP identity', () => {
   assert.doesNotMatch(apiSource, /type AnalyticsTrackPayload[\s\S]{0,1000}\b(email|avatar|displayName|fullName)\b/);
   assert.match(apiSource, /normalizeAnalyticsVisitorName/);
-  assert.match(visitorPromptSource, /Vui lòng nhập tên để tiếp tục xem website/);
+  assert.match(visitorPromptSource, /Bạn có thể nhập tên để website nhận diện/);
   assert.match(visitorPromptSource, /required/);
-  assert.doesNotMatch(visitorPromptSource, /Bỏ qua|skipPrompt|onMouseDown/);
+  assert.match(visitorPromptSource, /aria-label="Đóng form nhập tên"/);
+  assert.match(visitorPromptSource, /event\.target === event\.currentTarget/);
+  assert.doesNotMatch(visitorPromptSource, /Bỏ qua lần này/);
 });
 
 test('visitor name prompt opens after scrolling and remembers the decision', () => {
@@ -54,9 +56,18 @@ test('visitor name prompt opens after scrolling and remembers the decision', () 
   assert.match(visitorPromptSource, /window\.addEventListener\('scroll'/);
   assert.match(visitorPromptSource, /document\.body\.style\.overflow = 'hidden'/);
   assert.match(visitorPromptSource, /identifyVisitor\(normalizedName\)/);
+  assert.match(visitorPromptSource, /dismissWithoutSaving/);
+  assert.doesNotMatch(visitorPromptSource, /(localStorage|sessionStorage)\.setItem\([^\n]*skipped/i);
   assert.match(appSource, /adminSessionStatus/);
   assert.match(appSource, /fetch\('\/api\/admin-session'/);
 });
+test('analytics backup action is beside refresh and reuses the protected backup flow', () => {
+  assert.match(analyticsPanelSource, /onBackup\?: \(\) => void \| Promise<void>/);
+  assert.match(analyticsPanelSource, /Sao lưu ngay/);
+  assert.match(analyticsPanelSource, /Làm mới/);
+  assert.match(adminSource, /<AdminAnalyticsPanel[\s\S]{0,240}onBackup=\{handleCreateCloudBackup\}/);
+});
+
 test('analytics dates use day month year while chart labels use day month', () => {
   assert.match(analyticsPanelSource, /formatChartDate/);
   assert.match(analyticsPanelSource, /parts\.day/);

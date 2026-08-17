@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, ChevronLeft, ChevronRight, Clock3, Eye, Laptop, Monitor, RefreshCw,
+  Activity, ChevronLeft, ChevronRight, Clock3, CloudUpload, Eye, Laptop, Monitor, RefreshCw,
   Smartphone, Tablet, TrendingUp, Users
 } from 'lucide-react';
 
@@ -105,7 +105,12 @@ const DeviceIcon = ({ device }: { device: AnalyticsVisitor['device'] }) => {
   return <Monitor className="h-4 w-4" />;
 };
 
-export default function AdminAnalyticsPanel() {
+type AdminAnalyticsPanelProps = {
+  onBackup?: () => void | Promise<void>;
+  isBackingUp?: boolean;
+};
+
+export default function AdminAnalyticsPanel({ onBackup, isBackingUp = false }: AdminAnalyticsPanelProps) {
   const [data, setData] = useState<AnalyticsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -182,15 +187,28 @@ export default function AdminAnalyticsPanel() {
             </div>
             <p className="mt-1 text-xs text-blue-100">Tên chỉ hiện khi khách tự nguyện nhập; không lưu IP đầy đủ, Gmail hay avatar.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void loadAnalytics(true)}
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-xs font-black hover:bg-white/20 disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Làm mới
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {onBackup && (
+              <button
+                type="button"
+                onClick={() => void onBackup()}
+                disabled={isBackingUp}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#FFF200]/70 bg-[#FFF200] px-4 py-2 text-xs font-black text-[#003b78] shadow-sm transition hover:brightness-105 disabled:cursor-wait disabled:opacity-60"
+              >
+                <CloudUpload className={`h-4 w-4 ${isBackingUp ? 'animate-pulse' : ''}`} />
+                {isBackingUp ? 'Đang sao lưu...' : 'Sao lưu ngay'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void loadAnalytics(true)}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-xs font-black hover:bg-white/20 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Làm mới
+            </button>
+          </div>
         </div>
         {error && (
           <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-xs font-bold text-rose-700">{error}</div>

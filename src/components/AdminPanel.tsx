@@ -3083,6 +3083,36 @@ export default function AdminPanel({
 
         {/* Admin Working Space */}
         <div className="flex-1" id="admin-main-stage">
+          {currentAdmin?.role === 'super' && activeTab !== 'analytics' && backupStatus?.available && (
+            <div className={`mb-6 rounded-xl border-l-4 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+              backupStatus.needsBackup
+                ? 'bg-amber-50 border-amber-500 text-amber-900'
+                : 'bg-emerald-50 border-emerald-500 text-emerald-900'
+            }`}>
+              <div className="text-xs">
+                <div className="font-black uppercase tracking-wide">
+                  {backupStatus.needsBackup
+                    ? '⚠ Dữ liệu mới hơn bản sao lưu toàn bộ gần nhất'
+                    : '✓ Dữ liệu đã có bản sao lưu toàn bộ an toàn'}
+                </div>
+                <div className="mt-1 opacity-80">
+                  Hệ thống vẫn giữ {backupStatus.retentionSlots || 5} phiên bản tự động cho từng mục.
+                  {backupStatus.lastFullBackupAt > 0 && (
+                    <> Bản toàn bộ gần nhất: {new Date(backupStatus.lastFullBackupAt).toLocaleString('vi-VN')}.</>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCreateCloudBackup}
+                disabled={isCreatingBackup}
+                className="shrink-0 rounded-xl bg-[#0054A6] px-4 py-2.5 text-xs font-black text-white shadow hover:bg-blue-800 disabled:opacity-50"
+              >
+                {isCreatingBackup ? 'Đang sao lưu...' : 'Sao lưu ngay'}
+              </button>
+            </div>
+          )}
+
           
           {/* Change Password View */}
           {activeTab === 'changePassword' && (
@@ -3162,7 +3192,10 @@ export default function AdminPanel({
                 Đang tải thống kê truy cập...
               </div>
             )}>
-              <AdminAnalyticsPanel />
+              <AdminAnalyticsPanel
+                onBackup={handleCreateCloudBackup}
+                isBackingUp={isCreatingBackup}
+              />
             </React.Suspense>
           )}
 
@@ -3583,36 +3616,6 @@ export default function AdminPanel({
               <p>
                 <strong>Hệ thống quản trị thời gian thực:</strong> Bạn đang cập nhật dữ liệu với tài khoản <strong>{currentAdmin.name}</strong>. Mọi thay đổi sẽ lập tức đồng bộ hóa ra Trang chủ môn sinh và được ghi nhận đầy đủ vào lịch sử hệ thống.
               </p>
-            </div>
-          )}
-
-          {currentAdmin?.role === 'super' && backupStatus?.available && (
-            <div className={`mb-6 rounded-xl border-l-4 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-              backupStatus.needsBackup
-                ? 'bg-amber-50 border-amber-500 text-amber-900'
-                : 'bg-emerald-50 border-emerald-500 text-emerald-900'
-            }`}>
-              <div className="text-xs">
-                <div className="font-black uppercase tracking-wide">
-                  {backupStatus.needsBackup
-                    ? '⚠ Dữ liệu mới hơn bản sao lưu toàn bộ gần nhất'
-                    : '✓ Dữ liệu đã có bản sao lưu toàn bộ an toàn'}
-                </div>
-                <div className="mt-1 opacity-80">
-                  Hệ thống vẫn giữ {backupStatus.retentionSlots || 5} phiên bản tự động cho từng mục.
-                  {backupStatus.lastFullBackupAt > 0 && (
-                    <> Bản toàn bộ gần nhất: {new Date(backupStatus.lastFullBackupAt).toLocaleString('vi-VN')}.</>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCreateCloudBackup}
-                disabled={isCreatingBackup}
-                className="shrink-0 rounded-xl bg-[#0054A6] px-4 py-2.5 text-xs font-black text-white shadow hover:bg-blue-800 disabled:opacity-50"
-              >
-                {isCreatingBackup ? 'Đang sao lưu...' : 'Sao lưu Cloud ngay'}
-              </button>
             </div>
           )}
 
