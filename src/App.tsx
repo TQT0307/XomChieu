@@ -909,7 +909,7 @@ export default function App() {
     window.history.replaceState(
       { vovinamSection: 'section-about' },
       '',
-      '#section-about'
+      '/'
     );
   };
 

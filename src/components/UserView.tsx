@@ -301,9 +301,11 @@ export default function UserView({
 
         setActiveNavSection(visibleSectionId);
 
-        // Scrolling must keep the shareable URL and highlighted menu item in
-        // sync. replaceState avoids filling browser history on every scroll;
-        // explicit menu clicks still use pushState in Header.tsx.
+        // A clean entry URL must stay clean until the visitor explicitly uses
+        // the navigation menu. Once a section hash exists (from a click or a
+        // shared link), scrollspy may keep that existing section URL in sync.
+        if (!window.location.hash) return;
+
         const nextHash = `#${visibleSectionId}`;
         if (window.location.hash !== nextHash) {
           window.history.replaceState(
