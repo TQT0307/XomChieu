@@ -301,10 +301,9 @@ export default function UserView({
 
         setActiveNavSection(visibleSectionId);
 
-        // A clean entry URL must stay clean until the visitor explicitly uses
-        // the navigation menu. Once a section hash exists (from a click or a
-        // shared link), scrollspy may keep that existing section URL in sync.
-        if (!window.location.hash) return;
+        // Keep only the initial top-of-page URL clean. As soon as the visitor
+        // starts scrolling, expose the currently viewed section in the URL.
+        if (!window.location.hash && window.scrollY <= 1) return;
 
         const nextHash = `#${visibleSectionId}`;
         if (window.location.hash !== nextHash) {

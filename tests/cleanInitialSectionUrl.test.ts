@@ -6,8 +6,8 @@ const userView = fs.readFileSync(new URL('../src/components/UserView.tsx', impor
 const app = fs.readFileSync(new URL('../src/App.tsx', import.meta.url), 'utf8');
 const header = fs.readFileSync(new URL('../src/components/Header.tsx', import.meta.url), 'utf8');
 
-test('a clean public entry URL stays hash-free until a menu item is clicked', () => {
-  assert.match(userView, /if \(!window\.location\.hash\) return;/);
+test('the public URL starts clean and exposes a section after scrolling or clicking', () => {
+  assert.match(userView, /if \(!window\.location\.hash && window\.scrollY <= 1\) return;/);
   assert.match(header, /pushState\(\{ vovinamSection: sectionId \}, '', nextHash\)/);
 });
 
