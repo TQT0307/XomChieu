@@ -1488,7 +1488,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               Vinh danh thành tích
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white uppercase italic mt-3 tracking-tight font-display">
-              Thành quả của những sự nổ lực và cố gắng
+              Thành quả của những sự nỗ lực và cố gắng
             </h2>
             <div className="w-12 h-1 bg-[#FFF200] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
