@@ -1488,11 +1488,11 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
               Vinh danh thành tích
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white uppercase italic mt-3 tracking-tight font-display">
-              Những sự nổ lực và cố gắng
+              Thành quả của những sự nổ lực và cố gắng
             </h2>
             <div className="w-12 h-1 bg-[#FFF200] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-              Sắt son một lòng Võ Đạo Việt Nam, nỗ lực miệt mài gặt hái quả ngọt tại các giải đấu lớn nhỏ trong nước và quốc tế.
+              Trải qua hàng giờ, hàng tháng để kiên trì ép cân, tập luyện cường độ cao và nhiều, dù kết quả là gì, huy chương gì thì đều xứng đáng.
             </p>
           </div>
 
@@ -1831,7 +1831,7 @@ className={`h-2 rounded-full border border-white/25 transition-all duration-500 
             </h2>
             <div className="w-12 h-1 bg-[#0054A6] mx-auto mt-3 rounded-full"></div>
             <p className="text-xs text-slate-500 mt-3 leading-relaxed">
-              Các môn sinh xuất sắc, gương sáng chăm ngoan học giỏi và tích cực tham gia phong trào thi đua võ thuật của phường Xóm Chiếu.
+              Các môn sinh xuất sắc, luôn nổ lực, thất bại rồi lại tiếp tục cố gắng để phát triển hơn, là những nhân tố đầy triển vọng của phường Xóm Chiếu.
             </p>
           </div>
 
