@@ -3,11 +3,12 @@ import Header from './components/Header';
 import UserView from './components/UserView';
 import AdminErrorBoundary from './components/AdminErrorBoundary';
 import PublicErrorBoundary from './components/PublicErrorBoundary';
+import ClubDetailModal from './components/ClubDetailModal';
 import VisitorNamePrompt from './components/VisitorNamePrompt';
+import { startVisitorAnalytics } from './utils/visitorAnalytics';
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
 const ArticleDetailModal = lazy(() => import('./components/ArticleDetailModal'));
 const HighlightDetailModal = lazy(() => import('./components/HighlightDetailModal'));
-const ClubDetailModal = lazy(() => import('./components/ClubDetailModal'));
 const TournamentDetailModal = lazy(() => import('./components/TournamentDetailModal'));
 const AchievementDetailModal = lazy(() => import('./components/AchievementDetailModal'));
 const CoachDetailModal = lazy(() => import('./components/CoachDetailModal'));
@@ -36,10 +37,9 @@ import {
   matchesDetailIdentifier,
 } from './utils/detailRoutes';
 import { mergeConcurrentKeyData } from './utils/syncConflictMerge';
-import { formatBrowserTitle } from './utils/browserTitle';
+import { formatSectionBrowserTitle } from './utils/browserTitle';
 import { isAdminHash } from './utils/adminRoute';
 import { warmImageCache } from './utils/imageWarmup';
-import { updateSeoMetadata } from './utils/seoMetadata';
 
 type SyncKey =
   | 'categories'
@@ -118,15 +118,15 @@ export default function App() {
 
     const backgroundTimer = window.setTimeout(() => {
       void warmImageCache([
-        ...articles.slice(0, 6).map(item => item.image),
-        ...tournaments.slice(0, 4).map(item => item.image),
-        ...highlights.slice(0, 6).flatMap(item => [item.thumbnail, ...(item.mediaUrls || []).slice(0, 1)]),
-        ...achievements.slice(0, 6).map(item => item.image),
-        ...clubs.slice(0, 4).map(item => item.image),
-        ...coaches.slice(0, 8).map(item => item.photo),
-        ...members.slice(0, 8).map(item => item.photo)
-      ], 3);
-    }, 350);
+        ...articles.slice(0, 3).map(item => item.image),
+        ...tournaments.slice(0, 2).map(item => item.image),
+        ...highlights.slice(0, 3).map(item => item.thumbnail),
+        ...achievements.slice(0, 3).map(item => item.image),
+        ...clubs.slice(0, 2).map(item => item.image),
+        ...coaches.slice(0, 4).map(item => item.photo),
+        ...members.slice(0, 4).map(item => item.photo)
+      ], 2);
+    }, 1600);
 
     return () => window.clearTimeout(backgroundTimer);
   }, [webConfig.logo, webConfig.banners, articles, tournaments, highlights, achievements, clubs, coaches, members]);
@@ -134,6 +134,37 @@ export default function App() {
   // Mode & navigation
   const [isAdmin, setIsAdmin] = useState(() => isAdminHash(window.location.hash));
   const [isDownloading, setIsDownloading] = useState(false);
+  const [adminSessionStatus, setAdminSessionStatus] = useState<'checking' | 'admin' | 'guest'>('checking');
+  const adminDeviceStorageKey = 'vovinam_verified_admin_device';
+
+  // Verify the HttpOnly Admin cookie before enabling public prompts or tracking.
+  // Admins returning to the website remain excluded on the same device/session.
+  useEffect(() => {
+    if (isAdmin) {
+      setAdminSessionStatus('admin');
+      return;
+    }
+    let cancelled = false;
+    setAdminSessionStatus('checking');
+    const isRememberedAdminDevice = () => {
+      try { return window.localStorage.getItem(adminDeviceStorageKey) === 'verified'; }
+      catch { return false; }
+    };
+    void fetch('/api/admin-session', { credentials: 'same-origin', cache: 'no-store' })
+      .then(response => {
+        if (cancelled) return;
+        if (response.ok) {
+          try { window.localStorage.setItem(adminDeviceStorageKey, 'verified'); } catch { /* Storage can be unavailable. */ }
+          setAdminSessionStatus('admin');
+          return;
+        }
+        setAdminSessionStatus(isRememberedAdminDevice() ? 'admin' : 'guest');
+      })
+      .catch(() => {
+        if (!cancelled) setAdminSessionStatus(isRememberedAdminDevice() ? 'admin' : 'guest');
+      });
+    return () => { cancelled = true; };
+  }, [isAdmin]);
 
   // Keep the browser tab icon and title synchronized with Admin web settings.
   useEffect(() => {
@@ -153,10 +184,13 @@ export default function App() {
       document.head.appendChild(appleIcon);
     }
     appleIcon.href = logo;
-    document.title = formatBrowserTitle(webConfig.seoTitle, webConfig.clbName);
-    updateSeoMetadata(webConfig);
-  }, [webConfig]);
+  }, [webConfig.logo]);
   const [activeNavSection, setActiveNavSection] = useState('section-about');
+
+  // Keep the browser tab synchronized with the public section currently in view.
+  useEffect(() => {
+    document.title = formatSectionBrowserTitle(activeNavSection, isAdmin);
+  }, [activeNavSection, isAdmin]);
 
   useEffect(() => {
     const openAdminFromDirectUrl = () => {
@@ -166,6 +200,21 @@ export default function App() {
     openAdminFromDirectUrl();
     return () => window.removeEventListener('hashchange', openAdminFromDirectUrl);
   }, []);
+
+  // Load the tiny analytics client after the public UI is already interactive.
+  useEffect(() => {
+    if (isAdmin || adminSessionStatus !== 'guest') return;
+    let dispose: (() => void) | undefined;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!cancelled) dispose = startVisitorAnalytics();
+    }, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      dispose?.();
+    };
+  }, [isAdmin, adminSessionStatus]);
   const [hasLoadedServerData, setHasLoadedServerData] = useState(false);
   const hasLoadedServerDataRef = useRef(false);
 
@@ -352,7 +401,7 @@ export default function App() {
       pollTimer = setTimeout(async () => {
         await fetchServerData();
         if (isMounted) scheduleNextPoll();
-      }, document.hidden ? 120000 : 12000);
+      }, document.hidden ? 180000 : 30000);
     };
 
     const handleVisibilityChange = () => {
@@ -806,12 +855,7 @@ export default function App() {
           const article = articles.find(
             item => matchesDetailIdentifier(route.id, item.id, item.title) && item.status !== false
           );
-          // The public URL uses a readable slug, while click handling starts
-          // from the internal ID. Always deduplicate with the canonical ID so
-          // the hash update cannot count the same open a second time.
-          const routeKey = article
-            ? `article:${String(article.id)}`
-            : `article:${route.id}`;
+          const routeKey = `article:${route.id}`;
           if (article && countedArticleRouteRef.current !== routeKey) {
             countedArticleRouteRef.current = routeKey;
             handleSelectArticle(article);
@@ -825,7 +869,9 @@ export default function App() {
           break;
         case 'club':
           setSelectedClub(
-            clubs.find(item => matchesDetailIdentifier(route.id, item.id, item.name) && item.status !== false) || null
+            // CLB đã được phân công và đang hiển thị trong hồ sơ HLV phải luôn mở được,
+            // kể cả khi CLB đó đang ẩn khỏi danh sách CLB công khai.
+            clubs.find(item => matchesDetailIdentifier(route.id, item.id, item.name)) || null
           );
           break;
         case 'coach':
@@ -863,7 +909,7 @@ export default function App() {
     window.history.replaceState(
       { vovinamSection: 'section-about' },
       '',
-      '#section-about'
+      '/'
     );
   };
 
@@ -967,7 +1013,7 @@ export default function App() {
             activeNavSection={activeNavSection}
             setActiveNavSection={setActiveNavSection}
           />
-          <VisitorNamePrompt />
+          <VisitorNamePrompt disabled={adminSessionStatus !== 'guest'} />
           </PublicErrorBoundary>
         )}
       </main>
@@ -1002,6 +1048,10 @@ export default function App() {
         clubs={clubs}
         achievements={achievements}
         onClose={() => closeSelectedDetail('coach', setSelectedCoach)}
+        onSelectClub={(club) => {
+          setSelectedCoach(null);
+          openClubDetail(club);
+        }}
         onSelectAchievement={(achievement) => {
           setSelectedCoach(null);
           openAchievementDetail(achievement);
