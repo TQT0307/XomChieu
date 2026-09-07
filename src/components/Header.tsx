@@ -117,7 +117,7 @@ export default function Header({
   const langDropdownRef = useRef<HTMLDivElement>(null);
 
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-  const [language, setLanguage] = useState<PublicLanguage>(readPublicLanguage);
+  const [language] = useState<PublicLanguage>(readPublicLanguage);
   const [isLanguageSwitching, setIsLanguageSwitching] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
@@ -154,7 +154,7 @@ export default function Header({
     }
   }, [language]);
 
-  // Tự động đóng dropdown ngôn ngữ khi click ra ngoài
+  // Đóng dropdown ngôn ngữ khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
@@ -258,23 +258,27 @@ export default function Header({
     return () => window.removeEventListener('keydown', closeOnEscape);
   }, [isMobileMenuOpen]);
 
-  const handleLogoClick = () => {
-    setIsMobileMenuOpen(false);
+  // Xử lý Click Logo (bao gồm tính năng bấm 5 lần mở Admin)
+  const handleLogoClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const shortcut = advanceAdminShortcut(adminShortcutRef.current, Date.now());
     adminShortcutRef.current = shortcut.state;
+
     if (shortcut.shouldOpenAdmin) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsMobileMenuOpen(false);
       window.history.pushState({ vovinamAdmin: true }, '', ADMIN_HASH);
       setIsAdmin(true);
       return;
     }
 
+    setIsMobileMenuOpen(false);
     if (!isAdmin) {
       if (window.location.hash) {
         window.history.pushState({ vovinamSection: 'section-about' }, '', '/');
       }
       setActiveNavSection?.('section-about');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      window.location.assign(`${window.location.pathname}${window.location.search}`);
     }
   };
 
@@ -305,15 +309,15 @@ export default function Header({
         {/* Brand Logo and Name */}
         <div 
           onClick={handleLogoClick}
-          onDoubleClick={event => event.preventDefault()}
-          className="notranslate group flex flex-shrink-0 cursor-pointer touch-manipulation select-none items-center gap-2 active:scale-[0.98] transition-transform md:gap-2.5" translate="no"
+          className="notranslate group flex flex-shrink-0 cursor-pointer touch-manipulation select-none items-center gap-2 active:scale-[0.98] transition-transform md:gap-2.5" 
+          translate="no"
           title="CLB Vovinam Xóm Chiếu"
           role="button"
           tabIndex={0}
           onKeyDown={event => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              handleLogoClick();
+              handleLogoClick(event as any);
             }
           }}
         >
