@@ -28,7 +28,7 @@ type PublicLanguage = 'vi' | 'en';
 const LanguageFlag = ({ language }: { language: PublicLanguage }) => {
   if (language === 'vi') {
     return (
-      <svg viewBox="0 0 30 20" className="h-3.5 w-5 rounded-[2px] shadow-sm" aria-hidden="true">
+      <svg viewBox="0 0 30 20" className="h-3.5 w-5 rounded-[2px] shadow-sm flex-shrink-0" aria-hidden="true">
         <rect width="30" height="20" fill="#da251d" />
         <path d="M15 3.2l1.72 5.3h5.57l-4.51 3.28 1.72 5.3L15 14.8l-4.51 2.28 1.72-5.3-4.51-3.28h5.57L15 3.2z" fill="#ffec00" />
       </svg>
@@ -36,7 +36,7 @@ const LanguageFlag = ({ language }: { language: PublicLanguage }) => {
   }
 
   return (
-    <svg viewBox="0 0 30 20" className="h-3.5 w-5 rounded-[2px] shadow-sm" aria-hidden="true">
+    <svg viewBox="0 0 30 20" className="h-3.5 w-5 rounded-[2px] shadow-sm flex-shrink-0" aria-hidden="true">
       <rect width="30" height="20" fill="#012169" />
       <path d="M0 0L30 20M30 0L0 20" stroke="#fff" strokeWidth="4" />
       <path d="M0 0L30 20M30 0L0 20" stroke="#c8102e" strokeWidth="2" />
@@ -72,11 +72,6 @@ const writeGoogleTranslateCookie = (language: PublicLanguage) => {
   document.cookie = `googtrans=; expires=${expires}; domain=${hostname}; path=/; SameSite=Lax`;
 };
 
-/**
- * Google Translate rewrites text nodes outside React. Guard the two DOM
- * operations that otherwise throw NotFoundError when React updates a translated
- * carousel or API-backed section. Installed only for an English session.
- */
 const installGoogleTranslateReactSafety = () => {
   const nodePrototype = Node.prototype as any;
   if (nodePrototype.__vovinamTranslateSafetyInstalled) return;
@@ -96,6 +91,7 @@ const installGoogleTranslateReactSafety = () => {
   };
   nodePrototype.__vovinamTranslateSafetyInstalled = true;
 };
+
 interface HeaderProps {
   isAdmin: boolean;
   setIsAdmin: (isAdmin: boolean) => void;
@@ -164,8 +160,6 @@ export default function Header({
     } catch (error) {
       console.error('[Language] Không thể lưu lựa chọn ngôn ngữ.', error);
     }
-    // Let the progress layer paint first, then reload exactly once. Avoiding a
-    // state render before reload reduces work on image-heavy pages.
     window.setTimeout(() => window.location.reload(), 80);
   };
 
@@ -259,9 +253,6 @@ export default function Header({
       return;
     }
 
-    // Return home instantly without reloading React, API data, fonts or images.
-    // Reload the public page without its section hash so it always opens at the
-    // top, rather than animating a long scroll from the current section.
     if (!isAdmin) {
       if (window.location.hash) {
         window.history.pushState({ vovinamSection: 'section-about' }, '', '/');
@@ -296,7 +287,7 @@ export default function Header({
         </div>
       )}
       <div className="mx-auto flex h-20 w-full max-w-[1600px] flex-row items-center gap-2 px-2 sm:px-3 lg:px-4">
-        {/* Brand Logo and Name - Left Aligned */}
+        {/* Brand Logo and Name */}
         <div 
           onClick={handleLogoClick}
           onDoubleClick={event => event.preventDefault()}
@@ -359,9 +350,10 @@ export default function Header({
                 {language === 'en' ? 'Unwavering spirit of Vietnamese martial arts' : 'Sắt son võ đạo Việt Nam'}
               </p>
             </div>
-          </div>        </div>
+          </div>
+        </div>
 
-{/* Navigation & Actions Container - Right Aligned */}
+        {/* Navigation & Actions Container - Right Aligned */}
         <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1.5 md:gap-2">
           {!isAdmin && (
             <nav className="notranslate hidden min-w-0 flex-1 flex-row items-center justify-start gap-0.5 whitespace-nowrap py-1 pl-1 lg:flex xl:justify-end" translate="no" aria-label={language === 'en' ? 'Main navigation' : 'Điều hướng chính'}>
@@ -385,11 +377,12 @@ export default function Header({
             </nav>
           )}
 
+          {/* Desktop Language Selector with Flag */}
           {!isAdmin && (
             <div className="notranslate relative hidden flex-shrink-0 sm:block" translate="no" title="Chọn ngôn ngữ / Select language">
-              <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFF200]/50 bg-[#003f80] shadow-sm">
-                <Globe2 className="h-3.5 w-3.5 text-[#FFF200]" strokeWidth={2.2} />
-              </span>
+              <div className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-1">
+                <LanguageFlag language={language} />
+              </div>
               <select
                 value={language}
                 disabled={isLanguageSwitching}
@@ -423,6 +416,8 @@ export default function Header({
 
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
       {!isAdmin && isMobileMenuOpen && (
         <div className="absolute inset-x-0 top-full z-40 border-b border-blue-950/40 bg-[#00498f]/98 px-3 pb-4 pt-3 shadow-2xl backdrop-blur-md lg:hidden" id="mobile-category-menu">
           <nav className="notranslate mx-auto grid max-w-[1600px] grid-cols-2 gap-2" translate="no" aria-label={language === 'en' ? 'Categories' : 'Danh mục'}>
@@ -445,22 +440,29 @@ export default function Header({
               </a>
             ))}
           </nav>
+
+          {/* Mobile Language Selector with Flag */}
           <div className="notranslate mx-auto mt-3 flex max-w-[1600px] items-center justify-between rounded-xl border border-white/15 bg-white/10 px-3 py-2 sm:hidden" translate="no">
             <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-blue-100">
               <Globe2 className="h-4 w-4 text-[#FFF200]" />
               {language === 'en' ? 'Language' : 'Ngôn ngữ'}
             </span>
-            <select
-              value={language}
-              disabled={isLanguageSwitching}
-              aria-busy={isLanguageSwitching}
-              onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
-              aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
-              className="rounded-lg border border-white/25 bg-[#003f80] px-2 py-1 text-[10px] font-black text-white outline-none focus:border-[#FFF200]"
-            >
-              <option value="vi" className="text-slate-900">VI</option>
-              <option value="en" className="text-slate-900">EN</option>
-            </select>
+            <div className="relative flex items-center">
+              <div className="pointer-events-none absolute left-2 z-10 flex items-center">
+                <LanguageFlag language={language} />
+              </div>
+              <select
+                value={language}
+                disabled={isLanguageSwitching}
+                aria-busy={isLanguageSwitching}
+                onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
+                aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
+                className="rounded-lg border border-white/25 bg-[#003f80] pl-8 pr-2 py-1 text-[10px] font-black text-white outline-none focus:border-[#FFF200]"
+              >
+                <option value="vi" className="text-slate-900">VI</option>
+                <option value="en" className="text-slate-900">EN</option>
+              </select>
+            </div>
           </div>
         </div>
       )}

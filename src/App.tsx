@@ -1013,8 +1013,8 @@ export default function App() {
             activeNavSection={activeNavSection}
             setActiveNavSection={setActiveNavSection}
           />
-          <VisitorNamePrompt disabled={adminSessionStatus !== 'guest'} />
-          </PublicErrorBoundary>
+         {adminSessionStatus === 'guest' && <VisitorNamePrompt />}
+</PublicErrorBoundary>
         )}
       </main>
 
