@@ -244,7 +244,7 @@ export default function Header({
         window.history.pushState({ vovinamSection: 'section-about' }, '', '/');
       }
       setActiveNavSection?.('section-about');
-       window.scrollTo({ top: 0, behavior: 'auto' });
+        window.scrollTo({ top: 0, behavior: 'auto' });
     }
   };
 
