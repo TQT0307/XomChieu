@@ -102,9 +102,7 @@ export default function VisitorNamePrompt() {
           <h2 id="visitor-name-title" className="mt-4 pr-10 text-xl font-black leading-tight sm:text-2xl">
             Bạn tên là gì?
           </h2>
-          <p className="mt-1.5 text-sm leading-relaxed text-blue-100">
-            Nhập tên để Ban quản trị nhận biết lượt ghé thăm của bạn. Bạn hoàn toàn có thể bỏ qua.
-          </p>
+          
         </div>
 
         <form onSubmit={submitName} className="space-y-4 p-5 sm:p-6">
@@ -126,7 +124,7 @@ export default function VisitorNamePrompt() {
 
           <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs leading-relaxed text-emerald-800">
             <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>Tên chỉ được lưu khi bạn tự nguyện nhập; website không lấy Gmail, avatar hay IP đầy đủ.</span>
+           
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -141,7 +139,7 @@ export default function VisitorNamePrompt() {
               type="submit"
               className="h-11 rounded-xl border border-blue-500/40 border-b-4 border-b-[#003b78] bg-gradient-to-b from-[#1689e8] to-[#0054A6] text-sm font-black text-white shadow-[0_6px_0_#00315f,0_10px_18px_rgba(0,49,95,.22)] transition hover:brightness-110 active:translate-y-1 active:border-b-0 active:shadow-none"
             >
-              Ghi nhận tên
+              Nhập tên
             </button>
           </div>
         </form>
