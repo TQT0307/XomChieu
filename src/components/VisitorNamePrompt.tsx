@@ -122,11 +122,6 @@ export default function VisitorNamePrompt() {
             </span>
           </label>
 
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 text-xs leading-relaxed text-emerald-800">
-            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
-           
-          </div>
-
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"

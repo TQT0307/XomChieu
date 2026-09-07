@@ -239,12 +239,15 @@ export default function Header({
     }
 
     // Return home instantly without reloading React, API data, fonts or images.
+    // Reload the public page without its section hash so it always opens at the
+    // top, rather than animating a long scroll from the current section.
     if (!isAdmin) {
       if (window.location.hash) {
         window.history.pushState({ vovinamSection: 'section-about' }, '', '/');
       }
       setActiveNavSection?.('section-about');
-        window.scrollTo({ top: 0, behavior: 'auto' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.location.assign(`${window.location.pathname}${window.location.search}`);
     }
   };
 
