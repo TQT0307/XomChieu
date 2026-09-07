@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { 
   Shield, Eye, FileArchive, Swords, Info, Newspaper, 
-  Play, Award, User, CheckCircle, MapPin, Mail, Globe2, ChevronDown
+  Play, Award, User, CheckCircle, MapPin, Mail, Globe2, ChevronDown, Menu, X
 } from 'lucide-react';
 import { WebConfig } from '../types';
 import { getSectionIdFromHash } from '../utils/detailRoutes';
@@ -100,6 +100,7 @@ export default function Header({
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
   const [language] = useState<PublicLanguage>(readPublicLanguage);
   const [isLanguageSwitching, setIsLanguageSwitching] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -171,11 +172,11 @@ export default function Header({
   };
 
   const navigateToSection = (sectionId: string) => {
+    setIsMobileMenuOpen(false);
     const nextHash = `#${sectionId}`;
     if (window.location.hash !== nextHash) {
       window.history.pushState({ vovinamSection: sectionId }, '', nextHash);
     }
-    window.dispatchEvent(new CustomEvent('vovinam:section-view', { detail: { path: nextHash } }));
     scrollToSection(sectionId);
     if (sectionId === 'section-contact') {
       window.dispatchEvent(new CustomEvent('vovinam-open-training-registration'));
@@ -216,7 +217,19 @@ export default function Header({
     };
   }, [isAdmin, setActiveNavSection]);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isMobileMenuOpen]);
+
   const handleLogoClick = () => {
+    setIsMobileMenuOpen(false);
     const shortcut = advanceAdminShortcut(adminShortcutRef.current, Date.now());
     adminShortcutRef.current = shortcut.state;
     if (shortcut.shouldOpenAdmin) {
@@ -248,7 +261,7 @@ export default function Header({
   ];
 
   return (
-    <header className="vovinam-dimensional-header bg-[#0054A6] text-white shadow-xl z-30 sticky top-0 border-b-4 border-[#FFF200]" id="vovinam-header">
+    <header className="vovinam-dimensional-header sticky top-0 z-30 border-b-4 border-[#FFF200] bg-[#0054A6] text-white shadow-xl" id="vovinam-header">
       {isLanguageSwitching && (
         <div className="notranslate fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/75 px-4 backdrop-blur-sm" translate="no" role="status" aria-live="polite">
           <div className="rounded-2xl border border-white/20 bg-[#0054A6] px-6 py-5 text-center shadow-2xl">
@@ -327,7 +340,7 @@ export default function Header({
 {/* Navigation & Actions Container - Right Aligned */}
         <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1.5 md:gap-2">
           {!isAdmin && (
-            <nav className="notranslate no-scrollbar flex min-w-0 flex-1 flex-row items-center justify-start gap-0.5 overflow-x-auto xl:justify-end whitespace-nowrap py-1 pl-1 md:gap-1" translate="no">
+            <nav className="notranslate hidden min-w-0 flex-1 flex-row items-center justify-start gap-0.5 whitespace-nowrap py-1 pl-1 lg:flex xl:justify-end" translate="no" aria-label={language === 'en' ? 'Main navigation' : 'Điều hướng chính'}>
               {navSections.map((sec) => (
                 <a
                   key={sec.id}
@@ -349,7 +362,7 @@ export default function Header({
           )}
 
           {!isAdmin && (
-            <div className="notranslate relative flex-shrink-0" translate="no" title="Chọn ngôn ngữ / Select language">
+            <div className="notranslate relative hidden flex-shrink-0 sm:block" translate="no" title="Chọn ngôn ngữ / Select language">
               <span className="pointer-events-none absolute left-1.5 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-[#FFF200]/50 bg-[#003f80] shadow-sm">
                 <Globe2 className="h-3.5 w-3.5 text-[#FFF200]" strokeWidth={2.2} />
               </span>
@@ -368,10 +381,65 @@ export default function Header({
             </div>
           )}
 
+          {!isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen((open) => !open)}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-category-menu"
+              aria-label={isMobileMenuOpen ? (language === 'en' ? 'Close categories' : 'Đóng danh mục') : (language === 'en' ? 'Open categories' : 'Mở danh mục')}
+              className="notranslate inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/10 text-white shadow-sm transition hover:border-[#FFF200]/70 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#FFF200] focus:ring-offset-2 focus:ring-offset-[#0054A6] active:scale-95 lg:hidden"
+              translate="no"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          )}
+
           <div id="google_translate_element" className="google-translate-host" aria-hidden="true" />
 
         </div>
       </div>
+      {!isAdmin && isMobileMenuOpen && (
+        <div className="absolute inset-x-0 top-full z-40 border-b border-blue-950/40 bg-[#00498f]/98 px-3 pb-4 pt-3 shadow-2xl backdrop-blur-md lg:hidden" id="mobile-category-menu">
+          <nav className="notranslate mx-auto grid max-w-[1600px] grid-cols-2 gap-2" translate="no" aria-label={language === 'en' ? 'Categories' : 'Danh mục'}>
+            {navSections.map((sec) => (
+              <a
+                key={sec.id}
+                href={`#${sec.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigateToSection(sec.id);
+                }}
+                className={`flex min-h-12 items-center gap-2 rounded-xl border px-3 py-2 text-left text-[10px] font-black uppercase tracking-wide transition active:scale-[0.98] ${
+                  activeNavSection === sec.id
+                    ? 'border-[#FFF200] bg-[#FFF200] text-[#0054A6] shadow-lg shadow-yellow-950/20'
+                    : 'border-white/15 bg-white/10 text-white hover:border-[#FFF200]/70 hover:bg-white/20'
+                }`}
+              >
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-black/10" aria-hidden="true">{sec.icon}</span>
+                <span>{sec.name}</span>
+              </a>
+            ))}
+          </nav>
+          <div className="notranslate mx-auto mt-3 flex max-w-[1600px] items-center justify-between rounded-xl border border-white/15 bg-white/10 px-3 py-2 sm:hidden" translate="no">
+            <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-blue-100">
+              <Globe2 className="h-4 w-4 text-[#FFF200]" />
+              {language === 'en' ? 'Language' : 'Ngôn ngữ'}
+            </span>
+            <select
+              value={language}
+              disabled={isLanguageSwitching}
+              aria-busy={isLanguageSwitching}
+              onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
+              aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
+              className="rounded-lg border border-white/25 bg-[#003f80] px-2 py-1 text-[10px] font-black text-white outline-none focus:border-[#FFF200]"
+            >
+              <option value="vi" className="text-slate-900">VI</option>
+              <option value="en" className="text-slate-900">EN</option>
+            </select>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
