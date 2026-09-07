@@ -114,10 +114,13 @@ export default function Header({
 
   const adminShortcutRef = useRef<AdminShortcutState>({ count: 0, lastClickAt: 0 });
   const historyNavigationFrameRef = useRef<number | null>(null);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
+
   const [logoLoadFailed, setLogoLoadFailed] = useState(false);
-  const [language] = useState<PublicLanguage>(readPublicLanguage);
+  const [language, setLanguage] = useState<PublicLanguage>(readPublicLanguage);
   const [isLanguageSwitching, setIsLanguageSwitching] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -151,7 +154,19 @@ export default function Header({
     }
   }, [language]);
 
+  // Tự động đóng dropdown ngôn ngữ khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setIsLangDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const handleLanguageChange = (nextLanguage: PublicLanguage) => {
+    setIsLangDropdownOpen(false);
     if (nextLanguage === language || isLanguageSwitching) return;
     setIsLanguageSwitching(true);
     try {
@@ -377,24 +392,45 @@ export default function Header({
             </nav>
           )}
 
-          {/* Desktop Language Selector with Flag */}
+          {/* Desktop Language Selector - Custom Dropdown kèm cờ */}
           {!isAdmin && (
-            <div className="notranslate relative hidden flex-shrink-0 sm:block" translate="no" title="Chọn ngôn ngữ / Select language">
-              <div className="pointer-events-none absolute left-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-1">
-                <LanguageFlag language={language} />
-              </div>
-              <select
-                value={language}
+            <div ref={langDropdownRef} className="notranslate relative hidden flex-shrink-0 sm:block" translate="no">
+              <button
+                type="button"
                 disabled={isLanguageSwitching}
-                aria-busy={isLanguageSwitching}
-                onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
+                onClick={() => setIsLangDropdownOpen((prev) => !prev)}
+                className="flex h-9 items-center gap-1.5 rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 px-2.5 text-[10px] font-black text-white shadow-sm transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-[#FFF200]/30"
                 aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
-                className="h-9 appearance-none rounded-xl border border-white/25 bg-gradient-to-b from-white/15 to-white/5 pl-8 pr-7 text-[10px] font-black text-white shadow-sm outline-none transition hover:border-[#FFF200]/60 hover:bg-white/20 focus:border-[#FFF200] focus:ring-2 focus:ring-[#FFF200]/20 cursor-pointer"
               >
-                <option value="vi" className="text-slate-900">VI</option>
-                <option value="en" className="text-slate-900">EN</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-white" />
+                <LanguageFlag language={language} />
+                <span>{language.toUpperCase()}</span>
+                <ChevronDown className={`h-3 w-3 text-white transition-transform duration-200 ${isLangDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isLangDropdownOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-24 overflow-hidden rounded-xl border border-white/20 bg-[#004285] p-1 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                  <button
+                    type="button"
+                    onClick={() => handleLanguageChange('vi')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition ${
+                      language === 'vi' ? 'bg-[#FFF200] text-[#0054A6]' : 'text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <LanguageFlag language="vi" />
+                    <span>VI</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLanguageChange('en')}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[10px] font-black transition ${
+                      language === 'en' ? 'bg-[#FFF200] text-[#0054A6]' : 'text-white hover:bg-white/15'
+                    }`}
+                  >
+                    <LanguageFlag language="en" />
+                    <span>EN</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -441,27 +477,33 @@ export default function Header({
             ))}
           </nav>
 
-          {/* Mobile Language Selector with Flag */}
+          {/* Mobile Language Selector */}
           <div className="notranslate mx-auto mt-3 flex max-w-[1600px] items-center justify-between rounded-xl border border-white/15 bg-white/10 px-3 py-2 sm:hidden" translate="no">
             <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wide text-blue-100">
               <Globe2 className="h-4 w-4 text-[#FFF200]" />
               {language === 'en' ? 'Language' : 'Ngôn ngữ'}
             </span>
-            <div className="relative flex items-center">
-              <div className="pointer-events-none absolute left-2 z-10 flex items-center">
-                <LanguageFlag language={language} />
-              </div>
-              <select
-                value={language}
-                disabled={isLanguageSwitching}
-                aria-busy={isLanguageSwitching}
-                onChange={(event) => handleLanguageChange(event.target.value as PublicLanguage)}
-                aria-label={language === 'en' ? 'Select language' : 'Chọn ngôn ngữ'}
-                className="rounded-lg border border-white/25 bg-[#003f80] pl-8 pr-2 py-1 text-[10px] font-black text-white outline-none focus:border-[#FFF200]"
+            <div className="flex items-center gap-1.5 rounded-lg border border-white/20 bg-[#003f80] p-1">
+              <button
+                type="button"
+                onClick={() => handleLanguageChange('vi')}
+                className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-black transition ${
+                  language === 'vi' ? 'bg-[#FFF200] text-[#0054A6]' : 'text-white'
+                }`}
               >
-                <option value="vi" className="text-slate-900">VI</option>
-                <option value="en" className="text-slate-900">EN</option>
-              </select>
+                <LanguageFlag language="vi" />
+                <span>VI</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLanguageChange('en')}
+                className={`flex items-center gap-1.5 rounded px-2 py-1 text-[10px] font-black transition ${
+                  language === 'en' ? 'bg-[#FFF200] text-[#0054A6]' : 'text-white'
+                }`}
+              >
+                <LanguageFlag language="en" />
+                <span>EN</span>
+              </button>
             </div>
           </div>
         </div>
