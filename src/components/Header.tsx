@@ -25,6 +25,27 @@ const PUBLIC_SECTION_IDS = [
 
 type PublicLanguage = 'vi' | 'en';
 
+const LanguageFlag = ({ language }: { language: PublicLanguage }) => {
+  if (language === 'vi') {
+    return (
+      <svg viewBox="0 0 30 20" className="h-3.5 w-5 rounded-[2px] shadow-sm" aria-hidden="true">
+        <rect width="30" height="20" fill="#da251d" />
+        <path d="M15 3.2l1.72 5.3h5.57l-4.51 3.28 1.72 5.3L15 14.8l-4.51 2.28 1.72-5.3-4.51-3.28h5.57L15 3.2z" fill="#ffec00" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 30 20" className="h-3.5 w-5 rounded-[2px] shadow-sm" aria-hidden="true">
+      <rect width="30" height="20" fill="#012169" />
+      <path d="M0 0L30 20M30 0L0 20" stroke="#fff" strokeWidth="4" />
+      <path d="M0 0L30 20M30 0L0 20" stroke="#c8102e" strokeWidth="2" />
+      <path d="M15 0v20M0 10h30" stroke="#fff" strokeWidth="6" />
+      <path d="M15 0v20M0 10h30" stroke="#c8102e" strokeWidth="3" />
+    </svg>
+  );
+};
+
 const readPublicLanguage = (): PublicLanguage => {
   try {
     const translateCookie = decodeURIComponent(
@@ -257,7 +278,7 @@ export default function Header({
     { id: 'section-tournaments', name: language === 'en' ? 'Tournaments' : 'Giải đấu', icon: <Swords className="w-3.5 h-3.5" /> },
     { id: 'section-highlights', name: 'Highlights', icon: <Play className="w-3.5 h-3.5" /> },
     { id: 'section-achievements', name: language === 'en' ? 'Achievements' : 'Thành tích', icon: <Award className="w-3.5 h-3.5" /> },
-    { id: 'section-coaches', name: language === 'en' ? 'Coaches' : 'Huấn luyện', icon: <User className="w-3.5 h-3.5" /> },
+    { id: 'section-coaches', name: language === 'en' ? 'Coaches' : 'Huấn luyện viên', icon: <User className="w-3.5 h-3.5" /> },
     { id: 'section-members', name: language === 'en' ? 'Members' : 'Môn sinh', icon: <CheckCircle className="w-3.5 h-3.5" /> },
     { id: 'section-clubs', name: language === 'en' ? 'Locations' : 'Điểm tập', icon: <MapPin className="w-3.5 h-3.5" /> },
     { id: 'section-contact', name: language === 'en' ? 'Contact' : 'Liên hệ', icon: <Mail className="w-3.5 h-3.5" /> }
